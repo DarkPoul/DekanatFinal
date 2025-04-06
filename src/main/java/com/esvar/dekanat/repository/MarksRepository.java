@@ -1,5 +1,6 @@
 package com.esvar.dekanat.repository;
 
+import com.esvar.dekanat.entity.ControlMethodEntity;
 import com.esvar.dekanat.entity.MarksEntity;
 import com.esvar.dekanat.entity.PlansEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,7 +23,7 @@ public interface MarksRepository extends JpaRepository<MarksEntity, Long> {
      */
     boolean existsByStudentIdAndPlanIdAndControlMethodId(Long studentId, Long planId, Long controlMethodId);
 
-    MarksEntity findByStudentIdAndPlanIdAndControlMethodId(Long studentId, Long planId, Long controlMethodId);
+    Optional<MarksEntity>  findByStudentIdAndPlanIdAndControlMethodId(Long studentId, Long planId, Long controlMethodId);
 
     /**
      * Знайти оцінку за ID студента та ID плану.
@@ -40,4 +41,6 @@ public interface MarksRepository extends JpaRepository<MarksEntity, Long> {
     Optional<Long> findMaxId();
 
     List<MarksEntity> findByPlan(PlansEntity plansEntity);
+
+    List<MarksEntity> findByPlanAndControlMethod(PlansEntity plansEntity, ControlMethodEntity controlMethod);
 }

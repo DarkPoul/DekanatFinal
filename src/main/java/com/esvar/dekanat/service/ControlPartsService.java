@@ -14,43 +14,26 @@ public class ControlPartsService {
         this.controlPartsRepository = controlPartsRepository;
     }
 
-    /**
-     * Зберігає нову частину або оновлює існуючу.
-     *
-     * @param part ControlPartsEntity - об'єкт для збереження.
-     * @return ControlPartsEntity - збережений об'єкт.
-     */
-//    public ControlPartsEntity saveControlPart(ControlPartsEntity part) {
-//        if (part == null || part.getControlMethod() == null) {
-//            throw new IllegalArgumentException("Метод контролю для частини повинен бути заданий.");
-//        }
-//
-//        // Перевіряємо, чи частина вже існує
-//        boolean exists = controlPartsRepository.existsByControlMethodIdAndPartNumber(
-//                part.getControlMethod().getId(),
-//                part.getPartNumber()
-//        );
-//
-//        if (exists) {
-//            throw new IllegalStateException("Частина для даного методу контролю вже існує.");
-//        }
-//
-//        // Зберігаємо нову частину
-//        return controlPartsRepository.save(part);
-//    }
+    public ControlPartsEntity getControlPartByControlMethodAndPartNumber(ControlMethodEntity controlMethod, int partNumber) {
+        if (controlMethod == null || partNumber <= 0) {
+            return null;
+        }
+        return controlPartsRepository.findByControlMethodIdAndPartNumber(controlMethod.getId(), partNumber)
+                .orElse(null);
+    }
 
-    /**
-     * Отримує частина за методом контролю та номером частини.
-     *
-     * @param controlMethodByName ControlMethodEntity - метод контролю.
-     * @param partNumber          int - номер частини.
-     * @return ControlPartsEntity - знайдена частина або null, якщо не знайдено.
-     */
-//    public ControlPartsEntity getControlPartByControlMethodAndPartNumber(ControlMethodEntity controlMethodByName, int partNumber) {
-//        if (controlMethodByName == null || partNumber <= 0) {
-//            return null; // Якщо метод контролю або номер частини некоректні, повертаємо null
-//        }
-//
-//        return controlPartsRepository.findByControlMethodIdAndPartNumber(controlMethodByName.getId(), partNumber).orElse(null);
-//    }
+    // Метод збереження нової контрольної частини
+    public ControlPartsEntity saveControlPart(ControlPartsEntity part) {
+        if (part == null || part.getControlMethod() == null) {
+            throw new IllegalArgumentException("Метод контролю для частини повинен бути заданий.");
+        }
+        boolean exists = controlPartsRepository.existsByControlMethodIdAndPartNumber(
+                part.getControlMethod().getId(),
+                part.getPartNumber()
+        );
+        if (exists) {
+            throw new IllegalStateException("Частина для даного методу контролю вже існує.");
+        }
+        return controlPartsRepository.save(part);
+    }
 }

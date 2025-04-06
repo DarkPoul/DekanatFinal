@@ -22,7 +22,6 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -174,7 +173,7 @@ public class PlanView extends Div {
         boolean isElective = plan.isElective();
         String firstControlType = plan.getFirstControl().getName();
         String secondControlType = plan.getSecondControl() != null ? plan.getSecondControl().getName() : "Відсутній";
-        String departmentName = plan.getDepartment().getAbbreviation();
+        String departmentName = plan.getDepartment().getTitle();
         String parts = String.valueOf(plan.getParts()); // За замовчуванням
 
 
@@ -247,10 +246,19 @@ public class PlanView extends Div {
             studentPlansService.updateStudentPlans(updatedPlan, students);
         }
 
-        // Обробка частин (РР/РГР)
+        // Обробка частин (РР/РГР) - видаляємо зайві частини і перераховуємо фінальні оцінки
+        if (updatedPlan.getSecondControl().getName().equals("Розрахункова робота") ||
+                updatedPlan.getSecondControl().getName().equals("Розрахунково-графічна робота")) {
+            int newParts = updatedPlan.getParts(); // Нове значення кількості частин
+            // Видаляємо записи MarksPartsEntity, де partNumber > newParts
+            marksPartsService.deletePartsGreaterThan(updatedPlan.getId(), newParts);
+            // Перераховуємо фінальні оцінки MarksEntity цього плану, використовуючи залишилися частини
+            marksPartsService.updateFinalGradesForPlan(updatedPlan, newParts);
+        }
 
         updateGrid();
     }
+
 
     private void deletePlan(Long planId) {
         planService.deletePlanById(planId);

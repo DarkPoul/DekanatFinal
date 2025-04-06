@@ -57,4 +57,7 @@ public class StudentService {
     }
 
 
+    public StudentEntity findStudentById(Long id) {
+        return studentRepository.findById(id).orElseThrow();
+    }
 }

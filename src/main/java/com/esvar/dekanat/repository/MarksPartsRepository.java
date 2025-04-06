@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -56,4 +57,13 @@ public interface MarksPartsRepository extends JpaRepository<MarksPartsEntity, Lo
         WHERE mp.mark.id = :markId AND mp.controlPart.id = :partId
     """)
     Optional<MarksPartsEntity> findByMarkIdAndPartId(Long markId, Long partId);
+
+    @Modifying
+    @Query("DELETE FROM MarksPartsEntity mp WHERE mp.mark.plan.id = :planId AND mp.controlPart.partNumber > :newParts")
+    void deleteByPlanIdAndPartNumberGreaterThan(@Param("planId") Long planId, @Param("newParts") int newParts);
+
+    @Query("SELECT mp FROM MarksPartsEntity mp WHERE mp.mark.id = :markId AND mp.controlPart.partNumber <= :newParts")
+    List<MarksPartsEntity> findByMarkIdAndPartNumberLessThanEqual(@Param("markId") Long markId, @Param("newParts") int newParts);
+
+
 }

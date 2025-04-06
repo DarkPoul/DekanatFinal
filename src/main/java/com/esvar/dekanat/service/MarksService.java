@@ -4,19 +4,23 @@ import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.MarksEntity;
 import com.esvar.dekanat.entity.PlansEntity;
 import com.esvar.dekanat.entity.StudentEntity;
+import com.esvar.dekanat.repository.ControlMethodRepository;
 import com.esvar.dekanat.repository.MarksRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class MarksService {
 
     private final MarksRepository marksRepository;
+    private final ControlMethodRepository controlMethodRepository;
 
-    public MarksService(MarksRepository marksRepository) {
+    public MarksService(MarksRepository marksRepository, ControlMethodRepository controlMethodRepository) {
         this.marksRepository = marksRepository;
+        this.controlMethodRepository = controlMethodRepository;
     }
 
     /**
@@ -25,12 +29,10 @@ public class MarksService {
      * @param mark MarksEntity - об'єкт для збереження.
      */
     @Transactional
-    public void saveMark(MarksEntity mark) {
+    public MarksEntity saveMark(MarksEntity mark) {
         if (mark == null || mark.getStudent() == null || mark.getPlan() == null || mark.getControlMethod() == null) {
             throw new IllegalArgumentException("Студент, план і метод контролю повинні бути задані.");
         }
-
-        // Перевіряємо, чи існує вже така оцінка (унікальність за student_id, plan_id, control_method_id)
         boolean exists = marksRepository.existsByStudentIdAndPlanIdAndControlMethodId(
                 mark.getStudent().getId(),
                 mark.getPlan().getId(),
@@ -38,21 +40,24 @@ public class MarksService {
         );
 
         if (exists) {
-            MarksEntity marksEntity = marksRepository.findByStudentIdAndPlanIdAndControlMethodId(
+            Optional<MarksEntity>  existingOptional = marksRepository.findByStudentIdAndPlanIdAndControlMethodId(
                     mark.getStudent().getId(),
                     mark.getPlan().getId(),
                     mark.getControlMethod().getId()
             );
 
-            marksEntity.setFinalGrade(mark.getFinalGrade());
-            marksEntity.setLocked(mark.isLocked());
-            marksEntity.setLastUpdated(mark.getLastUpdated());
-            marksEntity.setLastUpdatedBy(mark.getLastUpdatedBy());
+            MarksEntity existing = existingOptional.orElseThrow(() -> new IllegalArgumentException("Оцінка не знайдена."));
 
-            marksRepository.save(marksEntity);
-
-        } else marksRepository.save(mark);
+            existing.setFinalGrade(mark.getFinalGrade());
+            existing.setLocked(mark.isLocked());
+            existing.setLastUpdated(mark.getLastUpdated());
+            existing.setLastUpdatedBy(mark.getLastUpdatedBy());
+            return marksRepository.save(existing);
+        } else {
+            return marksRepository.save(mark);
+        }
     }
+
 
     /**
      * Отримує оцінку за студента та план.
@@ -77,7 +82,24 @@ public class MarksService {
         return marksRepository.findByPlan(plansEntity);
     }
 
+    public List<MarksEntity> findMarksByPlanAndTypeControl(PlansEntity plansEntity, String typeControl) {
+        return marksRepository.findByPlanAndControlMethod(plansEntity, controlMethodRepository.findByName(typeControl));
+    }
+
     public MarksEntity getMarkById(Long id) {
         return marksRepository.findById(id).orElse(null);
     }
+
+    public String getMarkForFirstModalControl(StudentEntity studentEntity, PlansEntity plansEntity, String typeControl) {
+        Optional<MarksEntity> opt = marksRepository.findByStudentIdAndPlanIdAndControlMethodId(
+                studentEntity.getId(),
+                plansEntity.getId(),
+                controlMethodRepository.findByName(typeControl).getId()
+        );
+        if (opt.isPresent() && opt.get().getFinalGrade() != 0) {
+            return String.valueOf(opt.get().getFinalGrade());
+        }
+        return "0";
+    }
+
 }

@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 
 @Entity
 @Data
@@ -27,5 +26,5 @@ public class MarksPartsEntity {
     private ControlPartsEntity controlPart;
 
     @Column(nullable = false)
-    private BigDecimal grade;
+    private Integer grade; //змінено на Integer (замість int), щоб зберігати оцінки 0-100
 }

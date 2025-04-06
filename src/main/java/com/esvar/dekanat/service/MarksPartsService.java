@@ -6,6 +6,8 @@ import com.esvar.dekanat.repository.MarksRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -40,22 +42,25 @@ public class MarksPartsService {
         if (marksPart == null || marksPart.getMark() == null || marksPart.getControlPart() == null) {
             throw new IllegalArgumentException("Оцінка та частина повинні бути задані.");
         }
-
         ControlPartsEntity controlPart = marksPart.getControlPart();
 
-        // Перевіряємо, чи запис вже існує
-        boolean exists = marksPartsRepository.existsByMarkIdAndControlPart(
+        // Спробуємо знайти існуючий запис для цієї оцінки та цієї частини
+        Optional<MarksPartsEntity> existingOptional = marksPartsRepository.findByMarkIdAndPartId(
                 marksPart.getMark().getId(),
-                controlPart
+                controlPart.getId()
         );
 
-        if (exists) {
-            throw new IllegalStateException("Запис для даної оцінки та частини вже існує.");
+        if (existingOptional.isPresent()) {
+            // Якщо запис існує, оновлюємо його значення
+            MarksPartsEntity existing = existingOptional.get();
+            existing.setGrade(marksPart.getGrade());
+            marksPartsRepository.save(existing);
+        } else {
+            // Якщо запис не існує, зберігаємо новий
+            marksPartsRepository.save(marksPart);
         }
-
-        // Зберігаємо новий запис
-        marksPartsRepository.save(marksPart);
     }
+
 
     /**
      * Видаляє всі записи у marks_parts для певного плану.
@@ -86,4 +91,26 @@ public class MarksPartsService {
 
         return marksPartsRepository.findByMarkIdAndPartId(existingMark.getId(), existingPart.getId()).orElse(null);
     }
+
+    @Transactional
+    public void deletePartsGreaterThan(Long planId, int newParts) {
+        marksPartsRepository.deleteByPlanIdAndPartNumberGreaterThan(planId, newParts);
+    }
+
+    @Transactional
+    public void updateFinalGradesForPlan(PlansEntity plan, int newParts) {
+        List<MarksEntity> marksList = marksRepository.findByPlan(plan);
+        for (MarksEntity mark : marksList) {
+            // Отримуємо всі частини оцінок, де partNumber менший або рівний newParts
+            List<MarksPartsEntity> parts = marksPartsRepository.findByMarkIdAndPartNumberLessThanEqual(mark.getId(), newParts);
+            // Обчислюємо суму
+            int sum = parts.stream()
+                    .mapToInt(mp -> mp.getGrade() != null ? mp.getGrade() : 0)
+                    .sum();
+            mark.setFinalGrade(sum);
+            marksRepository.save(mark); // Оновлюємо запис у таблиці marks
+        }
+    }
+
+
 }
