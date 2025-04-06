@@ -392,11 +392,15 @@ public class EnterMarksView extends Div {
             } else {
                 numberField.setValue(null);
             }
+            // Встановлюємо readOnly в залежності від прапорця locked
+            numberField.setReadOnly(markDTO.isLocked());
             numberField.addValueChangeListener(event -> {
-                if (event.getValue() != null) {
-                    markDTO.setEnterMark(String.valueOf(event.getValue().intValue()));
-                } else {
-                    markDTO.setEnterMark("");
+                if (!markDTO.isLocked()) {
+                    if (event.getValue() != null) {
+                        markDTO.setEnterMark(String.valueOf(event.getValue().intValue()));
+                    } else {
+                        markDTO.setEnterMark("");
+                    }
                 }
             });
             return numberField;
@@ -404,51 +408,64 @@ public class EnterMarksView extends Div {
     }
 
     private void setPart1() {
-        studentGrid.addComponentColumn(markDTO -> createPartNumberField(markDTO.getPartMark1(), markDTO::setPartMark1))
-                .setHeader("Ч 1").setFlexGrow(1).setWidth("70px");
+        studentGrid.addComponentColumn(markDTO ->
+                createPartNumberField(markDTO.getPartMark1(), markDTO::setPartMark1, markDTO.isLocked())
+        ).setHeader("Ч 1").setFlexGrow(1).setWidth("70px");
     }
     private void setPart2() {
-        studentGrid.addComponentColumn(markDTO -> createPartNumberField(markDTO.getPartMark2(), markDTO::setPartMark2))
-                .setHeader("Ч 2").setFlexGrow(1).setWidth("70px");
+        studentGrid.addComponentColumn(markDTO ->
+                createPartNumberField(markDTO.getPartMark2(), markDTO::setPartMark2, markDTO.isLocked())
+        ).setHeader("Ч 2").setFlexGrow(1).setWidth("70px");
     }
     private void setPart3() {
-        studentGrid.addComponentColumn(markDTO -> createPartNumberField(markDTO.getPartMark3(), markDTO::setPartMark3))
-                .setHeader("Ч 3").setFlexGrow(1).setWidth("70px");
+        studentGrid.addComponentColumn(markDTO ->
+                createPartNumberField(markDTO.getPartMark3(), markDTO::setPartMark3, markDTO.isLocked())
+        ).setHeader("Ч 3").setFlexGrow(1).setWidth("70px");
     }
     private void setPart4() {
-        studentGrid.addComponentColumn(markDTO -> createPartNumberField(markDTO.getPartMark4(), markDTO::setPartMark4))
-                .setHeader("Ч 4").setFlexGrow(1).setWidth("70px");
+        studentGrid.addComponentColumn(markDTO ->
+                createPartNumberField(markDTO.getPartMark4(), markDTO::setPartMark4, markDTO.isLocked())
+        ).setHeader("Ч 4").setFlexGrow(1).setWidth("70px");
     }
     private void setPart5() {
-        studentGrid.addComponentColumn(markDTO -> createPartNumberField(markDTO.getPartMark5(), markDTO::setPartMark5))
-                .setHeader("Ч 5").setFlexGrow(1).setWidth("70px");
+        studentGrid.addComponentColumn(markDTO ->
+                createPartNumberField(markDTO.getPartMark5(), markDTO::setPartMark5, markDTO.isLocked())
+        ).setHeader("Ч 5").setFlexGrow(1).setWidth("70px");
     }
     private void setPart6() {
-        studentGrid.addComponentColumn(markDTO -> createPartNumberField(markDTO.getPartMark6(), markDTO::setPartMark6))
-                .setHeader("Ч 6").setFlexGrow(1).setWidth("70px");
+        studentGrid.addComponentColumn(markDTO ->
+                createPartNumberField(markDTO.getPartMark6(), markDTO::setPartMark6, markDTO.isLocked())
+        ).setHeader("Ч 6").setFlexGrow(1).setWidth("70px");
     }
     private void setPart7() {
-        studentGrid.addComponentColumn(markDTO -> createPartNumberField(markDTO.getPartMark7(), markDTO::setPartMark7))
-                .setHeader("Ч 7").setFlexGrow(1).setWidth("70px");
+        studentGrid.addComponentColumn(markDTO ->
+                createPartNumberField(markDTO.getPartMark7(), markDTO::setPartMark7, markDTO.isLocked())
+        ).setHeader("Ч 7").setFlexGrow(1).setWidth("70px");
     }
     private void setPart8() {
-        studentGrid.addComponentColumn(markDTO -> createPartNumberField(markDTO.getPartMark8(), markDTO::setPartMark8))
-                .setHeader("Ч 8").setFlexGrow(1).setWidth("70px");
+        studentGrid.addComponentColumn(markDTO ->
+                createPartNumberField(markDTO.getPartMark8(), markDTO::setPartMark8, markDTO.isLocked())
+        ).setHeader("Ч 8").setFlexGrow(1).setWidth("70px");
     }
 
-    private NumberField createPartNumberField(String initialValue, java.util.function.Consumer<String> valueConsumer) {
+    private NumberField createPartNumberField(String initialValue, java.util.function.Consumer<String> valueConsumer, boolean locked) {
         NumberField numberField = new NumberField();
         numberField.setMaxWidth("52px");
+        numberField.getElement().getStyle().set("text-align", "center");
         if (initialValue != null && !initialValue.isEmpty()) {
             numberField.setValue(Double.valueOf(initialValue));
         } else {
             numberField.setValue(null);
         }
+        // Встановлюємо режим readOnly в залежності від прапорця locked
+        numberField.setReadOnly(locked);
         numberField.addValueChangeListener(event -> {
-            if (event.getValue() != null) {
-                valueConsumer.accept(String.valueOf(event.getValue().intValue()));
-            } else {
-                valueConsumer.accept("");
+            if (!locked) {
+                if (event.getValue() != null) {
+                    valueConsumer.accept(String.valueOf(event.getValue().intValue()));
+                } else {
+                    valueConsumer.accept("");
+                }
             }
         });
         return numberField;
@@ -628,13 +645,6 @@ public class EnterMarksView extends Div {
             studentGrid.setItems(fallbackList);
         }
     }
-
-
-
-
-
-
-
 
 
     private String convertMarkToNationalGrade(int mark) {
