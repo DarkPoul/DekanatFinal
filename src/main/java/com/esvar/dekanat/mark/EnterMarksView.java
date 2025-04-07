@@ -2,16 +2,24 @@ package com.esvar.dekanat.mark;
 
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
+import com.esvar.dekanat.generate.DataModelForMC1;
+import com.esvar.dekanat.generate.DataModelForMC2;
+import com.esvar.dekanat.generate.DocxUpdater;
+import com.esvar.dekanat.generate.StudentModelToDocumentGenerate;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.user.UserRepository;
 import com.esvar.dekanat.view.MainLayout;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
@@ -19,10 +27,18 @@ import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.data.provider.Query;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamResource;
+import com.vaadin.flow.server.VaadinService;
+import com.vaadin.flow.server.VaadinServlet;
 import jakarta.annotation.security.PermitAll;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -314,6 +330,8 @@ public class EnterMarksView extends Div {
                 updateGrid();
             }
         });
+
+        printReportButton.addClickListener(e -> printReport());
     }
 
     private void configureGrid(String typeControl, int part) {
@@ -682,4 +700,170 @@ public class EnterMarksView extends Div {
             return "F";
         }
     }
+
+
+    private void printReport() {
+        String controlType = selectControlType.getValue();
+        if (controlType == null) {
+            Notification.show("Спочатку оберіть тип контролю!", 3000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+
+        if (controlType.equals("Перший модульний контроль")) {
+            DataModelForMC1 data = buildDataModelForMC1();
+            try {
+                DocxUpdater updater = new DocxUpdater();
+                updater.generateForMC1(data);
+                // Використовуємо uploadsDir, заданий через application.properties
+                String uploadsDir = "C:/Users/poulp/IdeaProjects/Dekanat/uploads";
+                String finalFilePath = uploadsDir + File.separator + "firstControl.pdf";
+                File pdfFile = new File(finalFilePath);
+                System.out.println("PDF файл: " + pdfFile.getAbsolutePath());
+                if (pdfFile.exists()) {
+                    System.out.println("PDF файл існує: " + pdfFile.getAbsolutePath());
+                    // Створюємо StreamResource для файла
+                    StreamResource resource = new StreamResource("firstControl.pdf", () -> {
+                        try {
+                            return new FileInputStream(pdfFile);
+                        } catch (IOException e) {
+                            e.fillInStackTrace();
+                            Notification.show("Помилка при завантаженні файлу");
+                            return null;
+                        }
+                    });
+                    Anchor downloadLink = new com.vaadin.flow.component.html.Anchor(resource, "");
+                    downloadLink.getElement().setAttribute("download", true);
+                    downloadLink.getElement().setAttribute("target", "_blank");
+                    add(downloadLink);
+                    UI.getCurrent().getPage().executeJs("document.querySelector('a[download]').click();");
+                    System.out.println("PDF файл успішно згенеровано та відкрито у новій вкладці.");
+                } else {
+                    Notification.show("PDF файл не знайдено.");
+                }
+            } catch (Exception e) {
+                Notification.show("Помилка при генерації документа: " + e.getMessage(), 5000, Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            }
+        } else if (controlType.equals("Другий модульний контроль")) {
+            DataModelForMC2 data = buildDataModelForMC2();
+            try {
+                DocxUpdater updater = new DocxUpdater();
+                updater.generateForMC2(data);
+                System.out.println("Генерація PDF для другого модульного контролю завершена.");
+                // Використовуємо uploadsDir, заданий через application.properties
+                String uploadsDir = "C:/Users/poulp/IdeaProjects/Dekanat/uploads";
+                String finalFilePath = uploadsDir + File.separator + "secondControl.pdf";
+                File pdfFile = new File(finalFilePath);
+                System.out.println("PDF файл: " + pdfFile.getAbsolutePath());
+                if (pdfFile.exists()) {
+                    System.out.println("PDF файл існує: " + pdfFile.getAbsolutePath());
+                    // Створюємо StreamResource для файла
+                    StreamResource resource = new StreamResource("secondControl.pdf", () -> {
+                        try {
+                            return new FileInputStream(pdfFile);
+                        } catch (IOException e) {
+                            e.fillInStackTrace();
+                            Notification.show("Помилка при завантаженні файлу");
+                            return null;
+                        }
+                    });
+                    Anchor downloadLink = new com.vaadin.flow.component.html.Anchor(resource, "");
+                    downloadLink.getElement().setAttribute("download", true);
+                    downloadLink.getElement().setAttribute("target", "_blank");
+                    add(downloadLink);
+                    UI.getCurrent().getPage().executeJs("document.querySelector('a[download]').click();");
+                    System.out.println("PDF файл успішно згенеровано та відкрито у новій вкладці.");
+                } else {
+                    Notification.show("PDF файл не знайдено.");
+                }
+            } catch (Exception e) {
+                Notification.show("Помилка при генерації документа: " + e.getMessage(), 5000, Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            }
+        } else {
+            Notification.show("Друк для цього типу контролю знаходиться у розробці.", 3000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+        }
+    }
+
+
+
+
+
+    // Приклад допоміжних методів для побудови моделей даних для друку
+    private DataModelForMC1 buildDataModelForMC1() {
+        // Припущення: дані беруться з плану та пов'язаних сервісів.
+        String facultyName = plansEntity.getFaculty().getTitle();
+        String specialityName = plansEntity.getSpecialty().getTitle();
+        String courseNumber = String.valueOf(plansEntity.getGroup().getCourse());
+        String groupName = plansEntity.getGroup().getGroupCode();
+        String studyYear = String.valueOf(plansEntity.getGroup().getYear());
+        // Використовуємо поточну дату
+        LocalDate today = LocalDate.now();
+        String day = today.format(DateTimeFormatter.ofPattern("dd"));
+        String month = today.format(DateTimeFormatter.ofPattern("MM"));
+        String year = today.format(DateTimeFormatter.ofPattern("yyyy"));
+        String disciplineName = plansEntity.getDiscipline().getTitle();
+        String semesterNumber = String.valueOf(plansEntity.getSemester());
+        String controlTypeName = selectControlType.getValue();
+        String hours = String.valueOf(plansEntity.getHours());
+        // Приклад з фіксованими значеннями для викладачів
+        String firstTeacher = "Викладач 1";
+        String secondTeacher = "Викладач 2";
+        String gradeTeacher = "Головний викладач";
+
+        // Формуємо список студентів для друку
+        List<StudentModelToDocumentGenerate> students = new ArrayList<>();
+        List<StudentEntity> studentEntities = studentService.getStudentByGroupId(plansEntity.getGroup().getId());
+        int index = 1;
+        for (StudentEntity student : studentEntities) {
+            // Припустимо, student.getRecordBookNumber() використовується як studentNumber
+            String mark = ""; // Для MC1 використаємо 0 або finalGrade з відповідної MarksEntity, якщо потрібно
+            students.add(new StudentModelToDocumentGenerate(index, student.getSurname() + " " + student.getName() + " " + student.getPatronymic(),
+                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "", mark));
+            index++;
+        }
+
+        return new DataModelForMC1(facultyName, specialityName, courseNumber, groupName, studyYear,
+                day, month, year, disciplineName, semesterNumber, controlTypeName,
+                hours, firstTeacher, secondTeacher, gradeTeacher, students);
+    }
+
+    private DataModelForMC2 buildDataModelForMC2() {
+        // Подібно, але з додатковими полями qualityTrue та qualityFalse
+        String facultyName = plansEntity.getFaculty().getTitle();
+        String specialityName = plansEntity.getSpecialty().getTitle();
+        String courseNumber = String.valueOf(plansEntity.getGroup().getCourse());
+        String groupName = plansEntity.getGroup().getGroupCode();
+        String studyYear = String.valueOf(plansEntity.getGroup().getYear());
+        LocalDate today = LocalDate.now();
+        String day = today.format(DateTimeFormatter.ofPattern("dd"));
+        String month = today.format(DateTimeFormatter.ofPattern("MM"));
+        String year = today.format(DateTimeFormatter.ofPattern("yyyy"));
+        String disciplineName = plansEntity.getDiscipline().getTitle();
+        String semesterNumber = String.valueOf(plansEntity.getSemester());
+        String controlTypeName = selectControlType.getValue();
+        String hours = String.valueOf(plansEntity.getHours());
+        String firstTeacher = "Викладач 1";
+        String secondTeacher = "Викладач 2";
+        String gradeTeacher = "Головний викладач";
+        String qualityTrue = "Якість1";
+        String qualityFalse = "Якість2";
+
+        List<StudentModelToDocumentGenerate> students = new ArrayList<>();
+        List<StudentEntity> studentEntities = studentService.getStudentByGroupId(plansEntity.getGroup().getId());
+        int index = 1;
+        for (StudentEntity student : studentEntities) {
+            String mark = ""; // Для MC2 теж використаємо 0 або отриману оцінку, якщо потрібно
+            students.add(new StudentModelToDocumentGenerate(index, student.getSurname() + " " + student.getName() + " " + student.getPatronymic(),
+                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "", mark));
+            index++;
+        }
+
+        return new DataModelForMC2(facultyName, specialityName, courseNumber, groupName, studyYear,
+                day, month, year, disciplineName, semesterNumber, controlTypeName,
+                hours, firstTeacher, secondTeacher, gradeTeacher, qualityTrue, qualityFalse, students);
+    }
+
 }
