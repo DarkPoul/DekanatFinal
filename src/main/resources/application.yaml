@@ -8,7 +8,6 @@ spring:
     username: ${DB_USER}
     password: ${DB_PASS}
     url: ${DB_URL}
-#    url: jdbc:mysql://212.111.203.173:3306/mydb
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:

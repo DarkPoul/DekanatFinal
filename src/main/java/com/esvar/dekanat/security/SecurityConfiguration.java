@@ -16,6 +16,11 @@ public class SecurityConfiguration extends VaadinWebSecurity {
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
+
+        http.requiresChannel(channel -> channel
+                .anyRequest().requiresSecure()
+        );
+
         http.authorizeHttpRequests(auth -> auth.requestMatchers(new AntPathRequestMatcher("/public/**"))
                 .permitAll());
 
