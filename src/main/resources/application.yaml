@@ -2,11 +2,8 @@ spring:
   application:
     name: Dekanat
   datasource:
-#    url: jdbc:mysql://db:3306/mydb
-#    username: root
-#    password: rootpassword
-    username: ${DB_USER}
-    password: ${DB_PASS}
+    username: ${MYSQL_ROOT_USER}
+    password: ${MYSQL_ROOT_PASSWORD}
     url: ${DB_URL}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
@@ -22,3 +19,12 @@ vaadin:
 
 upload:
   dir: /app/uploads
+
+server:
+  port: 8443
+  ssl:
+    enabled: true
+    key-store: classpath:keystore.p12
+    key-store-password: changeit
+    key-store-type: PKCS12
+    key-alias: dekanat
