@@ -1,14 +1,41 @@
+#version: '3.8'
+#
+#services:
+#  app:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#    ports:
+#      - "127.0.0.1:8080:8080"
+#    env_file:
+#      - .env
+#    depends_on:
+#      - db
+#    restart: always
+#
+#  db:
+#    image: mysql:8.0.36
+#    env_file:
+#      - .env
+#    ports:
+#      - "3306:3306"
+#    restart: always
+#    volumes:
+#      - mysql-data:/var/lib/mysql
+#volumes:
+#    mysql-data:
+#
+#
+
 version: '3.8'
 
 services:
   app:
+    # Використовує мереже хоста, щоб контейнер слухав порти безпосередньо на хості
+    network_mode: host
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-      - "80:8443"
-      - "443:8443"
     env_file:
       - .env
     depends_on:
@@ -24,5 +51,7 @@ services:
     restart: always
     volumes:
       - mysql-data:/var/lib/mysql
+
 volumes:
-    mysql-data:
+  mysql-data:
+

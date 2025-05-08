@@ -9,6 +9,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.web.filter.ForwardedHeaderFilter;
 
 @EnableWebSecurity
 @Configuration
@@ -16,17 +17,19 @@ public class SecurityConfiguration extends VaadinWebSecurity {
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-
-        http.requiresChannel(channel -> channel
-                .anyRequest().requiresSecure()
+        http.authorizeHttpRequests(auth -> auth
+                .requestMatchers(new AntPathRequestMatcher("/public/**")).permitAll()
         );
-
-        http.authorizeHttpRequests(auth -> auth.requestMatchers(new AntPathRequestMatcher("/public/**"))
-                .permitAll());
 
         super.configure(http);
         setLoginView(http, LoginView.class);
+
+        // І тільки зараз — HTTPS‑лімітація
+        http.requiresChannel(channel ->
+                channel.anyRequest().requiresSecure()
+        );
     }
+
 
     @Override
     public void configure(WebSecurity web) throws Exception {
@@ -38,4 +41,6 @@ public class SecurityConfiguration extends VaadinWebSecurity {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
+
 }
