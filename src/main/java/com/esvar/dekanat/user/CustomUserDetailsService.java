@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -35,8 +36,20 @@ public class CustomUserDetailsService implements UserDetailsService {
         }
 
         UserModel UserModel = UserModelOpt.get();
-        GrantedAuthority authority = new SimpleGrantedAuthority(UserModel.getRole());
-        return new User(UserModel.getEmail(), UserModel.getPassword(), Collections.singleton(authority));
+
+        String groupOnly = UserModel.getRole();
+        String typeOnly  = UserModel.getRoleType();
+
+        List<GrantedAuthority> auths = List.of(
+                new SimpleGrantedAuthority(groupOnly),
+                new SimpleGrantedAuthority(typeOnly)
+        );
+
+        return User.withUsername(UserModel.getEmail())
+                .password(UserModel.getPassword())
+                .authorities(auths)
+                .disabled(!UserModel.isEnabled())
+                .build();
     }
 
     public String getPIB(String email){

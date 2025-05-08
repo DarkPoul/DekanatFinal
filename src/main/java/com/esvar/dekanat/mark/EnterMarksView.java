@@ -31,6 +31,8 @@ import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.VaadinServlet;
 import jakarta.annotation.security.PermitAll;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -41,6 +43,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @PageTitle("Введення оцінок | Деканат")
 @Route(value = "marks", layout = MainLayout.class)
@@ -101,6 +105,18 @@ public class EnterMarksView extends Div {
         selectDepartment.setWidth("100%");
         selectDepartment.getStyle().set("padding", "0px").set("margin", "0px").set("margin-bottom", "5px");
         selectDepartment.setItems(departmentService.getAllDepartment());
+
+        UserDetails u = securityService.getAuthenticatedUser();
+        if (u == null) return;  // не залогінені → VaadinWebSecurity на /login
+
+        Set<String> roles = u.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
+
+        String role_type = roles.stream().findFirst().get();
+        boolean isDepartment   = roles.stream().anyMatch(r -> r.startsWith("ROLE_DEPARTMENT"));
+        if (isDepartment){
+            selectDepartment.setValue(departmentService.getDepartmentById(Long.valueOf(role_type)));
+        }
 
         selectSpecialty.setLabel("Спеціальність");
         selectSpecialty.setWidth("100%");
@@ -169,22 +185,32 @@ public class EnterMarksView extends Div {
         selectDiscipline.setReadOnly(true);
         selectControlType.setReadOnly(true);
 
+        if (isDepartment) {
+            selectDepartment.setItems(departmentService.getDepartmentById(Long.valueOf(role_type)));
+            selectDepartment.setValue(departmentService.getDepartmentById(Long.valueOf(role_type)));
+        }
+        selectDepartment.setReadOnly(true);
+
         // Обробники подій для селектів
         selectFaculty.addValueChangeListener(event -> {
             clearGrid();
-            selectDepartment.setReadOnly(false);
-            selectSpecialty.setReadOnly(true);
+
+
+            selectDepartment.setReadOnly(isDepartment);
+            if (isDepartment) selectSpecialty.setItems(planService.getSpecialtiesByFacultyAndDepartment(selectFaculty.getValue(), selectDepartment.getValue()));
+            else selectDepartment.setItems(departmentService.getAllDepartment());
+            selectSpecialty.setReadOnly(!isDepartment);
             selectCourse.setReadOnly(true);
             selectGroup.setReadOnly(true);
             selectDiscipline.setReadOnly(true);
             selectControlType.setReadOnly(true);
 
-            selectDepartment.clear();
             selectSpecialty.clear();
             selectCourse.clear();
             selectGroup.clear();
             selectDiscipline.clear();
             selectControlType.clear();
+
         });
 
         selectDepartment.addValueChangeListener(event -> {
@@ -865,5 +891,6 @@ public class EnterMarksView extends Div {
                 day, month, year, disciplineName, semesterNumber, controlTypeName,
                 hours, firstTeacher, secondTeacher, gradeTeacher, qualityTrue, qualityFalse, students);
     }
+
 
 }

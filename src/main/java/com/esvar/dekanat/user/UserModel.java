@@ -33,4 +33,6 @@ public class UserModel {
     private boolean enabled;
     @Column(name = "role")
     private String role;
+    @Column(name = "role_type", nullable = false)
+    private String roleType;
 }

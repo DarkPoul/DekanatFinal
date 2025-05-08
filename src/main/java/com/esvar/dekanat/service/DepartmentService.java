@@ -34,4 +34,8 @@ public class DepartmentService {
     public List<String> getAllDepartment() {
         return departmentRepository.findAll().stream().map(DepartmentEntity::getTitle).toList();
     }
+
+    public String getDepartmentById(Long id) {
+        return departmentRepository.findById(id).map(DepartmentEntity::getTitle).orElse(null);
+    }
 }

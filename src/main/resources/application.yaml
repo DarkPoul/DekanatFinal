@@ -25,3 +25,8 @@ server:
   port: ${SERVER_PORT:8080}
   # Довіряємо заголовкам від проксі (nginx)
   forward-headers-strategy: framework
+
+logging:
+  level:
+    root: INFO
+    com.esvar.dekanat: DEBUG
