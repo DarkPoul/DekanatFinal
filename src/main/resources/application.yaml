@@ -2,11 +2,10 @@ spring:
   application:
     name: Dekanat
   datasource:
+    url: ${DB_URL}
     username: ${MYSQL_ROOT_USER}
     password: ${MYSQL_ROOT_PASSWORD}
-    url: ${DB_URL}
     driver-class-name: com.mysql.cj.jdbc.Driver
-
   jpa:
     hibernate:
       ddl-auto: update
@@ -14,6 +13,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+
 vaadin:
   launch-browser: true
 
@@ -21,12 +21,7 @@ upload:
   dir: /app/uploads
 
 server:
-  port: 8080
+  # Порт береться із змінної оточення SERVER_PORT (за замовчуванням 8080)
+  port: ${SERVER_PORT:8080}
+  # Довіряємо заголовкам від проксі (nginx)
   forward-headers-strategy: framework
-  #port: 8443
-  #ssl:
-  #  enabled: true
-  #  key-store: classpath:keystore.p12
-  #  key-store-password: changeit
-  #  key-store-type: PKCS12
-  #  key-alias: dekanat
