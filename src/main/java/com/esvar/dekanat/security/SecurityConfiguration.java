@@ -26,9 +26,9 @@ public class SecurityConfiguration extends VaadinWebSecurity {
         setLoginView(http, LoginView.class);
 
         // І тільки зараз — HTTPS‑лімітація
-        http.requiresChannel(channel ->
-                channel.anyRequest().requiresSecure()
-        );
+//        http.requiresChannel(channel ->
+//                channel.anyRequest().requiresSecure()
+//        );
     }
 
 

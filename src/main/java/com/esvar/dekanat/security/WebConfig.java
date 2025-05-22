@@ -8,11 +8,11 @@ import org.springframework.web.filter.ForwardedHeaderFilter;
 
 @Configuration
 public class WebConfig {
-    @Bean
-    public FilterRegistrationBean<ForwardedHeaderFilter> forwardedHeaderFilter() {
-        FilterRegistrationBean<ForwardedHeaderFilter> bean =
-                new FilterRegistrationBean<>(new ForwardedHeaderFilter());
-        bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
-        return bean;
-    }
+//    @Bean
+//    public FilterRegistrationBean<ForwardedHeaderFilter> forwardedHeaderFilter() {
+//        FilterRegistrationBean<ForwardedHeaderFilter> bean =
+//                new FilterRegistrationBean<>(new ForwardedHeaderFilter());
+//        bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
+//        return bean;
+//    }
 }
