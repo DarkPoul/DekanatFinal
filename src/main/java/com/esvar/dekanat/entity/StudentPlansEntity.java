@@ -9,17 +9,19 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@IdClass(StudentPlansPK.class) // Використання складного первинного ключа
 @Table(name = "student_plans")
 public class StudentPlansEntity {
 
-    @Id
+    @EmbeddedId
+    private StudentPlansPK id;
+
     @ManyToOne
+    @MapsId("student") // ім'я поля з @Embeddable
     @JoinColumn(name = "student_id", nullable = false)
     private StudentEntity student;
 
-    @Id
     @ManyToOne
+    @MapsId("plan")
     @JoinColumn(name = "plan_id", nullable = false)
     private PlansEntity plan;
 }

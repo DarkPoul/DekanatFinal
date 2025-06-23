@@ -44,25 +44,32 @@ public class GroupService {
         boolean isAdmin   = user.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         boolean isDekanat = user.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().startsWith("ROLE_DEKANAT_"));
+                .anyMatch(a -> a.getAuthority().startsWith("ROLE_DEKANAT"));
         String roleType   = securityService.getCurrentRoleType();
-        Long facultyId;
+        System.out.println("isAdmin=" + isAdmin + " isDekanat=" + isDekanat + " roleType=" + roleType);
+
+        // 3. Якщо користувач — методист, готуємо набір ID груп його факультету
+        Set<Long> groupIdsForFaculty;
         if (isDekanat) {
-            facultyId = Long.valueOf(roleType);
+            Long facultyId = Long.valueOf(roleType);
+            List<StudentEntity> studentsByFaculty = studentService.getAllStudents().stream()
+                    .filter(s -> s.getFaculty() != null && s.getFaculty().getId().equals(facultyId))
+                    .toList();
+
+            groupIdsForFaculty = studentsByFaculty.stream()
+                    .map(s -> s.getGroup().getId())
+                    .collect(Collectors.toSet());
         } else {
-            facultyId = null;
+            groupIdsForFaculty = null;
         }
 
-        // 3. Фільтруємо та мапимо
+        // 4. Фільтруємо та мапимо
         return groups.stream()
-                // тільки для методиста — фільтр по факультету
                 .filter(group -> {
                     if (!isDekanat) {
-                        return true;  // адміністратор бачить усе
+                        return true; // адміністратор бачить усе
                     }
-                    // перевіряємо: є хоч один студент з потрібним faculty_id?
-                    return studentService.getStudentByGroupId(group.getId()).stream()
-                            .anyMatch(s -> s.getFaculty().getId().equals(facultyId));
+                    return groupIdsForFaculty.contains(group.getId());
                 })
                 .map(group -> new GroupDTO(
                         group.getGroupCode(),

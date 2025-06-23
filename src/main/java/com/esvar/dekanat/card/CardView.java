@@ -246,7 +246,7 @@ public class CardView extends Div {
         orderLeftTitle.getStyle().set("background", "white");
         orderLeftTitle.getStyle().set("padding", "0 10px");
         orderLeftTitle.getStyle().set("font-weight", "bold");
-        orderLeftTitle.getStyle().set("z-index", "100000");
+        orderLeftTitle.getStyle().set("z-index", "1");
 
         orderGridWrapper.add(orderLeftTitle, orderGrid);
         orderGridWrapper.getStyle().set("width", "100%");
@@ -316,7 +316,12 @@ public class CardView extends Div {
 
         groupSelect.setLabel("Група");
         groupSelect.setWidth("24%");
-        groupSelect.setItems(groupService.getAllGroups().stream().map(StudentGroupEntity::getSpecialty).map(SpecialtyEntity::getAbbreviation).collect(Collectors.toList()));
+        groupSelect.setItems(
+                groupService.getGroupsDTO().stream()
+                        .map(GroupDTO::getGroupCode)
+                        .map(code -> code.split("-")[0])
+                        .collect(Collectors.toList())
+        );
 
         courseSelect = new Select<>();
         courseSelect.setLabel("Курс");

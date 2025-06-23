@@ -7,6 +7,7 @@ import com.esvar.dekanat.repository.GroupRepository;
 import com.esvar.dekanat.repository.StudentRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.util.List;
 
 @Service
@@ -59,5 +60,9 @@ public class StudentService {
 
     public StudentEntity findStudentById(Long id) {
         return studentRepository.findById(id).orElseThrow();
+    }
+
+    public List<StudentEntity> getAllStudents() {
+        return studentRepository.findAll();
     }
 }
