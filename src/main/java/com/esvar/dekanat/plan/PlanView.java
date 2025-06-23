@@ -176,6 +176,8 @@ public class PlanView extends Div {
         String departmentName = plan.getDepartment().getTitle();
         String parts = String.valueOf(plan.getParts()); // За замовчуванням
 
+        // Оновлюємо список студентів у діалозі відповідно до обраної групи
+        updateStudentListInDialog();
 
         List<String> selectedStudents = isElective
                 ? planService.getSelectedStudentsForPlan(plan) // Отримуємо студентів з student_plans
