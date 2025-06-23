@@ -4,6 +4,7 @@ import com.esvar.dekanat.DekanatApplication;
 import com.esvar.dekanat.mark.EnterMarksView;
 import com.esvar.dekanat.plan.PlanView;
 import com.esvar.dekanat.card.CardView;
+import com.esvar.dekanat.rating.RatingView;
 import com.esvar.dekanat.security.SecurityService;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
@@ -70,7 +71,8 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             tabs.add(
                     createTab(VaadinIcon.CLIPBOARD_CHECK, "Навчальні плани", PlanView.class),
                     createTab(VaadinIcon.USER_CARD, "Перегляд карток", CardView.class),
-                    createTab(VaadinIcon.PENCIL, "Введення оцінок", EnterMarksView.class)
+                    createTab(VaadinIcon.PENCIL, "Введення оцінок", EnterMarksView.class),
+                    createTab(VaadinIcon.BAR_CHART, "Рейтинг", RatingView.class)
             );
             tabs.setOrientation(Tabs.Orientation.VERTICAL);
             addToDrawer(tabs);
