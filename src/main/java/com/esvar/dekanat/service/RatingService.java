@@ -15,7 +15,8 @@ public class RatingService {
 
     public List<String> getSpecialties() {
         return groupService.getGroupsDTO().stream()
-                .map(GroupDTO::getSpecialtyAbbreviation)
+                .map(GroupDTO::getGroupCode)
+                .map(split -> split.split("-")[0])
                 .distinct()
                 .sorted()
                 .toList();
@@ -23,8 +24,8 @@ public class RatingService {
 
     public List<String> getCourses() {
         return groupService.getGroupsDTO().stream()
-                .map(GroupDTO::getCourse)
-                .map(String::valueOf)
+                .map(GroupDTO::getGroupCode)
+                .map(split -> split.split("-")[1])
                 .distinct()
                 .sorted()
                 .toList();
@@ -33,14 +34,16 @@ public class RatingService {
     public List<String> getGroupCodes() {
         return groupService.getGroupsDTO().stream()
                 .map(GroupDTO::getGroupCode)
+                .map(split -> split.split("-")[2])
                 .distinct()
                 .sorted()
                 .toList();
     }
 
-    public List<Integer> getYears() {
+    public List<String> getYears() {
         return groupService.getGroupsDTO().stream()
-                .map(GroupDTO::getYear)
+                .map(GroupDTO::getGroupCode)
+                .map(split -> split.split("-")[3])
                 .distinct()
                 .sorted(Comparator.reverseOrder())
                 .toList();

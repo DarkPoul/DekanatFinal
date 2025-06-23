@@ -27,7 +27,7 @@ public class RatingView extends Div {
     private final Select<String> specialtySelect = new Select<>();
     private final Select<String> courseSelect = new Select<>();
     private final Select<String> groupSelect = new Select<>();
-    private final Select<Integer> yearSelect = new Select<>();
+    private final Select<String> yearSelect = new Select<>();
     private final Checkbox technikumCheckbox = new Checkbox("Технікум");
     private final Checkbox budgetCheckbox = new Checkbox("Бюджет");
     private final Grid<RatingRow> ratingGrid = new Grid<>(RatingRow.class, false);
@@ -78,8 +78,15 @@ public class RatingView extends Div {
     }
 
     private void configureGrid() {
-        ratingGrid.addColumn(RatingRow::student).setHeader("Студент");
-        ratingGrid.addColumn(RatingRow::rating).setHeader("Рейтинг");
+        ratingGrid.addColumn(RatingRow::student).setHeader("Група");
+        ratingGrid.addColumn(RatingRow::rating).setHeader("Прізвище");
+        ratingGrid.addColumn(RatingRow::rating).setHeader("Кількість 5");
+        ratingGrid.addColumn(RatingRow::rating).setHeader("% 5");
+        ratingGrid.addColumn(RatingRow::rating).setHeader("Кількість 4");
+        ratingGrid.addColumn(RatingRow::rating).setHeader("% 4");
+        ratingGrid.addColumn(RatingRow::rating).setHeader("Кількість 3");
+        ratingGrid.addColumn(RatingRow::rating).setHeader("% 3");
+        ratingGrid.addColumn(RatingRow::rating).setHeader("Загальний бал");
         ratingGrid.setItems(new ArrayList<>());
         ratingGrid.setWidthFull();
     }
