@@ -20,6 +20,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -27,6 +29,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
     private final SecurityService securityService;
     private final Tabs tabs = new Tabs();
+    private final Map<Class<? extends Component>, Tab> navigationTargetToTab = new HashMap<>();
     private boolean isDrawerLocked = false;
 
     private static final Logger log = LoggerFactory.getLogger(MainLayout.class);
@@ -68,6 +71,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         }
         if (isAdmin || isDekanatGroup) {
             tabs.removeAll();
+            navigationTargetToTab.clear();
             tabs.add(
                     createTab(VaadinIcon.CLIPBOARD_CHECK, "Навчальні плани", PlanView.class),
                     createTab(VaadinIcon.USER_CARD, "Перегляд карток", CardView.class),
@@ -76,7 +80,15 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             );
             tabs.setOrientation(Tabs.Orientation.VERTICAL);
             addToDrawer(tabs);
-            UI.getCurrent().navigate(PlanView.class);
+
+            Tab selected = navigationTargetToTab.get(event.getNavigationTarget());
+            if (selected != null) {
+                tabs.setSelectedTab(selected);
+            }
+
+            if (event.getLocation().getPath().isEmpty()) {
+                UI.getCurrent().navigate(PlanView.class);
+            }
             return;
         }
         event.forwardTo("login");
@@ -90,7 +102,9 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         RouterLink link = new RouterLink("", target);
         link.add(icon, new Span(title));
         link.setTabIndex(-1);
-        return new Tab(link);
+        Tab tab = new Tab(link);
+        navigationTargetToTab.put(target, tab);
+        return tab;
     }
 
     public void setDrawerEnabled(boolean enabled) {
