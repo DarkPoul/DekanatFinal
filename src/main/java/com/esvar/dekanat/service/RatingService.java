@@ -10,16 +10,26 @@ import java.util.List;
 public class RatingService {
 
     private final GroupService groupService;
+
     private final StudentRatingRepository ratingRepository;
 
     public RatingService(GroupService groupService, StudentRatingRepository ratingRepository) {
         this.groupService = groupService;
         this.ratingRepository = ratingRepository;
+
+
+    public RatingService(GroupService groupService) {
+        this.groupService = groupService;
+
     }
 
     public List<String> getSpecialties() {
         return groupService.getGroupsDTO().stream()
+
                 .map(GroupDTO::getSpecialtyAbbreviation)
+
+                .map(GroupDTO::getGroupCode)
+                .map(split -> split.split("-")[0])
                 .distinct()
                 .sorted()
                 .toList();
@@ -29,6 +39,9 @@ public class RatingService {
         return groupService.getGroupsDTO().stream()
                 .map(GroupDTO::getCourse)
                 .map(String::valueOf)
+                .map(GroupDTO::getGroupCode)
+                .map(split -> split.split("-")[1])
+
                 .distinct()
                 .sorted()
                 .toList();
@@ -37,6 +50,8 @@ public class RatingService {
     public List<String> getGroupCodes() {
         return groupService.getGroupsDTO().stream()
                 .map(GroupDTO::getGroupCode)
+
+                .map(split -> split.split("-")[2])
                 .distinct()
                 .sorted()
                 .toList();
@@ -44,7 +59,12 @@ public class RatingService {
 
     public List<Integer> getYears() {
         return groupService.getGroupsDTO().stream()
-                .map(GroupDTO::getYear)
+                .map(GroupDTO::getYear);
+      
+    public List<String> getYears() {
+        return groupService.getGroupsDTO().stream()
+                .map(GroupDTO::getGroupCode)
+                .map(split -> split.split("-")[3])
                 .distinct()
                 .sorted(Comparator.reverseOrder())
                 .toList();
