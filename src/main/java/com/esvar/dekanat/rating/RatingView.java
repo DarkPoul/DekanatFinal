@@ -27,7 +27,11 @@ public class RatingView extends Div {
     private final Select<String> specialtySelect = new Select<>();
     private final Select<String> courseSelect = new Select<>();
     private final Select<String> groupSelect = new Select<>();
+
+    private final Select<Integer> yearSelect = new Select<>();
+
     private final Select<String> yearSelect = new Select<>();
+
     private final Checkbox technikumCheckbox = new Checkbox("Технікум");
     private final Checkbox budgetCheckbox = new Checkbox("Бюджет");
     private final Grid<RatingRow> ratingGrid = new Grid<>(RatingRow.class, false);
@@ -78,6 +82,8 @@ public class RatingView extends Div {
     }
 
     private void configureGrid() {
+        ratingGrid.addColumn(RatingRow::student).setHeader("Студент");
+        ratingGrid.addColumn(RatingRow::rating).setHeader("Рейтинг");
         ratingGrid.addColumn(RatingRow::student).setHeader("Група");
         ratingGrid.addColumn(RatingRow::rating).setHeader("Прізвище");
         ratingGrid.addColumn(RatingRow::rating).setHeader("Кількість 5");
@@ -92,10 +98,26 @@ public class RatingView extends Div {
     }
 
     private void search() {
+        List<RatingRow> rows = ratingService.searchRatings(
+                specialtySelect.getValue(),
+                courseSelect.getValue(),
+                groupSelect.getValue(),
+                yearSelect.getValue(),
+                technikumCheckbox.getValue(),
+                budgetCheckbox.getValue()
+        ).stream()
+                .map(entity -> new RatingRow(
+                        entity.getStudent().getFullName(),
+                        entity.getAverageScore().toString()
+                ))
+                .toList();
+        ratingGrid.setItems(rows);
         // TODO: реалізувати пошук за обраними фільтрами
         ratingGrid.setItems(List.of());
+
     }
 
     private record RatingRow(String student, String rating) {
     }
 }
+
