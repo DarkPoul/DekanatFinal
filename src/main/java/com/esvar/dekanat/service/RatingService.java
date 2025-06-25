@@ -102,15 +102,24 @@ public class RatingService {
         });
 
         List<MarksEntity> marks = marksRepository.findByStudentId(student.getId());
-        int total = marks.size();
+        int total = 0;
         int sum = 0;
         int c3 = 0, c4 = 0, c5 = 0;
         for (MarksEntity m : marks) {
             int g = m.getFinalGrade();
+            // Ignore ungraded or failing marks
+            if (g < 60) {
+                continue;
+            }
+            total++;
             sum += g;
-            if (g >= 90) c5++;
-            else if (g >= 74) c4++;
-            else if (g >= 60) c3++;
+            if (g >= 90) {
+                c5++;
+            } else if (g >= 74) {
+                c4++;
+            } else {
+                c3++;
+            }
         }
 
         BigDecimal avg = total > 0

@@ -14,6 +14,8 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -81,16 +83,15 @@ public class RatingView extends Div {
 
     private void configureGrid() {
         ratingGrid.addColumn(RatingRow::student).setHeader("Студент");
-        ratingGrid.addColumn(RatingRow::rating).setHeader("Рейтинг");
-        ratingGrid.addColumn(RatingRow::student).setHeader("Група");
-        ratingGrid.addColumn(RatingRow::rating).setHeader("Прізвище");
-        ratingGrid.addColumn(RatingRow::rating).setHeader("Кількість 5");
-        ratingGrid.addColumn(RatingRow::rating).setHeader("% 5");
-        ratingGrid.addColumn(RatingRow::rating).setHeader("Кількість 4");
-        ratingGrid.addColumn(RatingRow::rating).setHeader("% 4");
-        ratingGrid.addColumn(RatingRow::rating).setHeader("Кількість 3");
-        ratingGrid.addColumn(RatingRow::rating).setHeader("% 3");
-        ratingGrid.addColumn(RatingRow::rating).setHeader("Загальний бал");
+        ratingGrid.addColumn(RatingRow::group).setHeader("Група");
+        ratingGrid.addColumn(RatingRow::average).setHeader("Середній бал");
+        ratingGrid.addColumn(RatingRow::count5).setHeader("Кількість 5");
+        ratingGrid.addColumn(RatingRow::percent5).setHeader("% 5");
+        ratingGrid.addColumn(RatingRow::count4).setHeader("Кількість 4");
+        ratingGrid.addColumn(RatingRow::percent4).setHeader("% 4");
+        ratingGrid.addColumn(RatingRow::count3).setHeader("Кількість 3");
+        ratingGrid.addColumn(RatingRow::percent3).setHeader("% 3");
+        ratingGrid.addColumn(RatingRow::totalScore).setHeader("Загальний бал");
         ratingGrid.setItems(new ArrayList<>());
         ratingGrid.setWidthFull();
     }
@@ -104,16 +105,51 @@ public class RatingView extends Div {
                 technikumCheckbox.getValue(),
                 budgetCheckbox.getValue()
         ).stream()
-                .map(entity -> new RatingRow(
-                        entity.getStudent().getFullName(),
-                        entity.getAverageScore().toString()
-                ))
+                .map(entity -> {
+                    BigDecimal avg = entity.getAverageScore();
+                    int total = entity.getTotalSubjects();
+                    String perc5 = formatPercent(entity.getCount5(), total);
+                    String perc4 = formatPercent(entity.getCount4(), total);
+                    String perc3 = formatPercent(entity.getCount3(), total);
+                    BigDecimal totalScore = avg.multiply(BigDecimal.valueOf(total));
+                    return new RatingRow(
+                            entity.getStudent().getFullName(),
+                            entity.getGroup().getGroupCode(),
+                            avg.setScale(2, RoundingMode.HALF_UP).toString(),
+                            entity.getCount5(),
+                            perc5,
+                            entity.getCount4(),
+                            perc4,
+                            entity.getCount3(),
+                            perc3,
+                            totalScore.setScale(2, RoundingMode.HALF_UP).toString()
+                    );
+                })
                 .toList();
         ratingGrid.setItems(rows);
 
     }
 
-    private record RatingRow(String student, String rating) {
+    private String formatPercent(int count, int total) {
+        if (total == 0) {
+            return "0";
+        }
+        BigDecimal percent = new BigDecimal(count * 100.0 / total);
+        return percent.setScale(2, RoundingMode.HALF_UP).toString();
+    }
+
+    private record RatingRow(
+            String student,
+            String group,
+            String average,
+            int count5,
+            String percent5,
+            int count4,
+            String percent4,
+            int count3,
+            String percent3,
+            String totalScore
+    ) {
     }
 }
 
