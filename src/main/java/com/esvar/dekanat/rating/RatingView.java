@@ -28,8 +28,6 @@ public class RatingView extends Div {
     private final Select<String> courseSelect = new Select<>();
     private final Select<String> groupSelect = new Select<>();
 
-    private final Select<Integer> yearSelect = new Select<>();
-
     private final Select<String> yearSelect = new Select<>();
 
     private final Checkbox technikumCheckbox = new Checkbox("Технікум");
@@ -112,8 +110,6 @@ public class RatingView extends Div {
                 ))
                 .toList();
         ratingGrid.setItems(rows);
-        // TODO: реалізувати пошук за обраними фільтрами
-        ratingGrid.setItems(List.of());
 
     }
 

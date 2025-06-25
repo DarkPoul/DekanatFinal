@@ -16,7 +16,11 @@ import java.sql.Timestamp;
 public class StudentRatingEntity {
 
     @Id
+    @Column(name = "student_id")
+    private Long studentId;
+
     @OneToOne
+    @MapsId
     @JoinColumn(name = "student_id", nullable = false)
     private StudentEntity student;
 
