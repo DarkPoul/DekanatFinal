@@ -31,4 +31,6 @@ public interface StudentRatingRepository extends JpaRepository<StudentRatingEnti
             @Param("technikum") boolean technikum,
             @Param("budget") boolean budget
     );
+
+    boolean existsByStudentId(Long studentId);
 }
