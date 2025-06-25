@@ -3,6 +3,7 @@ package com.esvar.dekanat.card;
 
 import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.entity.*;
+import com.esvar.dekanat.repository.StudentRatingRepository;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.view.MainLayout;
 import com.vaadin.flow.component.UI;
@@ -54,6 +55,7 @@ public class CardView extends Div {
     private final StudentEducationService studentEducationService;
     private final StudentReportService studentReportService;
     private final ReportService reportService;
+    private final StudentRatingRepository ratingRepository;
 
 
     private VerticalLayout mainLayout = new VerticalLayout();
@@ -135,7 +137,7 @@ public class CardView extends Div {
     private StudentEducationEntity studentEducationEntity;
 
 
-    public CardView(GroupService groupService, StudentService studentService, StudentPassportService studentPassportService, StudentInfoService studentInfoService, StudentEducationService studentEducationService, StudentReportService studentReportService, ReportService reportService) {
+    public CardView(GroupService groupService, StudentService studentService, StudentPassportService studentPassportService, StudentInfoService studentInfoService, StudentEducationService studentEducationService, StudentReportService studentReportService, ReportService reportService, StudentRatingRepository ratingRepository) {
         this.groupService = groupService;
         this.studentService = studentService;
         this.studentPassportService = studentPassportService;
@@ -143,6 +145,7 @@ public class CardView extends Div {
         this.studentEducationService = studentEducationService;
         this.studentReportService = studentReportService;
         this.reportService = reportService;
+        this.ratingRepository = ratingRepository;
 
 
         // Setup selectors
@@ -217,6 +220,27 @@ public class CardView extends Div {
         buttonLayout.setSpacing(true);
         buttonLayout.getStyle().set("padding", "0");
         buttonLayout.setAlignItems(FlexComponent.Alignment.BASELINE);
+
+        addCardButton.addClickListener(event -> {
+            AddStudentDialog dialog = new AddStudentDialog(
+                    groupService,
+                    studentService,
+                    studentPassportService,
+                    studentInfoService,
+                    studentEducationService,
+                    ratingRepository
+            );
+            dialog.addDialogCloseActionListener(e -> {
+                if (selectGroup.getValue() != null) {
+                    selectStudent.setItems(studentService
+                            .getStudentByGroupId(groupService.getGroupIdByCode(selectGroup.getValue()))
+                            .stream()
+                            .map(StudentEntity::getFullName)
+                            .collect(Collectors.toList()));
+                }
+            });
+            dialog.open();
+        });
 
 
         orderGrid.addColumn(ReportEntity::getOrderNumber).setHeader("№ наказу").setWidth("20%");
