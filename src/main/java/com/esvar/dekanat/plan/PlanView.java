@@ -49,6 +49,7 @@ public class PlanView extends Div {
     private final MarksPartsService marksPartsService;
     private final StudentPlansService studentPlansService;
     private final MarksService marksService;
+    private final MarksInitializerService marksInitializerService;
     private final ControlPartsService controlPartsService;
     private final StudentService studentService;
 
@@ -64,7 +65,8 @@ public class PlanView extends Div {
                     ControlMethodService controlMethodService, SpecialtyService specialtyService,
                     GroupService groupService, PlanService planService,
                     MarksPartsService marksPartsService, StudentPlansService studentPlansService,
-                    MarksService marksService, ControlPartsService controlPartsService, StudentService studentService) {
+                    MarksService marksService, MarksInitializerService marksInitializerService,
+                    ControlPartsService controlPartsService, StudentService studentService) {
         // Ініціалізація сервісів
         this.disciplineService = disciplineService;
         this.departmentService = departmentService;
@@ -75,6 +77,7 @@ public class PlanView extends Div {
         this.marksPartsService = marksPartsService;
         this.studentPlansService = studentPlansService;
         this.marksService = marksService;
+        this.marksInitializerService = marksInitializerService;
         this.controlPartsService = controlPartsService;
         this.studentService = studentService;
 
@@ -202,8 +205,9 @@ public class PlanView extends Div {
         newPlan.setFaculty(newPlan.getSpecialty().getFaculty());
         newPlan.setGroup(groupService.getGroupByTitle(groupSelect.getValue()));
         planService.savePlan(newPlan);
-
+        List<StudentEntity> targetStudents;
         if (isElective && students != null && !students.isEmpty()) {
+            targetStudents = new ArrayList<>();
             for (String studentName : students) {
                 StudentEntity student = studentService.getStudentByFullName(studentName.split(" ")[0],
                         studentName.split(" ")[1], studentName.split(" ")[2]);
@@ -211,9 +215,13 @@ public class PlanView extends Div {
                 studentPlan.setStudent(student);
                 studentPlan.setPlan(newPlan);
                 studentPlansService.saveStudentPlan(studentPlan);
+                targetStudents.add(student);
             }
+        } else {
+            targetStudents = studentService.getStudentByGroupId(newPlan.getGroup().getId());
         }
 
+        marksInitializerService.initializeMarksForPlan(newPlan, targetStudents);
 
         updateGrid();
     }
