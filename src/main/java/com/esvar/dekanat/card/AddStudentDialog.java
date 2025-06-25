@@ -10,6 +10,7 @@ import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
+import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.TextField;
@@ -44,6 +45,8 @@ public class AddStudentDialog extends Dialog {
     private final TextField lastName = new TextField("Прізвище");
     private final TextField firstName = new TextField("Ім'я");
     private final TextField middleName = new TextField("По батькові");
+    private final TextField lastNameEng = new TextField("Прізвище (англ)");
+    private final TextField firstNameEng = new TextField("Ім'я (англ)");
     private final Select<String> groupSelect = new Select<>();
     private final TextField recordBook = new TextField("Номер заліковки");
 
@@ -97,7 +100,21 @@ public class AddStudentDialog extends Dialog {
         groupSelect.setLabel("Група");
         groupSelect.setItems(groupService.getGroupsDTO().stream()
                 .map(GroupDTO::toString).collect(Collectors.toList()));
-        page1.add(lastName, firstName, middleName, groupSelect, recordBook);
+
+        lastName.setRequiredIndicatorVisible(true);
+        firstName.setRequiredIndicatorVisible(true);
+        groupSelect.setRequiredIndicatorVisible(true);
+        recordBook.setPattern("[0-9]+");
+
+        FormLayout personalForm = new FormLayout();
+        personalForm.add(lastName, firstName, middleName,
+                lastNameEng, firstNameEng,
+                groupSelect, recordBook);
+        personalForm.setResponsiveSteps(
+                new FormLayout.ResponsiveStep("0", 1),
+                new FormLayout.ResponsiveStep("500px", 2)
+        );
+        page1.add(personalForm);
 
         gender.setLabel("Стать");
         gender.setItems(Gender.values());
@@ -156,6 +173,8 @@ public class AddStudentDialog extends Dialog {
         passport.setStudent(student);
         passport.setSeries(passportSeries.getValue());
         passport.setNumber(passportNumber.getValue());
+        passport.setNameEng(firstNameEng.getValue());
+        passport.setSurnameEng(lastNameEng.getValue());
         if (issueDate.getValue() != null)
             passport.setIssueDate(Date.valueOf(issueDate.getValue()));
         if (expireDate.getValue() != null)
