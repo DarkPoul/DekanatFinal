@@ -610,9 +610,7 @@ public class EnterMarksView extends Div {
                     dto.setLocked(mark.isLocked());
                     SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
                     dto.setLastUpdated(formatter.format(mark.getLastUpdated()));
-                    dto.setLastUpdatedBy(mark.getLastUpdatedBy().getLastname() + " " +
-                            mark.getLastUpdatedBy().getFirstname() + " " +
-                            mark.getLastUpdatedBy().getPatronymic());
+                    dto.setLastUpdatedBy("Система");    // Якщо немає інформації про користувача, можна вказати "Система"
                     markDTOList.add(dto);
                 }
             }

@@ -102,16 +102,25 @@ public class RatingService {
         });
 
         List<MarksEntity> marks = marksRepository.findByStudentId(student.getId());
-        int total = marks.size();
+        int total = 0;
         int sum = 0;
         int c3 = 0, c4 = 0, c5 = 0;
         for (MarksEntity m : marks) {
             int g = m.getFinalGrade();
+            if (g < 1) {
+                continue;
+            }
+            total++;
             sum += g;
             if (g >= 90) c5++;
             else if (g >= 74) c4++;
             else if (g >= 60) c3++;
+            System.out.println("Processing mark for student: " + student.getFullName() +
+                    ", Grade: " + g + ", Total: " + total + ", Sum: " + sum +
+                    ", Count 3: " + c3 + ", Count 4: " + c4 + ", Count 5: " + c5);
         }
+
+
 
         BigDecimal avg = total > 0
                 ? new BigDecimal(sum).divide(new BigDecimal(total), 2, RoundingMode.HALF_UP)
@@ -123,6 +132,8 @@ public class RatingService {
         rating.setCount5(c5);
         rating.setTotalSubjects(total);
         rating.setLastUpdated(new Timestamp(System.currentTimeMillis()));
+        System.out.println("Updating rating for student: " + student.getFullName() + ", Average: " + avg + ", Total Subjects: " + total +
+                ", Count 3: " + c3 + ", Count 4: " + c4 + ", Count 5: " + c5);
         ratingRepository.save(rating);
     }
 }
