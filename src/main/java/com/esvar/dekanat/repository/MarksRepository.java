@@ -43,4 +43,6 @@ public interface MarksRepository extends JpaRepository<MarksEntity, Long> {
     List<MarksEntity> findByPlan(PlansEntity plansEntity);
 
     List<MarksEntity> findByPlanAndControlMethod(PlansEntity plansEntity, ControlMethodEntity controlMethod);
+
+    List<MarksEntity> findByStudentId(Long studentId);
 }

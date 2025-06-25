@@ -17,10 +17,12 @@ public class MarksService {
 
     private final MarksRepository marksRepository;
     private final ControlMethodRepository controlMethodRepository;
+    private final RatingService ratingService;
 
-    public MarksService(MarksRepository marksRepository, ControlMethodRepository controlMethodRepository) {
+    public MarksService(MarksRepository marksRepository, ControlMethodRepository controlMethodRepository, RatingService ratingService) {
         this.marksRepository = marksRepository;
         this.controlMethodRepository = controlMethodRepository;
+        this.ratingService = ratingService;
     }
 
     /**
@@ -38,9 +40,9 @@ public class MarksService {
                 mark.getPlan().getId(),
                 mark.getControlMethod().getId()
         );
-
+        MarksEntity saved;
         if (exists) {
-            Optional<MarksEntity>  existingOptional = marksRepository.findByStudentIdAndPlanIdAndControlMethodId(
+            Optional<MarksEntity> existingOptional = marksRepository.findByStudentIdAndPlanIdAndControlMethodId(
                     mark.getStudent().getId(),
                     mark.getPlan().getId(),
                     mark.getControlMethod().getId()
@@ -52,10 +54,12 @@ public class MarksService {
             existing.setLocked(mark.isLocked());
             existing.setLastUpdated(mark.getLastUpdated());
             existing.setLastUpdatedBy(mark.getLastUpdatedBy());
-            return marksRepository.save(existing);
+            saved = marksRepository.save(existing);
         } else {
-            return marksRepository.save(mark);
+            saved = marksRepository.save(mark);
         }
+        ratingService.updateRatingForStudent(saved.getStudent());
+        return saved;
     }
 
 

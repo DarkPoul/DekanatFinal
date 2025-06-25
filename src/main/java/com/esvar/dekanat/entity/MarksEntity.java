@@ -33,7 +33,7 @@ public class MarksEntity {
     @Column(nullable = false)
     private int semester;
 
-    @Column(precision = 5, scale = 2)
+    @Column
     private int finalGrade;
 
     @Column(nullable = false)

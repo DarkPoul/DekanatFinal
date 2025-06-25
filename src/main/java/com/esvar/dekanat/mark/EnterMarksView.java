@@ -23,6 +23,7 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
+import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.data.provider.Query;
 import com.vaadin.flow.router.PageTitle;
@@ -428,26 +429,26 @@ public class EnterMarksView extends Div {
 
     private void setEnterMarkColumn() {
         studentGrid.addComponentColumn(markDTO -> {
-            NumberField numberField = new NumberField();
-            numberField.setMaxWidth("44px");
-            numberField.getElement().getStyle().set("text-align", "center");
+            IntegerField integerField = new IntegerField();
+            integerField.setMaxWidth("44px");
+            integerField.getElement().getStyle().set("text-align", "center");
             if (markDTO.getEnterMark() != null && !markDTO.getEnterMark().isEmpty()) {
-                numberField.setValue(Double.valueOf(markDTO.getEnterMark()));
+                integerField.setValue(Integer.valueOf(markDTO.getEnterMark()));
             } else {
-                numberField.setValue(null);
+                integerField.clear();
             }
             // Встановлюємо readOnly в залежності від прапорця locked
-            numberField.setReadOnly(markDTO.isLocked());
-            numberField.addValueChangeListener(event -> {
+            integerField.setReadOnly(markDTO.isLocked());
+            integerField.addValueChangeListener(event -> {
                 if (!markDTO.isLocked()) {
                     if (event.getValue() != null) {
-                        markDTO.setEnterMark(String.valueOf(event.getValue().intValue()));
+                        markDTO.setEnterMark(String.valueOf(event.getValue()));
                     } else {
                         markDTO.setEnterMark("");
                     }
                 }
             });
-            return numberField;
+            return integerField;
         }).setHeader("Оцінка").setFlexGrow(1).setWidth("70px");
     }
 
@@ -492,27 +493,27 @@ public class EnterMarksView extends Div {
         ).setHeader("Ч 8").setFlexGrow(1).setWidth("70px");
     }
 
-    private NumberField createPartNumberField(String initialValue, java.util.function.Consumer<String> valueConsumer, boolean locked) {
-        NumberField numberField = new NumberField();
-        numberField.setMaxWidth("52px");
-        numberField.getElement().getStyle().set("text-align", "center");
+    private IntegerField createPartNumberField(String initialValue, java.util.function.Consumer<String> valueConsumer, boolean locked) {
+        IntegerField integerField = new IntegerField();
+        integerField.setMaxWidth("52px");
+        integerField.getElement().getStyle().set("text-align", "center");
         if (initialValue != null && !initialValue.isEmpty()) {
-            numberField.setValue(Double.valueOf(initialValue));
+            integerField.setValue(Integer.valueOf(initialValue));
         } else {
-            numberField.setValue(null);
+            integerField.clear();
         }
         // Встановлюємо режим readOnly в залежності від прапорця locked
-        numberField.setReadOnly(locked);
-        numberField.addValueChangeListener(event -> {
+        integerField.setReadOnly(locked);
+        integerField.addValueChangeListener(event -> {
             if (!locked) {
                 if (event.getValue() != null) {
-                    valueConsumer.accept(String.valueOf(event.getValue().intValue()));
+                    valueConsumer.accept(String.valueOf(event.getValue()));
                 } else {
                     valueConsumer.accept("");
                 }
             }
         });
-        return numberField;
+        return integerField;
     }
 
     private void clearGrid() {

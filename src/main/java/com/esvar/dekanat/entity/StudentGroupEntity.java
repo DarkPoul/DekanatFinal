@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Objects;
+
 @Entity
 @Data
 @NoArgsConstructor
@@ -37,5 +39,23 @@ public class StudentGroupEntity {
             this.groupCode = String.format("%s-%d-%d-%d",
                     this.specialty.getAbbreviation(), this.course, this.groupNumber, this.year);
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        StudentGroupEntity that = (StudentGroupEntity) o;
+        return course == that.course &&
+                groupNumber == that.groupNumber &&
+                year == that.year &&
+                Objects.equals(id, that.id) &&
+                Objects.equals(specialty, that.specialty) &&
+                Objects.equals(groupCode, that.groupCode);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, specialty, course, groupNumber, year, groupCode);
     }
 }

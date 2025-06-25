@@ -416,6 +416,16 @@ public class CardView extends Div {
 
 // Additional info text fields
         caseNumberField = new TextField("Номер справи");
+        caseNumberField.setPattern("[0-9]{1,}");
+        caseNumberField.addValueChangeListener(event -> {
+            String value = event.getValue();
+            if (value.matches("[0-9]+")) {
+                caseNumberField.setErrorMessage(null);
+            } else {
+                caseNumberField.setErrorMessage("Введіть тільки цифри");
+                Notification.show("Неправильний ввід. Введіть тільки цифри.");
+            }
+        });
         idCodeField = new TextField("Ідентифікаційний код");
         idCodeField.setPattern("[0-9]{1,}"); // Дозволяє тільки цифри
         idCodeField.addValueChangeListener(event -> {
@@ -479,6 +489,16 @@ public class CardView extends Div {
         });
         fullAddressField = new TextField("Повна адреса");
         phoneNumberField = new TextField("Номер телефону");
+        phoneNumberField.setPattern("[0-9]{1,}");
+        phoneNumberField.addValueChangeListener(event -> {
+            String value = event.getValue();
+            if (value.matches("[0-9]+")) {
+                phoneNumberField.setErrorMessage(null);
+            } else {
+                phoneNumberField.setErrorMessage("Введіть тільки цифри");
+                Notification.show("Неправильний ввід. Введіть тільки цифри.");
+            }
+        });
         emailField = new TextField("E-mail");
         benefitsSelect = new MultiSelectComboBox<>();
         benefitsSelect.setLabel("Пільги");
@@ -707,6 +727,16 @@ public class CardView extends Div {
 
         documentSeriesField = new TextField("Серія документу");
         documentNumberField = new TextField("№ документу");
+        documentNumberField.setPattern("[0-9]{1,}");
+        documentNumberField.addValueChangeListener(event -> {
+            String value = event.getValue();
+            if (value.matches("[0-9]+")) {
+                documentNumberField.setErrorMessage(null);
+            } else {
+                documentNumberField.setErrorMessage("Введіть тільки цифри");
+                Notification.show("Неправильний ввід. Введіть тільки цифри.");
+            }
+        });
         documentIssueDatePicker = new DatePicker("Дата видачі");
         documentIssueDatePicker.setI18n(setLocal());
         institutionNameField = new TextField("Назва навчального закладу");
@@ -770,9 +800,29 @@ public class CardView extends Div {
 // Add new fields for the diploma
         diplomaSeriesField = new TextField("Серія диплому");
         diplomaNumberField = new TextField("№ диплому");
+        diplomaNumberField.setPattern("[0-9]{1,}");
+        diplomaNumberField.addValueChangeListener(event -> {
+            String value = event.getValue();
+            if (value.matches("[0-9]+")) {
+                diplomaNumberField.setErrorMessage(null);
+            } else {
+                diplomaNumberField.setErrorMessage("Введіть тільки цифри");
+                Notification.show("Неправильний ввід. Введіть тільки цифри.");
+            }
+        });
         graduationDatePicker = new DatePicker("Дата випуску");
         graduationDatePicker.setI18n(setLocal());
         appendixNumberField = new TextField("Номер додатку");
+        appendixNumberField.setPattern("[0-9]{1,}");
+        appendixNumberField.addValueChangeListener(event -> {
+            String value = event.getValue();
+            if (value.matches("[0-9]+")) {
+                appendixNumberField.setErrorMessage(null);
+            } else {
+                appendixNumberField.setErrorMessage("Введіть тільки цифри");
+                Notification.show("Неправильний ввід. Введіть тільки цифри.");
+            }
+        });
         thesisTitleUkrField = new TextField("Тема дипломної роботи (укр)");
         thesisTitleEngField = new TextField("Тема дипломної роботи (англ)");
 
