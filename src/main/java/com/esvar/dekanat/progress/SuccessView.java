@@ -13,6 +13,7 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -68,8 +69,10 @@ public class SuccessView extends Div {
         configureGrid();
         configureSyncControls();
 
-        HorizontalLayout filters = new HorizontalLayout(groupSelect, studentSelect, syncButton, otherStudentSelect, applySyncButton, cancelSyncButton);
+        HorizontalLayout filters = new HorizontalLayout(groupSelect, studentSelect, syncButton,
+                otherStudentSelect, applySyncButton, cancelSyncButton);
         filters.setPadding(true);
+        filters.setAlignItems(FlexComponent.Alignment.BASELINE);
 
         HorizontalLayout tables = new HorizontalLayout(grid, otherGrid);
         tables.setWidthFull();
