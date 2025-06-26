@@ -70,9 +70,15 @@ public class SuccessView extends Div {
 
         HorizontalLayout filters = new HorizontalLayout(groupSelect, studentSelect, syncButton, otherStudentSelect, applySyncButton, cancelSyncButton);
         filters.setPadding(true);
+
         HorizontalLayout tables = new HorizontalLayout(grid, otherGrid);
+        tables.setWidthFull();
+        tables.setFlexGrow(1, grid, otherGrid);
+
         VerticalLayout layout = new VerticalLayout(new H2("Успішність студента"), filters, tables);
         layout.setPadding(false);
+        layout.setWidthFull();
+
         add(layout, editDialog);
     }
 
