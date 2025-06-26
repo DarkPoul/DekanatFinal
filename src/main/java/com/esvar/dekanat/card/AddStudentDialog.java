@@ -5,6 +5,8 @@ import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.repository.StudentRatingRepository;
 import com.esvar.dekanat.service.*;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -27,6 +29,7 @@ public class AddStudentDialog extends Dialog {
     private final StudentInfoService infoService;
     private final StudentEducationService educationService;
     private final StudentRatingRepository ratingRepository;
+    private final ReportService reportService;
 
     private final Tabs tabs = new Tabs();
     private final Tab tab1 = new Tab("Персональні дані");
@@ -49,6 +52,8 @@ public class AddStudentDialog extends Dialog {
     private final TextField firstNameEng = new TextField("Ім'я (англ)");
     private final Select<String> groupSelect = new Select<>();
     private final TextField recordBook = new TextField("Номер заліковки");
+    private final ComboBox<String> reportType = new ComboBox<>();
+
 
     // step 2 fields
     private final TextField passportSeries = new TextField("Серія паспорта");
@@ -70,19 +75,21 @@ public class AddStudentDialog extends Dialog {
     private final Button back = new Button("Назад");
     private final Button next = new Button("Далі");
     private final Button save = new Button("Зберегти");
+    private final Button cancel = new Button("Скасувати");
 
     public AddStudentDialog(GroupService groupService,
                             StudentService studentService,
                             StudentPassportService passportService,
                             StudentInfoService infoService,
                             StudentEducationService educationService,
-                            StudentRatingRepository ratingRepository) {
+                            StudentRatingRepository ratingRepository, ReportService reportService) {
         this.groupService = groupService;
         this.studentService = studentService;
         this.passportService = passportService;
         this.infoService = infoService;
         this.educationService = educationService;
         this.ratingRepository = ratingRepository;
+        this.reportService = reportService;
 
         configureTabs();
         configurePages();
@@ -93,6 +100,14 @@ public class AddStudentDialog extends Dialog {
     private void configureTabs() {
         tabs.add(tab1, tab2, tab3, tab4);
         tabs.setSelectedIndex(0);
+        // allow user to switch pages by clicking on the tabs
+        tabs.addSelectedChangeListener(event -> {
+            int newIndex = tabs.getSelectedIndex();
+            if (newIndex != index) {
+                index = newIndex;
+                updateView();
+            }
+        });
         add(tabs);
     }
 
@@ -104,12 +119,24 @@ public class AddStudentDialog extends Dialog {
         lastName.setRequiredIndicatorVisible(true);
         firstName.setRequiredIndicatorVisible(true);
         groupSelect.setRequiredIndicatorVisible(true);
+
+        reportType.setLabel("Тип відомості");
+        reportType.setItems(
+                "Зарахований",
+                "Відрахований",
+                "Академвідпустка",
+                "Поновлений",
+                "Переведений на наступний курс",
+                "Такий що закінчив навчання"
+        );
+        reportType.setClearButtonVisible(true);
+
         recordBook.setPattern("[0-9]+");
 
         FormLayout personalForm = new FormLayout();
         personalForm.add(lastName, firstName, middleName,
                 lastNameEng, firstNameEng,
-                groupSelect, recordBook);
+                groupSelect, recordBook, reportType);
         personalForm.setResponsiveSteps(
                 new FormLayout.ResponsiveStep("0", 1),
                 new FormLayout.ResponsiveStep("500px", 2)
@@ -124,7 +151,7 @@ public class AddStudentDialog extends Dialog {
         page4.add(docSeries, docNumber);
 
         add(page1, page2, page3, page4);
-        HorizontalLayout actions = new HorizontalLayout(back, next, save);
+        HorizontalLayout actions = new HorizontalLayout(back, next, save, cancel);
         add(actions);
     }
 
@@ -142,6 +169,8 @@ public class AddStudentDialog extends Dialog {
             }
         });
         save.addClickListener(e -> saveStudent());
+        cancel.addClickListener(e ->
+                showCancelConfirmation());
     }
 
     private void updateView() {
@@ -210,6 +239,24 @@ public class AddStudentDialog extends Dialog {
         rating.setLastUpdated(new Timestamp(System.currentTimeMillis()));
         ratingRepository.save(rating);
 
+        if (reportType.getValue() != null && !reportType.getValue().isEmpty()) {
+            ReportEntity report = new ReportEntity();
+            report.setStudent(student);
+            report.setStatus(reportType.getValue());
+            report.setDate(new Date(System.currentTimeMillis()));
+            report.setOrderNumber(reportService.getNextOrderNumber());
+            reportService.saveReport(report);
+        }
+
         close();
+    }
+
+    private void showCancelConfirmation() {
+        ConfirmDialog dialog = new ConfirmDialog(
+                "Вихід",
+                "Незбережені дані буде втрачено. Вийти?",
+                "Так", event -> close(),
+                "Ні", event -> {});
+        dialog.open();
     }
 }

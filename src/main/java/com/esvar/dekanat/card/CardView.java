@@ -228,7 +228,8 @@ public class CardView extends Div {
                     studentPassportService,
                     studentInfoService,
                     studentEducationService,
-                    ratingRepository
+                    ratingRepository,
+                    reportService
             );
             dialog.addDialogCloseActionListener(e -> {
                 if (selectGroup.getValue() != null) {
