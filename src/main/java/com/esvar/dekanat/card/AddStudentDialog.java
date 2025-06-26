@@ -93,6 +93,14 @@ public class AddStudentDialog extends Dialog {
     private void configureTabs() {
         tabs.add(tab1, tab2, tab3, tab4);
         tabs.setSelectedIndex(0);
+        // allow user to switch pages by clicking on the tabs
+        tabs.addSelectedChangeListener(event -> {
+            int newIndex = tabs.getSelectedIndex();
+            if (newIndex != index) {
+                index = newIndex;
+                updateView();
+            }
+        });
         add(tabs);
     }
 
