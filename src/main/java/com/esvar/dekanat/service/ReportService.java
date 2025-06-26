@@ -30,4 +30,9 @@ public class ReportService {
     public List<ReportEntity> getReports(StudentEntity studentEntity) {
         return reportRepository.findAllByStudent(studentEntity);
     }
+
+    public Long getNextOrderNumber() {
+        Long maxOrder = reportRepository.findMaxOrderNumber();
+        return (maxOrder != null) ? maxOrder + 1 : 1;
+    }
 }

@@ -90,10 +90,6 @@ public class MarksService {
         return marksRepository.findByPlanAndControlMethod(plansEntity, controlMethodRepository.findByName(typeControl));
     }
 
-    public MarksEntity getMarkById(Long id) {
-        return marksRepository.findById(id).orElse(null);
-    }
-
     public String getMarkForFirstModalControl(StudentEntity studentEntity, PlansEntity plansEntity, String typeControl) {
         Optional<MarksEntity> opt = marksRepository.findByStudentIdAndPlanIdAndControlMethodId(
                 studentEntity.getId(),
@@ -104,6 +100,29 @@ public class MarksService {
             return String.valueOf(opt.get().getFinalGrade());
         }
         return "0";
+    }
+
+    /**
+     * Returns all marks for the given student.
+     *
+     * @param student StudentEntity - student for which marks are requested.
+     * @return list of MarksEntity
+     */
+    public List<MarksEntity> getMarksByStudent(StudentEntity student) {
+        if (student == null) {
+            return List.of();
+        }
+        return marksRepository.findByStudentId(student.getId());
+    }
+
+    /**
+     * Get mark by its id.
+     *
+     * @param id identifier of mark
+     * @return MarksEntity or null if not found
+     */
+    public MarksEntity getMarkById(Long id) {
+        return marksRepository.findById(id).orElse(null);
     }
 
 }

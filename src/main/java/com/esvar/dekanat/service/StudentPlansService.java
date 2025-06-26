@@ -103,4 +103,17 @@ public class StudentPlansService{
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Повертає усі записи student_plans для вказаного студента.
+     *
+     * @param student студент
+     * @return список StudentPlansEntity
+     */
+    public List<StudentPlansEntity> getPlansForStudent(StudentEntity student) {
+        if (student == null) {
+            return new ArrayList<>();
+        }
+        return studentPlansRepository.findByStudent(student);
+    }
+
 }

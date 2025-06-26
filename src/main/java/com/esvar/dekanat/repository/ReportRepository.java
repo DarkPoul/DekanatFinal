@@ -16,4 +16,7 @@ public interface ReportRepository extends JpaRepository<ReportEntity, Long> {
     @Query("SELECT MAX(r.id) FROM ReportEntity r")
     Long findMaxId();
 
+    @Query("SELECT MAX(r.orderNumber) FROM ReportEntity r")
+    Long findMaxOrderNumber();
+
 }

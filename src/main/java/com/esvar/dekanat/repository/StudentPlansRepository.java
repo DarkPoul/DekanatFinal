@@ -1,6 +1,7 @@
 package com.esvar.dekanat.repository;
 
 import com.esvar.dekanat.entity.PlansEntity;
+import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.entity.StudentPlansEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -49,4 +50,13 @@ public interface StudentPlansRepository extends JpaRepository<StudentPlansEntity
     void deleteByPlanId(@Param("planId") Long planId);
 
     List<StudentPlansEntity> findByPlan(PlansEntity plan); // Повертає записи для конкретного плану
+
+
+    /**
+     * Отримати усі зв'язки планів для конкретного студента.
+     *
+     * @param student студент
+     * @return список StudentPlansEntity
+     */
+    List<StudentPlansEntity> findByStudent(StudentEntity student);
 }
