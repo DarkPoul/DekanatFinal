@@ -236,9 +236,14 @@ public class SuccessView extends Div {
         otherStudentSelect.setVisible(true);
         applySyncButton.setVisible(true);
         cancelSyncButton.setVisible(true);
+
+        grid.setVisible(false);
+        grid.setEnabled(false);
+
     }
 
     private void exitSyncMode() {
+
         otherStudentSelect.clear();
         otherStudentSelect.setVisible(false);
         otherGrid.setVisible(false);
@@ -246,6 +251,8 @@ public class SuccessView extends Div {
         syncButton.setVisible(true);
         applySyncButton.setVisible(false);
         cancelSyncButton.setVisible(false);
+        grid.setEnabled(true);
+        grid.setVisible(true);
     }
 
     private void updateOtherGrid() {
