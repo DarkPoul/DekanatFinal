@@ -12,6 +12,7 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
@@ -68,19 +69,24 @@ public class SuccessView extends Div {
         configureGrid();
         configureSyncControls();
 
-        HorizontalLayout filters = new HorizontalLayout(groupSelect, studentSelect, syncButton, otherStudentSelect, applySyncButton, cancelSyncButton);
+        HorizontalLayout filters = new HorizontalLayout(groupSelect, studentSelect, syncButton,
+                otherStudentSelect, applySyncButton, cancelSyncButton);
         filters.setPadding(true);
+        filters.setAlignItems(FlexComponent.Alignment.BASELINE);
 
         HorizontalLayout tables = new HorizontalLayout(grid, otherGrid);
         tables.setWidthFull();
         tables.setFlexGrow(1, grid, otherGrid);
+        tables.getStyle().set("overflow-x", "auto");
 
         VerticalLayout layout = new VerticalLayout(new H2("Успішність студента"), filters, tables);
         layout.setPadding(false);
         layout.setWidthFull();
+        layout.getStyle().set("overflow-x", "auto");
 
         add(layout, editDialog);
     }
+
 
     private void configureSelectors() {
         groupSelect.setLabel("Група");
@@ -95,18 +101,33 @@ public class SuccessView extends Div {
 
     private void configureGrid() {
         grid.addColumn(row -> String.valueOf(grid.getListDataView().getItems().toList().indexOf(row) + 1))
-                .setHeader("№");
-        grid.addColumn(Row::discipline).setHeader("Дисципліна");
-        grid.addColumn(Row::semester).setHeader("Семестр");
-        grid.addColumn(Row::hours).setHeader("Години");
-        grid.addColumn(Row::controlType).setHeader("Тип контролю");
-        grid.addColumn(Row::grade).setHeader("Оцінка");
+                .setHeader("№")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
+        grid.addColumn(Row::discipline).setHeader("Дисципліна")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
+        grid.addColumn(Row::semester).setHeader("Семестр")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
+        grid.addColumn(Row::hours).setHeader("Години")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
+        grid.addColumn(Row::controlType).setHeader("Тип контролю")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
+        grid.addColumn(Row::grade).setHeader("Оцінка")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
         grid.addComponentColumn(row -> {
-            Button edit = new Button("Редагувати");
-            edit.addClickListener(e -> openEditor(row));
-            return edit;
-        }).setHeader("Дії");
+                    Button edit = new Button("Редагувати");
+                    edit.addClickListener(e -> openEditor(row));
+                    return edit;
+                }).setHeader("Дії")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
         grid.setWidthFull();
+        grid.getStyle().set("min-width", "max-content");
         grid.setItems(List.of());
     }
 
@@ -116,13 +137,26 @@ public class SuccessView extends Div {
         otherStudentSelect.addValueChangeListener(e -> updateOtherGrid());
 
         otherGrid.addColumn(row -> String.valueOf(otherGrid.getListDataView().getItems().toList().indexOf(row) + 1))
-                .setHeader("№");
-        otherGrid.addColumn(Row::discipline).setHeader("Дисципліна");
-        otherGrid.addColumn(Row::semester).setHeader("Семестр");
-        otherGrid.addColumn(Row::hours).setHeader("Години");
-        otherGrid.addColumn(Row::controlType).setHeader("Тип контролю");
-        otherGrid.addColumn(Row::grade).setHeader("Оцінка");
+                .setHeader("№")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
+        otherGrid.addColumn(Row::discipline).setHeader("Дисципліна")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
+        otherGrid.addColumn(Row::semester).setHeader("Семестр")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
+        otherGrid.addColumn(Row::hours).setHeader("Години")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
+        otherGrid.addColumn(Row::controlType).setHeader("Тип контролю")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
+        otherGrid.addColumn(Row::grade).setHeader("Оцінка")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
         otherGrid.setWidthFull();
+        otherGrid.getStyle().set("min-width", "max-content");
         otherGrid.setItems(List.of());
         otherGrid.setVisible(false);
 
@@ -134,6 +168,7 @@ public class SuccessView extends Div {
         applySyncButton.addClickListener(e -> performSync());
         cancelSyncButton.addClickListener(e -> exitSyncMode());
     }
+
 
     private void updateStudents() {
         String group = groupSelect.getValue();
