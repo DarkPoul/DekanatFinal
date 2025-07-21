@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.util.List;
 
-@Component
+//@Component
 public class MarksStartupChecker implements ApplicationRunner {
 
     private final StudentPlansRepository studentPlansRepository;

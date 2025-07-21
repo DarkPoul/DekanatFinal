@@ -10,6 +10,7 @@ import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.user.UserRepository;
 import com.esvar.dekanat.view.MainLayout;
+import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.grid.Grid;
@@ -113,12 +114,13 @@ public class EnterMarksView extends Div {
         Set<String> roles = u.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
 
-        String role_type = roles.stream().findFirst().get();
+        String role_type = securityService.getCurrentRoleType();
         boolean isDepartment   = roles.stream().anyMatch(r -> r.startsWith("ROLE_DEPARTMENT"));
         boolean isDekanatGroup = roles.stream().anyMatch(r -> r.startsWith("ROLE_DEKANAT"));
         boolean isAdmin        = roles.stream().anyMatch(r -> r.startsWith("ROLE_ADMIN"));
-        if (isDepartment){
-            selectDepartment.setValue(departmentService.getDepartmentById(Long.valueOf(role_type)));
+
+        if (isDekanatGroup){
+            selectFaculty.setValue(facultyService.getFacultyTitleById(Long.valueOf(role_type)));
         }
 
         selectSpecialty.setLabel("Спеціальність");
@@ -192,8 +194,13 @@ public class EnterMarksView extends Div {
         if (isDepartment) {
             selectDepartment.setItems(departmentService.getDepartmentById(Long.valueOf(role_type)));
             selectDepartment.setValue(departmentService.getDepartmentById(Long.valueOf(role_type)));
+            selectDepartment.setVisible(false);
         }
-        selectDepartment.setReadOnly(true);
+        if (isDekanatGroup) {
+            selectDepartment.setReadOnly(false);
+            selectFaculty.setReadOnly(true);
+            selectFaculty.setVisible(false);
+        }
 
         // Обробники подій для селектів
         selectFaculty.addValueChangeListener(event -> {
@@ -343,12 +350,15 @@ public class EnterMarksView extends Div {
         // Обробники кнопок "Затвердити" та "Розблокувати"
         approveButton.addClickListener(event -> {
             List<MarkDTO> markDTOList = getSelectedOrAllMarks();
+            String controlType = selectControlType.getValue();
+            MarkProcessor processor = MarkProcessorFactory.getProcessor(controlType, marksService, userRepository,
+                    securityService, studentService, marksPartsService, controlMethodService, controlPartsService);
             List<MarksEntity> toSave = new ArrayList<>();
             for (MarkDTO markDTO : markDTOList) {
                 if (markDTO.isLocked()) {
                     continue;
                 }
-                MarksEntity marksEntity = marksService.getMarkById(markDTO.getId());
+                MarksEntity marksEntity = processor.processMark(markDTO, plansEntity, controlType);
                 marksEntity.setLastUpdated(new Timestamp(System.currentTimeMillis()));
                 marksEntity.setLastUpdatedBy(userRepository.findByEmail(securityService.getAuthenticatedUser().getUsername()).orElseThrow());
                 marksEntity.setLocked(true);
@@ -387,7 +397,7 @@ public class EnterMarksView extends Div {
         }
         studentGrid.addColumn(MarkDTO::getRowNum)
                 .setHeader("№")
-                .setFlexGrow(1).setWidth("25px");
+                .setFlexGrow(1).setWidth("35px");
         studentGrid.addColumn(MarkDTO::getStudentPIB)
                 .setHeader("ПІБ студента")
                 .setFlexGrow(3).setWidth("250px");
@@ -400,7 +410,7 @@ public class EnterMarksView extends Div {
                     .setHeader("Перший модуль").setAutoWidth(true);
             setEnterMarkColumn();
             studentGrid.addColumn(MarkDTO::getTotalMarkByFirstAndSecondModule)
-                    .setHeader("Сума за модулі").setAutoWidth(true);
+                    .setHeader(new Html("<div style='white-space:normal; word-break:break-word; text-align:center; line-height:1.2; max-width:50px;'>Cума<br>за<br>модулі</div>")).setAutoWidth(false);
         }
         if (typeControl.equals("Залік") ||
                 typeControl.equals("Екзамен") ||
@@ -409,11 +419,11 @@ public class EnterMarksView extends Div {
                 typeControl.equals("Диференційний залік")) {
             setEnterMarkColumn();
             studentGrid.addColumn(MarkDTO::getTotalMarkByFirstAndSecondModule)
-                    .setHeader("Сума за модулі").setAutoWidth(true);
+                    .setHeader(new Html("<div style='white-space:normal; word-break:break-word; text-align:center; line-height:1.2; max-width:50px;'>Cума<br>за<br>модулі</div>")).setAutoWidth(false);
             studentGrid.addColumn(MarkDTO::getNationalGrade)
-                    .setHeader("Оцінка за національною шкалою").setAutoWidth(true);
+                    .setHeader(new Html("<div style='white-space:normal; word-break:break-word; text-align:center; line-height:1.2; max-width:95px;'>Оцінка за<br>національною шкалою</div>")).setAutoWidth(false);
             studentGrid.addColumn(MarkDTO::getECTSGrade)
-                    .setHeader("Оцінка ECTS").setAutoWidth(true);
+                    .setHeader(new Html("<div style='white-space:normal; word-break:break-word; text-align:center; line-height:1.2; max-width:60px;'>Оцінка<br>ECTS</div>")).setAutoWidth(false);
         }
         if (typeControl.equals("Розрахункова робота") || typeControl.equals("Розрахунково-графічна робота")) {
             if (part >= 2) {
@@ -443,7 +453,7 @@ public class EnterMarksView extends Div {
                     .set("font-weight", "bold")
                     .set("opacity", "0.7");
             return icon;
-        }).setHeader("Чи заблоковано").setAutoWidth(true);
+        }).setHeader("Заблоковано").setAutoWidth(true);
         studentGrid.addColumn(MarkDTO::getLastUpdated).setHeader("Час зміни").setAutoWidth(true);
         studentGrid.addColumn(MarkDTO::getLastUpdatedBy).setHeader("Користувач").setAutoWidth(true);
         studentGrid.setSizeFull();
@@ -472,7 +482,7 @@ public class EnterMarksView extends Div {
                 }
             });
             return integerField;
-        }).setHeader("Оцінка").setFlexGrow(1).setWidth("70px");
+        }).setHeader("Оцінка").setFlexGrow(1).setWidth("80px");
     }
 
     private void setPart1() {
@@ -541,6 +551,7 @@ public class EnterMarksView extends Div {
 
     private void clearGrid() {
         studentGrid.removeAllColumns();
+        studentGrid.setSelectionMode(Grid.SelectionMode.NONE);
     }
 
     private void setLocked(MarksEntity marksEntity) {
@@ -593,6 +604,13 @@ public class EnterMarksView extends Div {
                     dto.setLocked(mark.isLocked());
                     SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
                     dto.setLastUpdated(formatter.format(mark.getLastUpdated()));
+                    try {
+                        dto.setLastUpdatedBy(mark.getLastUpdatedBy().getLastname() + " " +
+                                mark.getLastUpdatedBy().getFirstname() + " " +
+                                mark.getLastUpdatedBy().getPatronymic());
+                    } catch (NullPointerException e){
+                        dto.setLastUpdatedBy("Система"); // Якщо немає інформації про користувача, можна вказати "Система"
+                    }
                     dto.setLastUpdatedBy(mark.getLastUpdatedBy().getLastname() + " " +
                             mark.getLastUpdatedBy().getFirstname() + " " +
                             mark.getLastUpdatedBy().getPatronymic());

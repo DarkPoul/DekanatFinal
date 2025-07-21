@@ -7,6 +7,8 @@ import com.esvar.dekanat.card.CardView;
 import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.rating.RatingView;
 import com.esvar.dekanat.security.SecurityService;
+import com.esvar.dekanat.service.DepartmentService;
+import com.esvar.dekanat.service.FacultyService;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.applayout.*;
@@ -29,20 +31,43 @@ import java.util.stream.Collectors;
 public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
     private final SecurityService securityService;
+    private final FacultyService facultyService;
+    private final DepartmentService departmentService;
     private final Tabs tabs = new Tabs();
     private final Map<Class<? extends Component>, Tab> navigationTargetToTab = new HashMap<>();
     private boolean isDrawerLocked = false;
 
     private static final Logger log = LoggerFactory.getLogger(MainLayout.class);
 
-    public MainLayout(SecurityService securityService) {
+    public MainLayout(SecurityService securityService, FacultyService facultyService, DepartmentService departmentService) {
         this.securityService = securityService;
+        this.facultyService = facultyService;
+        this.departmentService = departmentService;
         // Заголовок
-        String fullName = securityService.getCurrentUserModel()
-                .map(u -> u.getLastname() + " " + u.getFirstname() + " " + u.getPatronymic())
+        String headerText = securityService.getCurrentUserModel()
+                .map(u -> {
+                    String base = u.getLastname() + " " + u.getFirstname() + " " + u.getPatronymic();
+                    String role = u.getRole();
+                    String roleType = u.getRoleType();
+                    if (role != null && roleType != null) {
+                        if (role.startsWith("ROLE_DEKANAT")) {
+                            String faculty = facultyService.getFacultyTitleById(Long.valueOf(roleType));
+                            if (faculty != null) {
+                                base += " (" + faculty + ")";
+                            }
+                        } else if (role.startsWith("ROLE_DEPARTMENT")) {
+                            String dept = departmentService.getDepartmentById(Long.valueOf(roleType));
+                            if (dept != null) {
+                                base += " (" + dept + ")";
+                            }
+                        }
+                    }
+                    return base;
+                })
                 .orElse("Dekanat CRM");
-        H1 logo = new H1(fullName);
-        logo.getStyle().set("font-weight", "normal");
+        H1 logo = new H1(headerText);
+//        logo.getStyle().set("font-weight", "normal");
+        logo.getStyle().set("font-size", "var(--lumo-font-size-l)");
 
         Button logout = new Button("Вихід", e -> securityService.logout());
         HorizontalLayout header = new HorizontalLayout(new DrawerToggle(), logo, logout);

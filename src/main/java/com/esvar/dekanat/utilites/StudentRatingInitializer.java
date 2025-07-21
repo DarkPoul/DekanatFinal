@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.List;
 
-@Component
+//@Component
 public class StudentRatingInitializer implements ApplicationRunner {
 
     private final StudentRatingRepository ratingRepository;
