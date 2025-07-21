@@ -15,7 +15,7 @@ public class MarkProcessorFactory {
                                              ControlMethodService controlMethodService,
                                              ControlPartsService controlPartsService) {
         return switch (controlType) {
-            case "Перший модульний контроль", "Другий модульний контроль", "Залік", "Екзамен", "Курсова робота", "Курсовий проєкт" ->
+            case "Перший модульний контроль", "Другий модульний контроль", "Залік", "Екзамен", "Курсова робота", "Курсовий проєкт", "Диференційний залік" ->
                     new ModularMarkProcessor(marksService, userRepository, securityService, studentService, controlMethodService);
             case "Розрахункова робота", "Розрахунково-графічна робота" ->
                     new CalculationMarkProcessor(marksService, userRepository, securityService, studentService, marksPartsService, controlMethodService, controlPartsService);

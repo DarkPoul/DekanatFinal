@@ -17,7 +17,7 @@ public interface StudentRatingRepository extends JpaRepository<StudentRatingEnti
             LEFT JOIN StudentInfoEntity info ON info.student = st
         WHERE (:specialty IS NULL OR sr.specialty.abbreviation = :specialty)
           AND (:course IS NULL OR sr.course = :course)
-          AND (:groupCode IS NULL OR sr.group.groupCode = :groupCode)
+          AND (:groupNumber IS NULL OR sr.group.groupNumber = :groupNumber)
           AND (:year IS NULL OR sr.group.year = :year)
           AND (:budget = false OR info.typeOfIndividual = 'Держбюджет')
           AND (:technikum = false OR LOWER(sr.specialty.title) LIKE '%тех%')
@@ -26,7 +26,7 @@ public interface StudentRatingRepository extends JpaRepository<StudentRatingEnti
     List<StudentRatingEntity> searchRatings(
             @Param("specialty") String specialty,
             @Param("course") Integer course,
-            @Param("groupCode") String groupCode,
+            @Param("groupNumber") Integer groupNumber,
             @Param("year") String year,
             @Param("technikum") boolean technikum,
             @Param("budget") boolean budget

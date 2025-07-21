@@ -13,6 +13,7 @@ import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.view.MainLayout;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -22,8 +23,10 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
 
+import java.text.Collator;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 //todo після оновлення студентів що обрали дисципліну, при повторному вході в діалог вибору студентів, відображаються всі студенти, хоча в бд записи правильні(проблема на стороні фронта)
@@ -54,7 +57,7 @@ public class PlanView extends Div {
     private final MarksInitializerService marksInitializerService;
 
     // UI-компоненти
-    private final Select<String> groupSelect = new Select<>(); // Вибір групи
+    private final ComboBox<String> groupSelect = new ComboBox<>(); // Вибір групи
     private final Select<String> sessionSelect = new Select<>(); // Вибір сесії
     private final Button addButton = new Button("Додати"); // Кнопка додавання плану
     private final Grid<PlansEntity> planGrid = new Grid<>(PlansEntity.class, false); // Таблиця планів
@@ -131,7 +134,13 @@ public class PlanView extends Div {
 
         // Налаштування вибору групи
         groupSelect.setLabel("Група");
-        groupSelect.setItems(groupService.getGroupsDTO().stream().map(GroupDTO::toString).collect(Collectors.toList()));
+        Collator collator = Collator.getInstance(new Locale("uk", "UA"));
+        groupSelect.setItems(
+                groupService.getGroupsDTO().stream()
+                        .map(GroupDTO::toString)
+                        .sorted(collator)
+                        .collect(Collectors.toList())
+        );
         groupSelect.addValueChangeListener(event -> {
             updateStudentListInDialog();
             updateGrid();

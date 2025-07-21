@@ -125,4 +125,20 @@ public class MarksService {
         return marksRepository.findById(id).orElse(null);
     }
 
+    /**
+     * Batch save for a list of marks.
+     * Each mark is processed via {@link #saveMark(MarksEntity)}.
+     *
+     * @param marks list of entities to save
+     */
+    @Transactional
+    public void saveMarks(List<MarksEntity> marks) {
+        if (marks == null || marks.isEmpty()) {
+            return;
+        }
+        for (MarksEntity mark : marks) {
+            saveMark(mark);
+        }
+    }
+
 }

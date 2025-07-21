@@ -38,7 +38,12 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     public MainLayout(SecurityService securityService) {
         this.securityService = securityService;
         // Заголовок
-        H1 logo = new H1("Dekanat CRM");
+        String fullName = securityService.getCurrentUserModel()
+                .map(u -> u.getLastname() + " " + u.getFirstname() + " " + u.getPatronymic())
+                .orElse("Dekanat CRM");
+        H1 logo = new H1(fullName);
+        logo.getStyle().set("font-weight", "normal");
+
         Button logout = new Button("Вихід", e -> securityService.logout());
         HorizontalLayout header = new HorizontalLayout(new DrawerToggle(), logo, logout);
         header.expand(logo);

@@ -2,8 +2,6 @@ version: '3.8'
 
 services:
   app:
-    # Використовує мереже хоста, щоб контейнер слухав порти безпосередньо на хості
-    network_mode: host
     build:
       context: .
       dockerfile: Dockerfile
@@ -15,21 +13,6 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SERVER_PORT=8080
-
-  app_test:
-    network_mode: host
-    build:
-      context: .
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    depends_on:
-      - db
-    restart: always
-    environment:
-      - SPRING_PROFILES_ACTIVE=test
-      - SERVER_PORT=8081
-      - SPRING_SERVLET_CONTEXT_PATH=/test
 
   db:
     image: mysql:8.0.36

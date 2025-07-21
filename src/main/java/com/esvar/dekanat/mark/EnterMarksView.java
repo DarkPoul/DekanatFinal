@@ -115,6 +115,8 @@ public class EnterMarksView extends Div {
 
         String role_type = roles.stream().findFirst().get();
         boolean isDepartment   = roles.stream().anyMatch(r -> r.startsWith("ROLE_DEPARTMENT"));
+        boolean isDekanatGroup = roles.stream().anyMatch(r -> r.startsWith("ROLE_DEKANAT"));
+        boolean isAdmin        = roles.stream().anyMatch(r -> r.startsWith("ROLE_ADMIN"));
         if (isDepartment){
             selectDepartment.setValue(departmentService.getDepartmentById(Long.valueOf(role_type)));
         }
@@ -148,6 +150,7 @@ public class EnterMarksView extends Div {
         Button saveButton = new Button("Зберегти", new Icon(VaadinIcon.CLIPBOARD_CHECK));
         Button approveButton = new Button("Затвердити", new Icon(VaadinIcon.CHECK_CIRCLE));
         Button unlockButton = new Button("Розблокувати", new Icon(VaadinIcon.UNLOCK));
+        unlockButton.setVisible(isAdmin || isDekanatGroup);
         Button printReportButton = new Button("Друк відомості", new Icon(VaadinIcon.PRINT));
         Button additionalReportButton = new Button("Додаткова відомість", new Icon(VaadinIcon.FILE_ADD));
 
@@ -318,44 +321,58 @@ public class EnterMarksView extends Div {
 
         // Обробник кнопки "Зберегти" із використанням фабрики процесорів
         saveButton.addClickListener(event -> {
-            List<MarkDTO> markDTOList = new ArrayList<>();
-            studentGrid.getDataProvider().fetch(new Query<>()).forEach(markDTOList::add);
+            List<MarkDTO> markDTOList = getSelectedOrAllMarks();
 
             String controlType = selectControlType.getValue();
             MarkProcessor processor = MarkProcessorFactory.getProcessor(controlType, marksService, userRepository,
-                    securityService, studentService, marksPartsService,controlMethodService, controlPartsService);
+                    securityService, studentService, marksPartsService, controlMethodService, controlPartsService);
+
+            List<MarksEntity> toSave = new ArrayList<>();
 
             for (MarkDTO markDTO : markDTOList) {
+                if (markDTO.isLocked()){
+                    continue;
+                }
                 MarksEntity marksEntity = processor.processMark(markDTO, plansEntity, controlType);
-                marksService.saveMark(marksEntity);
+                toSave.add(marksEntity);
             }
+            marksService.saveMarks(toSave);
             updateGrid();
         });
 
         // Обробники кнопок "Затвердити" та "Розблокувати"
         approveButton.addClickListener(event -> {
-            List<MarkDTO> markDTOList = new ArrayList<>();
-            studentGrid.getDataProvider().fetch(new Query<>()).forEach(markDTOList::add);
+            List<MarkDTO> markDTOList = getSelectedOrAllMarks();
+            List<MarksEntity> toSave = new ArrayList<>();
             for (MarkDTO markDTO : markDTOList) {
+                if (markDTO.isLocked()) {
+                    continue;
+                }
                 MarksEntity marksEntity = marksService.getMarkById(markDTO.getId());
                 marksEntity.setLastUpdated(new Timestamp(System.currentTimeMillis()));
                 marksEntity.setLastUpdatedBy(userRepository.findByEmail(securityService.getAuthenticatedUser().getUsername()).orElseThrow());
-                setLocked(marksEntity);
-                updateGrid();
+                marksEntity.setLocked(true);
+                toSave.add(marksEntity);
             }
+            marksService.saveMarks(toSave);
+            updateGrid();
         });
 
         unlockButton.addClickListener(event -> {
-            List<MarkDTO> markDTOList = new ArrayList<>();
-            studentGrid.getDataProvider().fetch(new Query<>()).forEach(markDTOList::add);
+            List<MarkDTO> markDTOList = getSelectedOrAllMarks();
+            List<MarksEntity> toSave = new ArrayList<>();
             for (MarkDTO markDTO : markDTOList) {
+                if (!markDTO.isLocked()) {
+                    continue;
+                }
                 MarksEntity marksEntity = marksService.getMarkById(markDTO.getId());
                 marksEntity.setLastUpdated(new Timestamp(System.currentTimeMillis()));
                 marksEntity.setLastUpdatedBy(userRepository.findByEmail(securityService.getAuthenticatedUser().getUsername()).orElseThrow());
                 marksEntity.setLocked(false);
-                marksService.saveMark(marksEntity);
-                updateGrid();
+                toSave.add(marksEntity);
             }
+            marksService.saveMarks(toSave);
+            updateGrid();
         });
 
         printReportButton.addClickListener(e -> printReport());
@@ -363,7 +380,12 @@ public class EnterMarksView extends Div {
 
     private void configureGrid(String typeControl, int part) {
         studentGrid.removeAllColumns();
-        studentGrid.addColumn(student -> String.valueOf(studentGrid.getListDataView().getItems().toList().indexOf(student) + 1))
+        if (typeControl.equals("Перший модульний контроль") || typeControl.equals("Другий модульний контроль")) {
+            studentGrid.setSelectionMode(Grid.SelectionMode.NONE);
+        } else {
+            studentGrid.setSelectionMode(Grid.SelectionMode.MULTI);
+        }
+        studentGrid.addColumn(MarkDTO::getRowNum)
                 .setHeader("№")
                 .setFlexGrow(1).setWidth("25px");
         studentGrid.addColumn(MarkDTO::getStudentPIB)
@@ -383,7 +405,8 @@ public class EnterMarksView extends Div {
         if (typeControl.equals("Залік") ||
                 typeControl.equals("Екзамен") ||
                 typeControl.equals("Курсова робота") ||
-                typeControl.equals("Курсовий проєкт")) {
+                typeControl.equals("Курсовий проєкт") ||
+                typeControl.equals("Диференційний залік")) {
             setEnterMarkColumn();
             studentGrid.addColumn(MarkDTO::getTotalMarkByFirstAndSecondModule)
                     .setHeader("Сума за модулі").setAutoWidth(true);
@@ -581,6 +604,7 @@ public class EnterMarksView extends Div {
                     selectControlType.getValue().equals("Екзамен") ||
                     selectControlType.getValue().equals("Курсова робота") ||
                     selectControlType.getValue().equals("Курсовий проєкт") ||
+                    selectControlType.getValue().equals("Диференційний залік") ||
                     selectControlType.getValue().equals("Другий модульний контроль")) {
 
                 for (MarksEntity mark : marksEntityList) {
@@ -624,12 +648,19 @@ public class EnterMarksView extends Div {
                     dto.setLocked(mark.isLocked());
                     SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
                     dto.setLastUpdated(formatter.format(mark.getLastUpdated()));
-                    dto.setLastUpdatedBy(mark.getLastUpdatedBy().getLastname() + " " +
-                            mark.getLastUpdatedBy().getFirstname() + " " +
-                            mark.getLastUpdatedBy().getPatronymic());
-                    markDTOList.add(dto);
+                    try{
+                        dto.setLastUpdatedBy(mark.getLastUpdatedBy().getLastname() + " " +
+                                mark.getLastUpdatedBy().getFirstname() + " " +
+                                mark.getLastUpdatedBy().getPatronymic());
+                        markDTOList.add(dto);
+                    } catch (Exception e) {
+                        dto.setLastUpdatedBy("Система"); // Якщо немає інформації про користувача, можна вказати "Система"
+                        markDTOList.add(dto);
+                    }
+
                 }
             }
+            setRowNumbers(markDTOList);
             studentGrid.setItems(markDTOList);
         }
         // Якщо немає жодного MarksEntity, завантажуємо студентів із групи та намагаємося підвантажити модульні оцінки
@@ -648,6 +679,7 @@ public class EnterMarksView extends Div {
                     selectControlType.getValue().equals("Екзамен") ||
                     selectControlType.getValue().equals("Курсова робота") ||
                     selectControlType.getValue().equals("Курсовий проєкт") ||
+                    selectControlType.getValue().equals("Диференційний залік") ||
                     selectControlType.getValue().equals("Другий модульний контроль"));
 
             for (StudentEntity student : studentEntities) {
@@ -685,7 +717,18 @@ public class EnterMarksView extends Div {
                 fallbackList.add(dto);
                 id++;
             }
+            setRowNumbers(fallbackList);
             studentGrid.setItems(fallbackList);
+        }
+    }
+
+    /**
+     * Проставляє порядкові номери для переданої колекції записів.
+     */
+    private void setRowNumbers(List<MarkDTO> list) {
+        int i = 1;
+        for (MarkDTO dto : list) {
+            dto.setRowNum(i++);
         }
     }
 
@@ -889,6 +932,15 @@ public class EnterMarksView extends Div {
         return new DataModelForMC2(facultyName, specialityName, courseNumber, groupName, studyYear,
                 day, month, year, disciplineName, semesterNumber, controlTypeName,
                 hours, firstTeacher, secondTeacher, gradeTeacher, qualityTrue, qualityFalse, students);
+    }
+
+    private List<MarkDTO> getSelectedOrAllMarks() {
+        List<MarkDTO> all = studentGrid.getListDataView().getItems().toList();
+        Set<MarkDTO> selected = studentGrid.getSelectedItems();
+        if (selected.isEmpty() || selected.size() == all.size()) {
+            return all;
+        }
+        return new ArrayList<>(selected);
     }
 
 

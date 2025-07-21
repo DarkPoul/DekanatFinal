@@ -13,7 +13,13 @@ import java.sql.Timestamp;
 @NoArgsConstructor
 public class MarkDTO {
 
-    private Long id; //орядковий номер
+    private Long id; // ID оцінки з бази даних
+
+    /**
+     * Порядковий номер запису в таблиці.
+     * Заповнюється у представленнях перед відображенням.
+     */
+    private int rowNum;
 
     private String studentPIB; //ПІБ студента
 

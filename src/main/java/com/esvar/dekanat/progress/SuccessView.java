@@ -4,6 +4,7 @@ import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.entity.MarksEntity;
 import com.esvar.dekanat.entity.PlansEntity;
 import com.esvar.dekanat.entity.StudentEntity;
+import com.esvar.dekanat.entity.StudentPlansEntity;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.service.SyncService;
 import com.esvar.dekanat.view.MainLayout;
@@ -38,6 +39,8 @@ public class SuccessView extends Div {
     private final DisciplineService disciplineService;
     private final ControlMethodService controlMethodService;
     private final PlanService planService;
+    private final StudentPlansService studentPlansService;
+    private final MarksInitializerService marksInitializerService;
 
     private final Select<String> groupSelect = new Select<>();
     private final ComboBox<String> studentSelect = new ComboBox<>();
@@ -55,7 +58,7 @@ public class SuccessView extends Div {
                        MarksService marksService,
                        DisciplineService disciplineService,
                        ControlMethodService controlMethodService,
-                       PlanService planService,
+                       PlanService planService, StudentPlansService studentPlansService, MarksInitializerService marksInitializerService,
                        SyncService syncService) {
         this.groupService = groupService;
         this.studentService = studentService;
@@ -63,6 +66,8 @@ public class SuccessView extends Div {
         this.disciplineService = disciplineService;
         this.controlMethodService = controlMethodService;
         this.planService = planService;
+        this.studentPlansService = studentPlansService;
+        this.marksInitializerService = marksInitializerService;
         this.syncService = syncService;
         this.editDialog = new MarkEditDialog(disciplineService, controlMethodService);
         configureSelectors();
@@ -190,6 +195,7 @@ public class SuccessView extends Div {
             return;
         }
         StudentEntity student = studentService.getStudentForCard(group, studentName);
+        ensureZeroMarks(student);
         List<Row> rows = marksService.getMarksByStudent(student).stream()
                 .map(m -> new Row(
                         m.getId(),
@@ -264,6 +270,7 @@ public class SuccessView extends Div {
             return;
         }
         StudentEntity student = studentService.getStudentForCard(group, otherName);
+        ensureZeroMarks(student);
         List<Row> rows = marksService.getMarksByStudent(student).stream()
                 .map(m -> new Row(
                         null,
@@ -277,6 +284,14 @@ public class SuccessView extends Div {
         otherGrid.setVisible(true);
     }
 
+
+    private void ensureZeroMarks(StudentEntity student) {
+        List<StudentPlansEntity> mappings = studentPlansService.getPlansForStudent(student);
+        for (StudentPlansEntity sp : mappings) {
+            marksInitializerService.initializeMarksForPlan(sp.getPlan(), List.of(student));
+        }
+    }
+
     private void performSync() {
         String otherName = otherStudentSelect.getValue();
         String group = groupSelect.getValue();
@@ -287,6 +302,7 @@ public class SuccessView extends Div {
         StudentEntity target = studentService.getStudentForCard(group, currentName);
         StudentEntity source = studentService.getStudentForCard(group, otherName);
         syncService.synchronize(target, source);
+        ensureZeroMarks(target);
         exitSyncMode();
         updateGrid();
     }

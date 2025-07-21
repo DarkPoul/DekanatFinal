@@ -9,6 +9,7 @@ import com.esvar.dekanat.view.MainLayout;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.checkbox.Checkbox;
+import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.datepicker.DatePicker;
@@ -29,10 +30,12 @@ import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
 
 import java.sql.Date;
+import java.text.Collator;
 import java.time.LocalDate;
 import java.time.Year;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -63,7 +66,7 @@ public class CardView extends Div {
     private HorizontalLayout rightLayout1Page = new HorizontalLayout();
     private HorizontalLayout selectors = new HorizontalLayout();
     private Select<String> selectStudent = new Select<>();
-    private Select<String> selectGroup = new Select<>();
+    private ComboBox<String> selectGroup = new ComboBox<>();
     private Tabs tabs = new Tabs();
 
     Grid<ReportEntity> orderGrid = new Grid<>(ReportEntity.class, false);
@@ -161,7 +164,14 @@ public class CardView extends Div {
 
 
         selectGroup.setLabel("Група");
-        selectGroup.setItems(groupService.getGroupsDTO().stream().map(GroupDTO::toString).collect(Collectors.toList()));
+        Collator collator = Collator.getInstance(new Locale("uk", "UA"));
+        selectGroup.setItems(
+                groupService.getGroupsDTO().stream()
+                        .map(GroupDTO::toString)
+                        .sorted(collator)
+                        .collect(Collectors.toList())
+        );
+
         selectGroup.setPlaceholder("Оберіть групу");
         selectGroup.setWidth("300px");
         selectGroup.getStyle().set("padding", "0");

@@ -76,10 +76,17 @@ public class RatingService {
             } catch (NumberFormatException ignored) {
             }
         }
+        Integer groupNumber = null;
+        if (group != null && !group.isEmpty()) {
+            try {
+                groupNumber = Integer.parseInt(group);
+            } catch (NumberFormatException ignored) {
+            }
+        }
         return ratingRepository.searchRatings(
                 specialty,
                 courseNumber,
-                group,
+                groupNumber,
                 year,
                 technikum,
                 budget
