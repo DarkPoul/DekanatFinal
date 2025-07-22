@@ -5,6 +5,11 @@ import com.esvar.dekanat.entity.ControlPartsEntity;
 import com.esvar.dekanat.repository.ControlPartsRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @Service
 public class ControlPartsService {
 
@@ -36,4 +41,36 @@ public class ControlPartsService {
         }
         return controlPartsRepository.save(part);
     }
+
+
+    /**
+     * Retrieve all control parts for a method creating missing ones.
+     *
+     * @param method     control method
+     * @param totalParts expected number of parts
+     * @return map of part number to ControlPartsEntity
+     */
+    public Map<Integer, ControlPartsEntity> getOrCreatePartsMap(ControlMethodEntity method, int totalParts) {
+        List<ControlPartsEntity> existing = controlPartsRepository.findByControlMethodId(method.getId());
+        Map<Integer, ControlPartsEntity> result = new HashMap<>();
+        for (ControlPartsEntity cp : existing) {
+            result.put(cp.getPartNumber(), cp);
+        }
+
+        List<ControlPartsEntity> toCreate = new ArrayList<>();
+        for (int i = 1; i <= totalParts; i++) {
+            if (!result.containsKey(i)) {
+                ControlPartsEntity cp = new ControlPartsEntity();
+                cp.setControlMethod(method);
+                cp.setPartNumber(i);
+                toCreate.add(cp);
+                result.put(i, cp);
+            }
+        }
+        if (!toCreate.isEmpty()) {
+            controlPartsRepository.saveAll(toCreate);
+        }
+        return result;
+    }
+
 }

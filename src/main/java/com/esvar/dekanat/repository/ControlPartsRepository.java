@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -30,4 +31,12 @@ public interface ControlPartsRepository extends JpaRepository<ControlPartsEntity
         WHERE cp.controlMethod.id = :controlMethodId AND cp.partNumber = :partNumber
     """)
     Optional<ControlPartsEntity> findByControlMethodIdAndPartNumber(Long controlMethodId, int partNumber);
+
+    /**
+     * Retrieve all parts for a specific control method.
+     *
+     * @param controlMethodId ID of control method
+     * @return list of parts for this control method
+     */
+    List<ControlPartsEntity> findByControlMethodId(Long controlMethodId);
 }

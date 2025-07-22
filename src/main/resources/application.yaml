@@ -13,6 +13,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+        generate_statistics: true
 
 vaadin:
   launch-browser: true

@@ -2,3 +2,9 @@ server:
   port: 8080
   ssl:
     enabled: false
+
+spring:
+  jpa:
+    properties:
+      hibernate:
+        generate_statistics: true

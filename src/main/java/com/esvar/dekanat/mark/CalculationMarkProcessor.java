@@ -11,6 +11,9 @@ import com.esvar.dekanat.user.UserRepository;
 import com.esvar.dekanat.security.SecurityService;
 
 import java.sql.Timestamp;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class CalculationMarkProcessor implements MarkProcessor {
 
@@ -21,6 +24,7 @@ public class CalculationMarkProcessor implements MarkProcessor {
     private final MarksPartsService marksPartsService;
     private final ControlMethodService controlMethodService;
     private final ControlPartsService controlPartsService;
+    private int sum = 0;
 
     public CalculationMarkProcessor(MarksService marksService, UserRepository userRepository, SecurityService securityService,
                                     StudentService studentService, MarksPartsService marksPartsService, ControlMethodService controlMethodService, ControlPartsService controlPartsService) {
@@ -50,23 +54,29 @@ public class CalculationMarkProcessor implements MarkProcessor {
         // Зберігаємо MarksEntity і отримуємо managed екземпляр з ID
         marksEntity = marksService.saveMark(marksEntity);
 
-        int sum = 0;
-        for (int i = 1; i <= plan.getParts(); i++) {
-            String partMarkStr = getPartMarkValue(markDTO, i);
-            int partValue = 0;
-            if (partMarkStr != null && !partMarkStr.isEmpty()) {
-                partValue = Integer.parseInt(partMarkStr);
-            }
-            sum += partValue;
+        Map<Integer, ControlPartsEntity> partsMap =
+                controlPartsService.getOrCreatePartsMap(marksEntity.getControlMethod(), plan.getParts());
 
-            // Отримуємо або створюємо ControlPartsEntity для даної частини
-            ControlPartsEntity controlPart = getControlPartByNumber(i, marksEntity.getControlMethod());
-            MarksPartsEntity marksPartsEntity = new MarksPartsEntity();
-            marksPartsEntity.setMark(marksEntity); // marksEntity тепер managed
-            marksPartsEntity.setControlPart(controlPart);
-            marksPartsEntity.setGrade(partValue);
-            marksPartsService.saveMarksPart(marksPartsEntity);
-        }
+
+        MarksEntity finalMarksEntity = marksEntity;
+        List<MarksPartsEntity> toSave = partsMap.entrySet().stream()
+                .map(entry -> {
+                    int i = entry.getKey();
+                    String partMarkStr = getPartMarkValue(markDTO, i);
+                    int partValue = 0;
+                    if (partMarkStr != null && !partMarkStr.isEmpty()) {
+                        partValue = Integer.parseInt(partMarkStr);
+                    }
+                    sum += partValue;
+                    MarksPartsEntity mpe = new MarksPartsEntity();
+                    mpe.setMark(finalMarksEntity);
+                    mpe.setControlPart(entry.getValue());
+                    mpe.setGrade(partValue);
+                    return mpe;
+                })
+                .collect(Collectors.toList());
+
+        marksPartsService.saveAll(toSave);
         marksEntity.setFinalGrade(sum);
         return marksEntity;
     }

@@ -84,6 +84,13 @@ public class MarksPartsService {
         }
     }
 
+    public void saveAll(List<MarksPartsEntity> parts) {
+        if (parts == null || parts.isEmpty()) {
+            return;
+        }
+        marksPartsRepository.saveAll(parts);
+    }
+
     /**
      * Отримує запис у marks_parts за оцінкою та частиною.
      *

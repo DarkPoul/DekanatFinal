@@ -12,6 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 //@Component
 public class MarksStartupChecker implements ApplicationRunner {
@@ -68,21 +71,28 @@ public class MarksStartupChecker implements ApplicationRunner {
             mark = marksRepository.save(mark);
         }
 
-        for (int part = 1; part <= plan.getParts(); part++) {
-            ControlPartsEntity cp = controlPartsService.getControlPartByControlMethodAndPartNumber(method, part);
-            if (cp == null) {
-                cp = new ControlPartsEntity();
-                cp.setControlMethod(method);
-                cp.setPartNumber(part);
-                cp = controlPartsService.saveControlPart(cp);
-            }
-            if (!marksPartsRepository.existsByMarkIdAndControlPart(mark.getId(), cp)) {
-                MarksPartsEntity mp = new MarksPartsEntity();
-                mp.setMark(mark);
-                mp.setControlPart(cp);
-                mp.setGrade(0);
-                marksPartsRepository.save(mp);
-            }
+        Map<Integer, ControlPartsEntity> partsMap = controlPartsService.getOrCreatePartsMap(method, plan.getParts());
+
+        List<MarksPartsEntity> existing = marksPartsRepository
+                .findByMarkIdAndPartNumberLessThanEqual(mark.getId(), plan.getParts());
+        Set<Long> existingPartIds = existing.stream()
+                .map(mp -> mp.getControlPart().getId())
+                .collect(Collectors.toSet());
+
+        MarksEntity finalMark = mark;
+        List<MarksPartsEntity> toSave = partsMap.values().stream()
+                .filter(cp -> !existingPartIds.contains(cp.getId()))
+                .map(cp -> {
+                    MarksPartsEntity mp = new MarksPartsEntity();
+                    mp.setMark(finalMark);
+                    mp.setControlPart(cp);
+                    mp.setGrade(0);
+                    return mp;
+                })
+                .toList();
+
+        if (!toSave.isEmpty()) {
+            marksPartsRepository.saveAll(toSave);
         }
     }
 }
