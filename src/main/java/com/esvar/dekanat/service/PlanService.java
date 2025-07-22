@@ -20,8 +20,12 @@ public class PlanService {
     private final SpecialtyRepository specialtyRepository;
     private final DisciplineRepository disciplineRepository;
     private final SessionRepository sessionRepository;
+    private final MarksService marksService;
+    private final MarksPartsService marksPartsService;
+    private final MarksInitializerService marksInitializerService;
 
-    public PlanService(PlanRepository planRepository, StudentPlansRepository studentPlansRepository, StudentRepository studentRepository, FacultyRepository facultyRepository, DepartmentRepository departmentRepository, SpecialtyRepository specialtyRepository, DisciplineRepository disciplineRepository, SessionRepository sessionRepository) {
+
+    public PlanService(PlanRepository planRepository, StudentPlansRepository studentPlansRepository, StudentRepository studentRepository, FacultyRepository facultyRepository, DepartmentRepository departmentRepository, SpecialtyRepository specialtyRepository, DisciplineRepository disciplineRepository, SessionRepository sessionRepository, MarksService marksService, MarksPartsService marksPartsService, MarksInitializerService marksInitializerService) {
         this.planRepository = planRepository;
         this.studentPlansRepository = studentPlansRepository;
         this.studentRepository = studentRepository;
@@ -30,6 +34,9 @@ public class PlanService {
         this.specialtyRepository = specialtyRepository;
         this.disciplineRepository = disciplineRepository;
         this.sessionRepository = sessionRepository;
+        this.marksService = marksService;
+        this.marksPartsService = marksPartsService;
+        this.marksInitializerService = marksInitializerService;
     }
 
 
@@ -76,17 +83,29 @@ public class PlanService {
      */
     @Transactional
     public void updatePlan(PlansEntity updatedPlan) {
+        updatePlan(updatedPlan, null);
+    }
+
+    @Transactional
+    public void updatePlan(PlansEntity updatedPlan, List<StudentEntity> students) {
         if (updatedPlan == null || updatedPlan.getId() == null) {
             throw new IllegalArgumentException("ID плану повинен бути заданий.");
         }
 
-        // Оновлюємо запис у БД
         planRepository.save(updatedPlan);
+        if (students != null && !students.isEmpty()) {
+            marksInitializerService.initializeMarksForPlan(updatedPlan, students);
+        }
     }
 
     // Метод для видалення плану за ID
     @Transactional
     public void deletePlanById(Long planId) {
+        if (planId == null) {
+            return;
+        }
+        marksPartsService.deleteByPlanId(planId);
+        marksService.deleteByPlanId(planId);
         studentPlansRepository.deleteAllByPlanId(planId);
         planRepository.deleteById(planId);
     }

@@ -242,14 +242,15 @@ public class PlanView extends Div {
         PlansEntity updatedPlan = planService.getPlanById(planId);
         if (updatedPlan == null) return;
 
-        if (updatedPlan.isElective() && !isElective) {
+        boolean wasElective = updatedPlan.isElective();
+        updatedPlan.setElective(isElective); // Спочатку оновлюємо значення
+        if (wasElective && !isElective) {
             studentPlansService.deleteByPlanId(updatedPlan.getId()); // Видаляємо записи з student_plans
         }
 
         // Оновлюємо дані
         updatedPlan.setDiscipline(disciplineService.getDisciplineByTitle(discipline));
         updatedPlan.setHours(hours);
-        updatedPlan.setElective(isElective);
         updatedPlan.setFirstControl(controlMethodService.getControlMethodByName(firstControl));
         updatedPlan.setSecondControl(controlMethodService.getControlMethodByName(secondControl));
         updatedPlan.setDepartment(departmentService.getDepartmentByTitle(department));
@@ -263,7 +264,7 @@ public class PlanView extends Div {
             studentPlansService.updateStudentPlans(updatedPlan, students);
         }
 
-        // Обробка частин (РР/РГР) - видаляємо зайві частини і перераховуємо фінальні оцінки
+        // Обробка частин (РР/РГР) - видаляємо зайві частини й перераховуємо фінальні оцінки
         if (updatedPlan.getSecondControl().getName().equals("Розрахункова робота") ||
                 updatedPlan.getSecondControl().getName().equals("Розрахунково-графічна робота")) {
             int newParts = updatedPlan.getParts(); // Нове значення кількості частин

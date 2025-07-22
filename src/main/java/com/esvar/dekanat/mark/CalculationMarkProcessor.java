@@ -71,6 +71,10 @@ public class CalculationMarkProcessor implements MarkProcessor {
         return marksEntity;
     }
 
+    @Override
+    public boolean isPersistedAfterProcessing() {
+        return true;
+    }
 
     // Допоміжний метод для отримання значення частини з MarkDTO
     private String getPartMarkValue(MarkDTO markDTO, int partNumber) {

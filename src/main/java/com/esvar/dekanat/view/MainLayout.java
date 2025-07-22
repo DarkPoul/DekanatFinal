@@ -1,11 +1,13 @@
 package com.esvar.dekanat.view;
 
 import com.esvar.dekanat.DekanatApplication;
+import com.esvar.dekanat.entity.SessionEntity;
 import com.esvar.dekanat.mark.EnterMarksView;
 import com.esvar.dekanat.plan.PlanView;
 import com.esvar.dekanat.card.CardView;
 import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.rating.RatingView;
+import com.esvar.dekanat.repository.SessionRepository;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.DepartmentService;
 import com.esvar.dekanat.service.FacultyService;
@@ -31,6 +33,7 @@ import java.util.stream.Collectors;
 public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
     private final SecurityService securityService;
+    private final SessionRepository sessionRepository;
     private final FacultyService facultyService;
     private final DepartmentService departmentService;
     private final Tabs tabs = new Tabs();
@@ -39,8 +42,9 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
     private static final Logger log = LoggerFactory.getLogger(MainLayout.class);
 
-    public MainLayout(SecurityService securityService, FacultyService facultyService, DepartmentService departmentService) {
+    public MainLayout(SecurityService securityService, SessionRepository sessionRepository, FacultyService facultyService, DepartmentService departmentService) {
         this.securityService = securityService;
+        this.sessionRepository = sessionRepository;
         this.facultyService = facultyService;
         this.departmentService = departmentService;
         // Заголовок
@@ -101,12 +105,23 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
             return;
         }
         if (isAdmin || isDekanatGroup) {
+            boolean isWinter = sessionRepository.findById(1L)
+                    .map(SessionEntity::isWinter)
+                    .orElse(false);
+
+            // Використовуємо наявні іконки: Asterisk як сніжинку, Sun_O як сонце
+            Icon seasonIcon = (isWinter ? VaadinIcon.ASTERISK.create() : VaadinIcon.SUN_O.create());
+            seasonIcon.getStyle()
+                    .set("margin-inline-start", "var(--lumo-space-m)")
+                    .set("padding", "var(--lumo-space-xs)")
+                    .set("color", isWinter ? "blue" : "orange");  // синя сніжинка, жовте сонце
+
             tabs.removeAll();
             navigationTargetToTab.clear();
             tabs.add(
                     createTab(VaadinIcon.CLIPBOARD_CHECK, "Навчальні плани", PlanView.class),
                     createTab(VaadinIcon.USER_CARD, "Перегляд карток", CardView.class),
-                    createTab(VaadinIcon.PENCIL, "Введення оцінок", EnterMarksView.class),
+                    createTab(VaadinIcon.PENCIL, "Введення оцінок", EnterMarksView.class, seasonIcon),
                     createTab(VaadinIcon.BAR_CHART, "Рейтинг", RatingView.class),
                     createTab(VaadinIcon.BOOK, "Успішність", SuccessView.class)
             );
@@ -127,17 +142,26 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
     }
 
     private Tab createTab(VaadinIcon iconType, String title, Class<? extends Component> target) {
+        return createTab(iconType, title, target, (Icon) null);
+    }
+
+    private Tab createTab(VaadinIcon iconType, String title, Class<? extends Component> target, Icon trailingIcon) {
         Icon icon = iconType.create();
         icon.getStyle()
                 .set("margin-inline-end", "var(--lumo-space-m)")
                 .set("padding", "var(--lumo-space-xs)");
         RouterLink link = new RouterLink("", target);
-        link.add(icon, new Span(title));
+        Span text = new Span(title);
+        link.add(icon, text);
+        if (trailingIcon != null) {
+            link.add(trailingIcon); // вже з кольором
+        }
         link.setTabIndex(-1);
         Tab tab = new Tab(link);
         navigationTargetToTab.put(target, tab);
         return tab;
     }
+
 
     public void setDrawerEnabled(boolean enabled) {
         tabs.setEnabled(enabled);

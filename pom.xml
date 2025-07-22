@@ -77,7 +77,7 @@
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-ooxml</artifactId>
-			<version>5.3.0</version> <!-- Or latest stable version -->
+			<version>5.4.0</version> <!-- Or latest stable version -->
 		</dependency>
 
 		<!-- Latest version of XWPF Converter -->
@@ -93,8 +93,17 @@
 			<version>4.0.0</version>
 		</dependency>
 
+        <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <version>3.5.3</version>
+            <scope>test</scope>
+        </dependency>
 
-	</dependencies>
+
+
+    </dependencies>
 	<dependencyManagement>
 		<dependencies>
 			<dependency>

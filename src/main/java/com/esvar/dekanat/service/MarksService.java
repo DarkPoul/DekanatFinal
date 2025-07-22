@@ -141,4 +141,11 @@ public class MarksService {
         }
     }
 
+    @Transactional
+    public void deleteByPlanId(Long planId) {
+        if (planId != null) {
+            marksRepository.deleteByPlanId(planId);
+        }
+    }
+
 }

@@ -45,4 +45,9 @@ public class ModularMarkProcessor implements MarkProcessor {
         );
         return marksEntity;
     }
+
+    @Override
+    public boolean isPersistedAfterProcessing() {
+        return false;
+    }
 }

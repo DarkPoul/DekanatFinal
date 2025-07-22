@@ -57,19 +57,18 @@ public class StudentPlansService{
      * @param students    List<String> - список імен студентів.
      */
     @Transactional
-    public void updateStudentPlans(PlansEntity updatedPlan, List<String> students) {
+    public List<StudentEntity> updateStudentPlans(PlansEntity updatedPlan, List<String> students) {
         if (updatedPlan == null || updatedPlan.getId() == null) {
             throw new IllegalArgumentException("План для оновлення повинен бути заданий.");
         }
 
-        if (students == null || students.isEmpty()) {
-            return; // Якщо немає студентів, просто завершуємо роботу
-        }
-
-        // Видаляємо всі старі записи для даного плану
         studentPlansRepository.deleteAllByPlanId(updatedPlan.getId());
 
-        // Створюємо нові записи для кожного студента
+        if (students == null || students.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<StudentEntity> result = new ArrayList<>();
         for (String studentName : students) {
             StudentEntity student = Optional.ofNullable(studentRepository.findBySurnameAndNameAndPatronymic(
                     studentName.split(" ")[0],
@@ -80,10 +79,10 @@ public class StudentPlansService{
             StudentPlansEntity studentPlan = new StudentPlansEntity();
             studentPlan.setStudent(student);
             studentPlan.setPlan(updatedPlan);
-
-            // Зберігаємо новий запис
             studentPlansRepository.save(studentPlan);
+            result.add(student);
         }
+        return result;
     }
 
 

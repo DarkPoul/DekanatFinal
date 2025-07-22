@@ -337,13 +337,17 @@ public class EnterMarksView extends Div {
             List<MarksEntity> toSave = new ArrayList<>();
 
             for (MarkDTO markDTO : markDTOList) {
-                if (markDTO.isLocked()){
+                if (markDTO.isLocked()) {
                     continue;
                 }
                 MarksEntity marksEntity = processor.processMark(markDTO, plansEntity, controlType);
-                toSave.add(marksEntity);
+                if (!processor.isPersistedAfterProcessing()) {
+                    toSave.add(marksEntity);
+                }
             }
-            marksService.saveMarks(toSave);
+            if (!processor.isPersistedAfterProcessing()) {
+                marksService.saveMarks(toSave);
+            }
             updateGrid();
         });
 

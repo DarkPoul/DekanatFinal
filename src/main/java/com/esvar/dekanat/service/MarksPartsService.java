@@ -77,6 +77,13 @@ public class MarksPartsService {
         marksPartsRepository.deleteByPlanId(updatedPlan.getId());
     }
 
+    @Transactional
+    public void deleteByPlanId(Long planId) {
+        if (planId != null) {
+            marksPartsRepository.deleteByPlanId(planId);
+        }
+    }
+
     /**
      * Отримує запис у marks_parts за оцінкою та частиною.
      *
