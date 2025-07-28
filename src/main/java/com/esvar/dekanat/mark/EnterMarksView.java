@@ -48,6 +48,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -887,7 +888,9 @@ public class EnterMarksView extends Div {
     private DataModelForMC1 buildDataModelForMC1(String secondTeacher) {
         // Припущення: дані беруться з плану та пов'язаних сервісів.
         String facultyName = plansEntity.getFaculty().getTitle();
-        String specialityName = plansEntity.getSpecialty().getTitle();
+        String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
+                .map(EduProgramEntity::getTitle)
+                .orElse("Освітня програма не знайдена");
         String courseNumber = String.valueOf(plansEntity.getGroup().getCourse());
         String groupName = plansEntity.getGroup().getGroupCode();
         String studyYear = String.valueOf(plansEntity.getGroup().getYear());
@@ -923,7 +926,9 @@ public class EnterMarksView extends Div {
     private DataModelForMC2 buildDataModelForMC2(String secondTeacher) {
         // Подібно, але з додатковими полями qualityTrue та qualityFalse
         String facultyName = plansEntity.getFaculty().getTitle();
-        String specialityName = plansEntity.getSpecialty().getTitle();
+        String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
+                .map(EduProgramEntity::getTitle)
+                .orElse("");
         String courseNumber = String.valueOf(plansEntity.getGroup().getCourse());
         String groupName = plansEntity.getGroup().getGroupCode();
         String studyYear = String.valueOf(plansEntity.getGroup().getYear());
