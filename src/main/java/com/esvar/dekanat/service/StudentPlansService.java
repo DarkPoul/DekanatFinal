@@ -3,6 +3,7 @@ package com.esvar.dekanat.service;
 import com.esvar.dekanat.entity.PlansEntity;
 import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.entity.StudentPlansEntity;
+import com.esvar.dekanat.entity.StudentPlansPK;
 import com.esvar.dekanat.repository.StudentPlansRepository;
 import com.esvar.dekanat.repository.StudentRepository;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,10 @@ public class StudentPlansService{
 
         if (!exists) {
             // Якщо запис не існує, зберігаємо новий
+            studentPlan.setId(new StudentPlansPK(
+                    studentPlan.getStudent().getId(),
+                    studentPlan.getPlan().getId()
+            ));
             studentPlansRepository.save(studentPlan);
         } else {
             // Якщо запис вже існує, можна або проігнорувати, або оновити його
@@ -62,27 +67,42 @@ public class StudentPlansService{
             throw new IllegalArgumentException("План для оновлення повинен бути заданий.");
         }
 
-        studentPlansRepository.deleteAllByPlanId(updatedPlan.getId());
+        List<StudentPlansEntity> existingLinks = studentPlansRepository.findByPlan(updatedPlan);
+        List<StudentEntity> existingStudents = existingLinks.stream()
+                .map(StudentPlansEntity::getStudent)
+                .toList();
 
-        if (students == null || students.isEmpty()) {
-            return new ArrayList<>();
+        List<StudentEntity> newStudents = new ArrayList<>();
+        if (students != null) {
+            for (String studentName : students) {
+                StudentEntity student = Optional.ofNullable(studentRepository.findBySurnameAndNameAndPatronymic(
+                        studentName.split(" ")[0],
+                        studentName.split(" ")[1],
+                        studentName.split(" ")[2]
+                )).orElseThrow(() -> new IllegalArgumentException("Студент '" + studentName + "' не знайдений."));
+                newStudents.add(student);
+                boolean exists = existingStudents.stream()
+                        .anyMatch(s -> s.getId().equals(student.getId()));
+                if (!exists) {
+                    StudentPlansEntity studentPlan = new StudentPlansEntity();
+                    studentPlan.setStudent(student);
+                    studentPlan.setPlan(updatedPlan);
+                    studentPlan.setId(new StudentPlansPK(student.getId(), updatedPlan.getId()));
+                    studentPlansRepository.save(studentPlan);
+                }
+            }
         }
 
-        List<StudentEntity> result = new ArrayList<>();
-        for (String studentName : students) {
-            StudentEntity student = Optional.ofNullable(studentRepository.findBySurnameAndNameAndPatronymic(
-                    studentName.split(" ")[0],
-                    studentName.split(" ")[1],
-                    studentName.split(" ")[2]
-            )).orElseThrow(() -> new IllegalArgumentException("Студент '" + studentName + "' не знайдений."));
-
-            StudentPlansEntity studentPlan = new StudentPlansEntity();
-            studentPlan.setStudent(student);
-            studentPlan.setPlan(updatedPlan);
-            studentPlansRepository.save(studentPlan);
-            result.add(student);
+        List<Long> newIds = newStudents.stream().map(StudentEntity::getId).toList();
+        List<StudentEntity> toRemove = existingStudents.stream()
+                .filter(s -> !newIds.contains(s.getId()))
+                .toList();
+        if (!toRemove.isEmpty()) {
+            List<Long> removeIds = toRemove.stream().map(StudentEntity::getId).toList();
+            studentPlansRepository.deleteByPlanIdAndStudentIds(updatedPlan.getId(), removeIds);
         }
-        return result;
+
+        return newStudents;
     }
 
 

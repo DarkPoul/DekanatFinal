@@ -13,6 +13,7 @@ import com.esvar.dekanat.view.MainLayout;
 import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
@@ -26,6 +27,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.NumberField;
+import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.Query;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
@@ -33,6 +35,7 @@ import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.VaadinServlet;
 import jakarta.annotation.security.PermitAll;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -80,6 +83,9 @@ public class EnterMarksView extends Div {
     private Select<String> selectControlType = new Select<>();
     private PlansEntity plansEntity = new PlansEntity();
     private Grid<MarkDTO> studentGrid = new Grid<>(MarkDTO.class, false);
+
+    @Value("${upload.dir}")
+    private String uploadsDir;
 
     public EnterMarksView(FacultyService facultyService, DepartmentService departmentService, PlanService planService,
                           StudentService studentService, StudentPlansService studentPlansService, SecurityService securityService,
@@ -389,7 +395,7 @@ public class EnterMarksView extends Div {
             updateGrid();
         });
 
-        printReportButton.addClickListener(e -> printReport());
+        printReportButton.addClickListener(e -> showSecondTeacherDialog());
     }
 
     private void configureGrid(String typeControl, int part) {
@@ -609,15 +615,13 @@ public class EnterMarksView extends Div {
                     SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
                     dto.setLastUpdated(formatter.format(mark.getLastUpdated()));
                     try {
-                        dto.setLastUpdatedBy(mark.getLastUpdatedBy().getLastname() + " " +
-                                mark.getLastUpdatedBy().getFirstname() + " " +
-                                mark.getLastUpdatedBy().getPatronymic());
+                        dto.setLastUpdatedBy(mark.getLastUpdatedBy().getFirstname() + " " +
+                                mark.getLastUpdatedBy().getLastname().toUpperCase());
                     } catch (NullPointerException e){
                         dto.setLastUpdatedBy("Система"); // Якщо немає інформації про користувача, можна вказати "Система"
                     }
-                    dto.setLastUpdatedBy(mark.getLastUpdatedBy().getLastname() + " " +
-                            mark.getLastUpdatedBy().getFirstname() + " " +
-                            mark.getLastUpdatedBy().getPatronymic());
+                    dto.setLastUpdatedBy(mark.getLastUpdatedBy().getFirstname() + " " +
+                            mark.getLastUpdatedBy().getLastname().toUpperCase());
                     markDTOList.add(dto);
                 }
             }
@@ -671,9 +675,8 @@ public class EnterMarksView extends Div {
                     SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
                     dto.setLastUpdated(formatter.format(mark.getLastUpdated()));
                     try{
-                        dto.setLastUpdatedBy(mark.getLastUpdatedBy().getLastname() + " " +
-                                mark.getLastUpdatedBy().getFirstname() + " " +
-                                mark.getLastUpdatedBy().getPatronymic());
+                        dto.setLastUpdatedBy(mark.getLastUpdatedBy().getFirstname() + " " +
+                                mark.getLastUpdatedBy().getLastname().toUpperCase());
                         markDTOList.add(dto);
                     } catch (Exception e) {
                         dto.setLastUpdatedBy("Система"); // Якщо немає інформації про користувача, можна вказати "Система"
@@ -792,7 +795,7 @@ public class EnterMarksView extends Div {
     }
 
 
-    private void printReport() {
+    private void printReport(String secondTeacher) {
         String controlType = selectControlType.getValue();
         if (controlType == null) {
             Notification.show("Спочатку оберіть тип контролю!", 3000, Notification.Position.MIDDLE)
@@ -801,12 +804,12 @@ public class EnterMarksView extends Div {
         }
 
         if (controlType.equals("Перший модульний контроль")) {
-            DataModelForMC1 data = buildDataModelForMC1();
+            DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
             try {
                 DocxUpdater updater = new DocxUpdater();
                 updater.generateForMC1(data);
                 // Використовуємо uploadsDir, заданий через application.properties
-                String uploadsDir = "C:/Users/poulp/IdeaProjects/Dekanat/uploads";
+
                 String finalFilePath = uploadsDir + File.separator + "firstControl.pdf";
                 File pdfFile = new File(finalFilePath);
                 System.out.println("PDF файл: " + pdfFile.getAbsolutePath());
@@ -836,13 +839,12 @@ public class EnterMarksView extends Div {
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
         } else if (controlType.equals("Другий модульний контроль")) {
-            DataModelForMC2 data = buildDataModelForMC2();
+            DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
             try {
                 DocxUpdater updater = new DocxUpdater();
                 updater.generateForMC2(data);
                 System.out.println("Генерація PDF для другого модульного контролю завершена.");
                 // Використовуємо uploadsDir, заданий через application.properties
-                String uploadsDir = "C:/Users/poulp/IdeaProjects/Dekanat/uploads";
                 String finalFilePath = uploadsDir + File.separator + "secondControl.pdf";
                 File pdfFile = new File(finalFilePath);
                 System.out.println("PDF файл: " + pdfFile.getAbsolutePath());
@@ -882,7 +884,7 @@ public class EnterMarksView extends Div {
 
 
     // Приклад допоміжних методів для побудови моделей даних для друку
-    private DataModelForMC1 buildDataModelForMC1() {
+    private DataModelForMC1 buildDataModelForMC1(String secondTeacher) {
         // Припущення: дані беруться з плану та пов'язаних сервісів.
         String facultyName = plansEntity.getFaculty().getTitle();
         String specialityName = plansEntity.getSpecialty().getTitle();
@@ -899,9 +901,7 @@ public class EnterMarksView extends Div {
         String controlTypeName = selectControlType.getValue();
         String hours = String.valueOf(plansEntity.getHours());
         // Приклад з фіксованими значеннями для викладачів
-        String firstTeacher = "Викладач 1";
-        String secondTeacher = "Викладач 2";
-        String gradeTeacher = "Головний викладач";
+        String firstTeacher = getCurrentUserFullName();
 
         // Формуємо список студентів для друку
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
@@ -910,17 +910,17 @@ public class EnterMarksView extends Div {
         for (StudentEntity student : studentEntities) {
             // Припустимо, student.getRecordBookNumber() використовується як studentNumber
             String mark = ""; // Для MC1 використаємо 0 або finalGrade з відповідної MarksEntity, якщо потрібно
-            students.add(new StudentModelToDocumentGenerate(index, student.getSurname() + " " + student.getName() + " " + student.getPatronymic(),
+            students.add(new StudentModelToDocumentGenerate(index, student.getName() + " " + student.getSurname().toUpperCase(),
                     student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "", mark));
             index++;
         }
 
         return new DataModelForMC1(facultyName, specialityName, courseNumber, groupName, studyYear,
                 day, month, year, disciplineName, semesterNumber, controlTypeName,
-                hours, firstTeacher, secondTeacher, gradeTeacher, students);
+                hours, firstTeacher, secondTeacher, firstTeacher, students);
     }
 
-    private DataModelForMC2 buildDataModelForMC2() {
+    private DataModelForMC2 buildDataModelForMC2(String secondTeacher) {
         // Подібно, але з додатковими полями qualityTrue та qualityFalse
         String facultyName = plansEntity.getFaculty().getTitle();
         String specialityName = plansEntity.getSpecialty().getTitle();
@@ -935,9 +935,7 @@ public class EnterMarksView extends Div {
         String semesterNumber = String.valueOf(plansEntity.getSemester());
         String controlTypeName = selectControlType.getValue();
         String hours = String.valueOf(plansEntity.getHours());
-        String firstTeacher = "Викладач 1";
-        String secondTeacher = "Викладач 2";
-        String gradeTeacher = "Головний викладач";
+        String firstTeacher = getCurrentUserFullName();
         String qualityTrue = "Якість1";
         String qualityFalse = "Якість2";
 
@@ -946,14 +944,14 @@ public class EnterMarksView extends Div {
         int index = 1;
         for (StudentEntity student : studentEntities) {
             String mark = ""; // Для MC2 теж використаємо 0 або отриману оцінку, якщо потрібно
-            students.add(new StudentModelToDocumentGenerate(index, student.getSurname() + " " + student.getName() + " " + student.getPatronymic(),
+            students.add(new StudentModelToDocumentGenerate(index, student.getName() + " " + student.getSurname().toUpperCase(),
                     student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "", mark));
             index++;
         }
 
         return new DataModelForMC2(facultyName, specialityName, courseNumber, groupName, studyYear,
                 day, month, year, disciplineName, semesterNumber, controlTypeName,
-                hours, firstTeacher, secondTeacher, gradeTeacher, qualityTrue, qualityFalse, students);
+                hours, firstTeacher, secondTeacher, firstTeacher, qualityTrue, qualityFalse, students);
     }
 
     private List<MarkDTO> getSelectedOrAllMarks() {
@@ -963,6 +961,26 @@ public class EnterMarksView extends Div {
             return all;
         }
         return new ArrayList<>(selected);
+    }
+
+    private String getCurrentUserFullName() {
+        return securityService.getCurrentUserModel()
+                .map(u -> u.getFirstname() + " " + u.getLastname().toUpperCase())
+                .orElse("");
+    }
+
+    private void showSecondTeacherDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Введіть ПІБ другого викладача");
+        TextField teacherField = new TextField();
+        teacherField.setWidthFull();
+        Button okButton = new Button("OK", e -> {
+            String secondTeacher = teacherField.getValue();
+            dialog.close();
+            printReport(secondTeacher);
+        });
+        dialog.add(new VerticalLayout(new Span("ПІБ другого викладача"), teacherField, okButton));
+        dialog.open();
     }
 
 

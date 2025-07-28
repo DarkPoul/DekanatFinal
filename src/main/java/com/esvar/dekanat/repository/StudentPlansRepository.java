@@ -3,6 +3,7 @@ package com.esvar.dekanat.repository;
 import com.esvar.dekanat.entity.PlansEntity;
 import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.entity.StudentPlansEntity;
+import com.esvar.dekanat.entity.StudentPlansPK;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -12,7 +13,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface StudentPlansRepository extends JpaRepository<StudentPlansEntity, Long> {
+public interface StudentPlansRepository extends JpaRepository<StudentPlansEntity, StudentPlansPK> {
 
     /**
      * Знайти ID студентів, які вибрали конкретний план.
@@ -59,4 +60,8 @@ public interface StudentPlansRepository extends JpaRepository<StudentPlansEntity
      * @return список StudentPlansEntity
      */
     List<StudentPlansEntity> findByStudent(StudentEntity student);
+
+    @Modifying
+    @Query("DELETE FROM StudentPlansEntity sp WHERE sp.plan.id = :planId AND sp.student.id IN :studentIds")
+    void deleteByPlanIdAndStudentIds(@Param("planId") Long planId, @Param("studentIds") List<Long> studentIds);
 }

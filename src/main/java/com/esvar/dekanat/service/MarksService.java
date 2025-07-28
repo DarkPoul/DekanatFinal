@@ -148,4 +148,11 @@ public class MarksService {
         }
     }
 
+    @Transactional
+    public void deleteByPlanIdAndStudentIds(Long planId, List<Long> studentIds) {
+        if (planId != null && studentIds != null && !studentIds.isEmpty()) {
+            marksRepository.deleteByPlanIdAndStudentIds(planId, studentIds);
+        }
+    }
+
 }

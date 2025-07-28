@@ -2,12 +2,15 @@ package com.esvar.dekanat.generate;
 
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.xmlbeans.XmlCursor;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STHeightRule;
+
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,7 +23,7 @@ public class DocxUpdater {
 
         System.out.println("################################## START ##############################################");
 
-        int i = 26; //Кількість студентів від яких йде весь розрахунок для перенесення таблиці на нову сторінку
+        int i;
 
         String inputFilePath = "uploads/firstControl.docx";
         String tempFilePath = "uploads/firstControlTemp.docx";
@@ -30,6 +33,8 @@ public class DocxUpdater {
 
         try (FileInputStream fis = new FileInputStream(inputFilePath);
              XWPFDocument document = new XWPFDocument(fis)) {
+
+            i = calculateRowsPerPage(document);
 
             replaceTagsInDocumentMC1(document, data);
 
@@ -377,5 +382,37 @@ public class DocxUpdater {
         run.setItalic(false);
         run.setFontFamily("Times New Roman");
         run.setText(text);
+    }
+
+    private int calculateRowsPerPage(XWPFDocument document) {
+        CTSectPr sectPr = document.getDocument().getBody().getSectPr();
+        if (sectPr == null) {
+            return 26;
+        }
+
+        BigInteger pageHeight = BigInteger.ZERO;
+        BigInteger top = BigInteger.ZERO;
+        BigInteger bottom = BigInteger.ZERO;
+
+        if (sectPr.isSetPgSz() && sectPr.getPgSz().getH() != null) {
+            pageHeight = new BigInteger(sectPr.getPgSz().getH().toString());
+        }
+
+        if (sectPr.isSetPgMar()) {
+            if (sectPr.getPgMar().getTop() != null) {
+                top = new BigInteger(sectPr.getPgMar().getTop().toString());
+            }
+            if (sectPr.getPgMar().getBottom() != null) {
+                bottom = new BigInteger(sectPr.getPgMar().getBottom().toString());
+            }
+        }
+
+        int availableHeight = pageHeight.intValue() - top.intValue() - bottom.intValue();
+        if (availableHeight <= 0) {
+            return 26;
+        }
+
+        int rowHeight = 280; // height defined in createRow()
+        return Math.max(availableHeight / rowHeight, 1);
     }
 }

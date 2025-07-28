@@ -51,4 +51,8 @@ public interface MarksRepository extends JpaRepository<MarksEntity, Long> {
     @Modifying
     @Query("DELETE FROM MarksEntity m WHERE m.plan.id = :planId")
     void deleteByPlanId(@Param("planId") Long planId);
+
+    @Modifying
+    @Query("DELETE FROM MarksEntity m WHERE m.plan.id = :planId AND m.student.id IN :studentIds")
+    void deleteByPlanIdAndStudentIds(@Param("planId") Long planId, @Param("studentIds") List<Long> studentIds);
 }

@@ -19,7 +19,7 @@ vaadin:
   launch-browser: true
 
 upload:
-  dir: /app/uploads
+  dir: uploads
 
 #server:
 #  # Порт береться із змінної оточення SERVER_PORT (за замовчуванням 8080)

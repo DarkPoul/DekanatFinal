@@ -15,10 +15,12 @@ public class MarksPartsService {
     
     private final MarksPartsRepository marksPartsRepository;
     private final MarksRepository marksRepository;
+    private final ControlPartsService controlPartsService;
 
-    public MarksPartsService(MarksPartsRepository marksPartsRepository, MarksRepository marksRepository) {
+    public MarksPartsService(MarksPartsRepository marksPartsRepository, MarksRepository marksRepository, ControlPartsService controlPartsService) {
         this.marksPartsRepository = marksPartsRepository;
         this.marksRepository = marksRepository;
+        this.controlPartsService = controlPartsService;
     }
 
     public int getNumberOfPartsForPlan(PlansEntity plan) {
@@ -91,6 +93,13 @@ public class MarksPartsService {
         marksPartsRepository.saveAll(parts);
     }
 
+    @Transactional
+    public void deleteByPlanIdAndStudentIds(Long planId, List<Long> studentIds) {
+        if (planId != null && studentIds != null && !studentIds.isEmpty()) {
+            marksPartsRepository.deleteByPlanIdAndStudentIds(planId, studentIds);
+        }
+    }
+
     /**
      * Отримує запис у marks_parts за оцінкою та частиною.
      *
@@ -123,6 +132,48 @@ public class MarksPartsService {
                     .sum();
             mark.setFinalGrade(sum);
             marksRepository.save(mark); // Оновлюємо запис у таблиці marks
+        }
+    }
+
+    /**
+     * When the control method of a plan changes, move existing marks and their
+     * parts to the new method so that scores are preserved.
+     *
+     * @param plan       plan that was updated
+     * @param oldMethod  previous control method
+     * @param newMethod  new control method
+     */
+    @Transactional
+    public void transferControlMethod(PlansEntity plan,
+                                      ControlMethodEntity oldMethod,
+                                      ControlMethodEntity newMethod) {
+        if (plan == null || oldMethod == null || newMethod == null) {
+            return;
+        }
+        if (oldMethod.getId().equals(newMethod.getId())) {
+            return; // nothing to do
+        }
+
+        List<MarksEntity> marks = marksRepository.findByPlanAndControlMethod(plan, oldMethod);
+        if (marks.isEmpty()) {
+            return;
+        }
+
+        var newParts = controlPartsService.getOrCreatePartsMap(newMethod, plan.getParts());
+        for (MarksEntity mark : marks) {
+            mark.setControlMethod(newMethod);
+            marksRepository.save(mark);
+
+            List<MarksPartsEntity> parts = marksPartsRepository
+                    .findByMarkIdAndPartNumberLessThanEqual(mark.getId(), plan.getParts());
+            for (MarksPartsEntity mp : parts) {
+                int partNumber = mp.getControlPart().getPartNumber();
+                ControlPartsEntity targetPart = newParts.get(partNumber);
+                if (targetPart != null) {
+                    mp.setControlPart(targetPart);
+                    marksPartsRepository.save(mp);
+                }
+            }
         }
     }
 

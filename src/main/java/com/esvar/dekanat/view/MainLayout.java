@@ -50,7 +50,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         // Заголовок
         String headerText = securityService.getCurrentUserModel()
                 .map(u -> {
-                    String base = u.getLastname() + " " + u.getFirstname() + " " + u.getPatronymic();
+                    String base = u.getFirstname() + " " + u.getLastname().toUpperCase();
                     String role = u.getRole();
                     String roleType = u.getRoleType();
                     if (role != null && roleType != null) {

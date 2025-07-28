@@ -8,3 +8,6 @@ spring:
     properties:
       hibernate:
         generate_statistics: true
+
+upload:
+  dir: uploads

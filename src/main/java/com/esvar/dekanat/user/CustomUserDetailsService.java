@@ -55,14 +55,14 @@ public class CustomUserDetailsService implements UserDetailsService {
     public String getPIB(String email){
         Optional<UserModel> UserModelOpt = userRepository.findByEmail(email);
         UserModel UserModel = UserModelOpt.get();
-        return UserModel.getLastname() + " " + UserModel.getFirstname() + " " + UserModel.getPatronymic();
+        return UserModel.getFirstname() + " " + UserModel.getLastname().toUpperCase();
     }
 
 
     public String findById(int i) {
         String pib = "";
         if (userRepository.findById((long)i).isPresent()){
-            pib = userRepository.findById((long)i).get().getLastname() + " " + userRepository.findById((long)i).get().getFirstname() + " " + userRepository.findById((long)i).get().getPatronymic();
+            pib = userRepository.findById((long)i).get().getFirstname() + " " + userRepository.findById((long)i).get().getLastname().toUpperCase();
         }
         return pib;
     }

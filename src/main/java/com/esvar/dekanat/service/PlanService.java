@@ -160,6 +160,7 @@ public class PlanService {
     }
 
     public List<String> getDisciplinesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupGroupNumber(String faculty, String department, String specialty, int course, int groupNumber) {
+        int semester = getNumberSemester(String.valueOf(course));
         return planRepository.findByFacultyAndDepartmentAndSpecialtyAndGroup_CourseAndGroup_GroupNumber
                 (
                         facultyRepository.findByTitle(faculty),
@@ -168,6 +169,7 @@ public class PlanService {
                         course,
                         groupNumber
                 ).stream()
+                .filter(p -> p.getSemester() == semester)
                 .map(PlansEntity::getDiscipline)
                 .map(DisciplineEntity::getTitle)
                 .collect(Collectors.toList());
@@ -175,7 +177,7 @@ public class PlanService {
 
     public List<String> getControlTypesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
             String faculty, String department, String specialty, int course, int groupNumber, String discipline) {
-
+        int semester = getNumberSemester(String.valueOf(course));
         List<String> controlTypes = planRepository.findByFacultyAndDepartmentAndSpecialtyAndGroup_CourseAndGroup_GroupNumberAndDiscipline(
                         facultyRepository.findByTitle(faculty),
                         departmentRepository.findByTitle(department),
@@ -184,6 +186,7 @@ public class PlanService {
                         groupNumber,
                         disciplineRepository.findByTitle(discipline)
                 ).stream()
+                .filter(p -> p.getSemester() == semester)
                 .flatMap(plan -> Stream.of(plan.getFirstControl().getName(), plan.getSecondControl().getName())) // Отримуємо обидва значення
                 .filter(control -> !"Відсутній".equals(control)) // Фільтруємо "Відсутній"
                 .distinct() // Унікальні значення (якщо потрібно)
@@ -197,6 +200,7 @@ public class PlanService {
     }
 
     public PlansEntity getPlanEntityByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(String faculty, String department, String specialty, int course, int groupNumber, String discipline){
+        int semester = getNumberSemester(String.valueOf(course));
         return planRepository.findByFacultyAndDepartmentAndSpecialtyAndGroup_CourseAndGroup_GroupNumberAndDiscipline(
                 facultyRepository.findByTitle(faculty),
                 departmentRepository.findByTitle(department),
@@ -204,7 +208,9 @@ public class PlanService {
                 course,
                 groupNumber,
                 disciplineRepository.findByTitle(discipline)
-        ).stream().findFirst().orElse(null);
+            ).stream()
+                .filter(p -> p.getSemester() == semester)
+                .findFirst().orElse(null);
     }
 
     private int getNumberSemester(String course) {

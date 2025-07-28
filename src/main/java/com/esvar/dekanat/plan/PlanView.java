@@ -242,11 +242,10 @@ public class PlanView extends Div {
         PlansEntity updatedPlan = planService.getPlanById(planId);
         if (updatedPlan == null) return;
 
-        boolean wasElective = updatedPlan.isElective();
-        updatedPlan.setElective(isElective); // Спочатку оновлюємо значення
-        if (wasElective && !isElective) {
-            studentPlansService.deleteByPlanId(updatedPlan.getId()); // Видаляємо записи з student_plans
-        }
+        List<StudentEntity> beforeStudents = studentPlansService.getStudentByPlan(updatedPlan);
+        ControlMethodEntity prevFirst = updatedPlan.getFirstControl();
+        ControlMethodEntity prevSecond = updatedPlan.getSecondControl();
+        updatedPlan.setElective(isElective);
 
         // Оновлюємо дані
         updatedPlan.setDiscipline(disciplineService.getDisciplineByTitle(discipline));
@@ -259,9 +258,42 @@ public class PlanView extends Div {
         // Зберігаємо оновлення
         planService.updatePlan(updatedPlan);
 
-        // Якщо дисципліна вибіркова, оновлюємо записи у student_plans
-        if (isElective && students != null && !students.isEmpty()) {
-            studentPlansService.updateStudentPlans(updatedPlan, students);
+        List<StudentEntity> targetStudents;
+        if (isElective) {
+            targetStudents = studentPlansService.updateStudentPlans(updatedPlan, students);
+        } else {
+            List<String> all = studentService.getStudentByGroupId(updatedPlan.getGroup().getId())
+                    .stream()
+                    .map(StudentEntity::getFullName)
+                    .toList();
+            targetStudents = studentPlansService.updateStudentPlans(updatedPlan, all);
+        }
+
+        List<Long> beforeIds = beforeStudents.stream().map(StudentEntity::getId).toList();
+        List<Long> afterIds = targetStudents.stream().map(StudentEntity::getId).toList();
+
+        List<Long> removedIds = beforeIds.stream()
+                .filter(id -> !afterIds.contains(id))
+                .toList();
+        List<StudentEntity> addedStudents = targetStudents.stream()
+                .filter(s -> !beforeIds.contains(s.getId()))
+                .toList();
+
+        if (!removedIds.isEmpty()) {
+            marksPartsService.deleteByPlanIdAndStudentIds(updatedPlan.getId(), removedIds);
+            marksService.deleteByPlanIdAndStudentIds(updatedPlan.getId(), removedIds);
+        }
+
+        if (!addedStudents.isEmpty()) {
+            marksInitializerService.initializeMarksForPlan(updatedPlan, addedStudents);
+        }
+
+        if (!prevFirst.getId().equals(updatedPlan.getFirstControl().getId())) {
+            marksPartsService.transferControlMethod(updatedPlan, prevFirst, updatedPlan.getFirstControl());
+        }
+        if (prevSecond != null && updatedPlan.getSecondControl() != null
+                && !prevSecond.getId().equals(updatedPlan.getSecondControl().getId())) {
+            marksPartsService.transferControlMethod(updatedPlan, prevSecond, updatedPlan.getSecondControl());
         }
 
         // Обробка частин (РР/РГР) - видаляємо зайві частини й перераховуємо фінальні оцінки

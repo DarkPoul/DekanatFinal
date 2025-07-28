@@ -65,5 +65,8 @@ public interface MarksPartsRepository extends JpaRepository<MarksPartsEntity, Lo
     @Query("SELECT mp FROM MarksPartsEntity mp WHERE mp.mark.id = :markId AND mp.controlPart.partNumber <= :newParts")
     List<MarksPartsEntity> findByMarkIdAndPartNumberLessThanEqual(@Param("markId") Long markId, @Param("newParts") int newParts);
 
+    @Modifying
+    @Query("DELETE FROM MarksPartsEntity mp WHERE mp.mark.plan.id = :planId AND mp.mark.student.id IN :studentIds")
+    void deleteByPlanIdAndStudentIds(@Param("planId") Long planId, @Param("studentIds") List<Long> studentIds);
 
 }

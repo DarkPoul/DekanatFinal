@@ -28,6 +28,10 @@ public class SpecialtyEntity {
     @JoinColumn(name = "faculty_id", nullable = false)
     private FacultyEntity faculty;
 
+    @ManyToOne
+    @JoinColumn(name = "edu_program_id")
+    private EduProgramEntity eduProgram;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
