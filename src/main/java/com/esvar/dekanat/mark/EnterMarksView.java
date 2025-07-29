@@ -22,6 +22,7 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.page.Push;
@@ -31,6 +32,8 @@ import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.Query;
+import com.vaadin.flow.dom.Element;
+import com.vaadin.flow.dom.ElementFactory;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.StreamResource;
@@ -58,7 +61,6 @@ import java.util.stream.Collectors;
 @PageTitle("Введення оцінок | Деканат")
 @Route(value = "marks", layout = MainLayout.class)
 @PermitAll
-@Push
 public class EnterMarksView extends Div {
 
     private final FacultyService facultyService;
@@ -983,16 +985,58 @@ public class EnterMarksView extends Div {
 
     private void showSecondTeacherDialog() {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Введіть ПІБ другого викладача");
+
         TextField teacherField = new TextField();
         teacherField.setWidthFull();
-        Button okButton = new Button("OK", e -> {
-            String secondTeacher = teacherField.getValue();
+        teacherField.setPlaceholder("Ім'я ПРІЗВИЩЕ");
+        teacherField.setPattern("^\\p{Lu}\\p{Ll}+ \\p{Lu}+$");
+        teacherField.setErrorMessage("Формат: Ім'я ПРІЗВИЩЕ (наприклад, Іван ІВАНЕНКО)");
+
+        Button okButton = new Button("Підтвердити", e -> {
+            String secondTeacher = formatTeacherName(teacherField.getValue());
             dialog.close();
             generateReportWithLoading(secondTeacher);
         });
-        dialog.add(new VerticalLayout(new Span("ПІБ другого викладача"), teacherField, okButton));
+        okButton.setEnabled(false);
+
+        teacherField.addValueChangeListener(e -> {
+            String value = e.getValue();
+            boolean valid = value.matches("^\\p{Lu}\\p{Ll}+ \\p{Lu}+$");
+            okButton.setEnabled(valid);
+            teacherField.setInvalid(!valid && !value.isEmpty());
+        });
+
+        VerticalLayout layout = new VerticalLayout(
+                new Span("Прізвище, ім'я та по батькові викладача, який здійснював поточний контроль"),
+                teacherField, okButton);
+        layout.setPadding(false);
+        layout.setSpacing(true);
+        layout.setAlignItems(FlexComponent.Alignment.STRETCH);
+        layout.setHorizontalComponentAlignment(FlexComponent.Alignment.CENTER, okButton);
+
+        dialog.add(layout);
         dialog.open();
+    }
+
+
+    private String formatTeacherName(String input) {
+        if (input == null) {
+            return "";
+        }
+        String[] parts = input.trim().split("\\s+");
+        if (parts.length == 0) {
+            return "";
+        }
+        String firstName = capitalize(parts[0]);
+        String lastName = parts.length > 1 ? parts[parts.length - 1].toUpperCase() : "";
+        return (firstName + " " + lastName).trim();
+    }
+
+    private String capitalize(String str) {
+        if (str == null || str.isEmpty()) {
+            return "";
+        }
+        return str.substring(0, 1).toUpperCase() + str.substring(1).toLowerCase();
     }
 
     private void generateReportWithLoading(String secondTeacher) {
@@ -1003,7 +1047,7 @@ public class EnterMarksView extends Div {
                 try {
                     printReport(secondTeacher);
                 } finally {
-                    loadingOverlay.setVisible(false);
+                    ui.access(() -> loadingOverlay.setVisible(false));
                 }
             });
         });
@@ -1022,9 +1066,18 @@ public class EnterMarksView extends Div {
                 .set("background", "rgba(0,0,0,0.3)")
                 .set("z-index", "10000");
 
-        ProgressBar bar = new ProgressBar();
-        bar.setIndeterminate(true);
-        loadingOverlay.add(bar);
+        Div spinner = new Div();
+        spinner.getStyle()
+                .set("border", "8px solid #f3f3f3")
+                .set("border-top", "8px solid #2196F3")
+                .set("border-radius", "50%")
+                .set("width", "60px")
+                .set("height", "60px")
+                .set("animation", "spin 1s linear infinite");
+        loadingOverlay.add(spinner);
+        Element style = new Element("style");
+        style.setText("@keyframes spin {0% {transform: rotate(0deg);} 100% {transform: rotate(360deg);}}");
+        loadingOverlay.getElement().appendChild(style);
         loadingOverlay.setVisible(false);
         add(loadingOverlay);
     }
