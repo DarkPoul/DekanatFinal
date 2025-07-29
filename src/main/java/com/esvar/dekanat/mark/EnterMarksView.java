@@ -925,7 +925,7 @@ public class EnterMarksView extends Div {
         TextField teacherField = new TextField();
         teacherField.setWidthFull();
         teacherField.setPlaceholder("Прізвище Ім'я По батькові");
-        teacherField.setPattern("^\\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
+        teacherField.setPattern("^\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)? \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
         teacherField.setErrorMessage("Формат: Прізвище Ім'я По батькові (наприклад, Іваненко Іван Іванович)");
         teacherField.setValueChangeMode(ValueChangeMode.EAGER);
 
@@ -939,7 +939,7 @@ public class EnterMarksView extends Div {
 
         teacherField.addValueChangeListener(e -> {
             String value = e.getValue();
-            boolean valid = value.matches("^\\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
+            boolean valid = value.matches("^\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)? \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
             okButton.setEnabled(valid);
             teacherField.setInvalid(!valid && !value.isEmpty());
         });
@@ -975,7 +975,14 @@ public class EnterMarksView extends Div {
         if (str == null || str.isEmpty()) {
             return "";
         }
-        return str.substring(0, 1).toUpperCase() + str.substring(1).toLowerCase();
+        String[] parts = str.split("-");
+        for (int i = 0; i < parts.length; i++) {
+            if (!parts[i].isEmpty()) {
+                parts[i] = parts[i].substring(0, 1).toUpperCase()
+                        + parts[i].substring(1).toLowerCase();
+            }
+        }
+        return String.join("-", parts);
     }
 
     private void generateReportWithLoading(String secondTeacher) {

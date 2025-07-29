@@ -16,6 +16,11 @@ FROM eclipse-temurin:17-jdk-jammy
 WORKDIR /app
 COPY --from=build /app .
 
+# Install fontconfig so the converter can find the bundled fonts
+RUN apt-get update && \
+    apt-get install -y fontconfig && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy bundled fonts if provided
 COPY src/main/resources/fonts /usr/local/share/fonts
 RUN fc-cache -f -v
