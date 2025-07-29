@@ -7,9 +7,11 @@ RUN apt-get update && \
     apt-transport-https \
     && add-apt-repository universe && \
     apt-get update && \
-    apt-get install -y \
+    echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
     ttf-mscorefonts-installer \
     fontconfig \
+    cabextract \
     --no-install-recommends && \
     fc-cache -f -v
 
