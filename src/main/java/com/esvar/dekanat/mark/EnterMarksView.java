@@ -97,6 +97,11 @@ public class EnterMarksView extends Div {
     private PlansEntity plansEntity = new PlansEntity();
     private Grid<MarkDTO> studentGrid = new Grid<>(MarkDTO.class, false);
 
+    private final Button printReportButton =
+            new Button("Друк відомості", new Icon(VaadinIcon.PRINT));
+    private final Button additionalReportButton =
+            new Button("Додаткова відомість", new Icon(VaadinIcon.FILE_ADD));
+
     @Value("${upload.dir}")
     private String uploadsDir;
 
@@ -172,8 +177,9 @@ public class EnterMarksView extends Div {
         Button approveButton = new Button("Затвердити", new Icon(VaadinIcon.CHECK_CIRCLE));
         Button unlockButton = new Button("Розблокувати", new Icon(VaadinIcon.UNLOCK));
         unlockButton.setVisible(isAdmin || isDekanatGroup);
-        Button printReportButton = new Button("Друк відомості", new Icon(VaadinIcon.PRINT));
-        Button additionalReportButton = new Button("Додаткова відомість", new Icon(VaadinIcon.FILE_ADD));
+
+        printReportButton.setEnabled(false);
+        additionalReportButton.setEnabled(false);
 
         buttonLayout.add(saveButton, approveButton, unlockButton, printReportButton, additionalReportButton);
         buttonLayout.setWidth("100%");
@@ -585,6 +591,7 @@ public class EnterMarksView extends Div {
 
     private void updateGrid() {
         if (selectControlType.getValue() == null) {
+            updatePrintButtonsState(List.of());
             return;
         }
 
@@ -701,6 +708,7 @@ public class EnterMarksView extends Div {
             }
             setRowNumbers(markDTOList);
             studentGrid.setItems(markDTOList);
+            updatePrintButtonsState(markDTOList);
         }
         // Якщо немає жодного MarksEntity, завантажуємо студентів із групи та намагаємося підвантажити модульні оцінки
         else {
@@ -757,6 +765,7 @@ public class EnterMarksView extends Div {
                 id++;
             }
             setRowNumbers(fallbackList);
+            updatePrintButtonsState(fallbackList);
             studentGrid.setItems(fallbackList);
         }
     }
@@ -844,11 +853,15 @@ public class EnterMarksView extends Div {
         int index = 1;
         for (StudentEntity student : studentEntities) {
             // Припустимо, student.getRecordBookNumber() використовується як studentNumber
-            String mark = ""; // Для MC1 використаємо 0 або finalGrade з відповідної MarksEntity, якщо потрібно
+            String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
+            if (mark == null) {
+                mark = "";
+            }
             String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
             students.add(new StudentModelToDocumentGenerate(index,
                     student.getSurname() + " " + student.getName() + " " + patronymic,
-                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "", mark));
+                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
+                    mark));
             index++;
         }
 
@@ -883,11 +896,15 @@ public class EnterMarksView extends Div {
         List<StudentEntity> studentEntities = studentService.getStudentByGroupId(plansEntity.getGroup().getId());
         int index = 1;
         for (StudentEntity student : studentEntities) {
-            String mark = ""; // Для MC2 теж використаємо 0 або отриману оцінку, якщо потрібно
+            String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
+            if (mark == null) {
+                mark = "";
+            }
             String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
             students.add(new StudentModelToDocumentGenerate(index,
                     student.getSurname() + " " + student.getName() + " " + patronymic,
-                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "", mark));
+                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
+                    mark));
             index++;
         }
 
@@ -1089,5 +1106,11 @@ public class EnterMarksView extends Div {
         add(loadingOverlay);
     }
 
+    private void updatePrintButtonsState(List<MarkDTO> list) {
+        boolean allLocked = list != null && !list.isEmpty()
+                && list.stream().allMatch(MarkDTO::isLocked);
+        printReportButton.setEnabled(allLocked);
+        additionalReportButton.setEnabled(allLocked);
+    }
 
 }
