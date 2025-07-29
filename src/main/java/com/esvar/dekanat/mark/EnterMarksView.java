@@ -1012,6 +1012,7 @@ public class EnterMarksView extends Div {
                     }
                 } finally {
                     loadingOverlay.setVisible(false);
+                    ui.push();
                 }
             });
         });
