@@ -37,7 +37,15 @@ public class ModularMarkProcessor implements MarkProcessor {
         // Для спрощення цей рядок залишаємо як коментар.
         marksEntity.setSemester(plan.getSemester());
         // Для модульного контролю беремо введену оцінку
-        marksEntity.setFinalGrade(Integer.parseInt(markDTO.getEnterMark()));
+        int grade = 0;
+        String enterMark = markDTO.getEnterMark();
+        if (enterMark != null && !enterMark.isEmpty()) {
+            try {
+                grade = Integer.parseInt(enterMark);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        marksEntity.setFinalGrade(grade);
         marksEntity.setLocked(markDTO.isLocked());
         marksEntity.setLastUpdated(new Timestamp(System.currentTimeMillis()));
         marksEntity.setLastUpdatedBy(
