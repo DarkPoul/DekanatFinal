@@ -3,6 +3,7 @@ package com.esvar.dekanat.service;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.repository.MarksPartsRepository;
 import com.esvar.dekanat.repository.MarksRepository;
+import com.esvar.dekanat.security.SecurityService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,11 +17,13 @@ public class MarksPartsService {
     private final MarksPartsRepository marksPartsRepository;
     private final MarksRepository marksRepository;
     private final ControlPartsService controlPartsService;
+    private final SecurityService securityService;
 
-    public MarksPartsService(MarksPartsRepository marksPartsRepository, MarksRepository marksRepository, ControlPartsService controlPartsService) {
+    public MarksPartsService(MarksPartsRepository marksPartsRepository, MarksRepository marksRepository, ControlPartsService controlPartsService, SecurityService securityService) {
         this.marksPartsRepository = marksPartsRepository;
         this.marksRepository = marksRepository;
         this.controlPartsService = controlPartsService;
+        this.securityService = securityService;
     }
 
     public int getNumberOfPartsForPlan(PlansEntity plan) {
@@ -131,6 +134,11 @@ public class MarksPartsService {
                     .mapToInt(mp -> mp.getGrade() != null ? mp.getGrade() : 0)
                     .sum();
             mark.setFinalGrade(sum);
+            mark.setLastUpdated(new java.sql.Timestamp(System.currentTimeMillis()));
+            mark.setLastUpdatedBy(
+                    securityService.getCurrentUserModel()
+                            .orElseThrow(() -> new IllegalStateException("No authenticated user"))
+            );
             marksRepository.save(mark); // Оновлюємо запис у таблиці marks
         }
     }
@@ -162,6 +170,11 @@ public class MarksPartsService {
         var newParts = controlPartsService.getOrCreatePartsMap(newMethod, plan.getParts());
         for (MarksEntity mark : marks) {
             mark.setControlMethod(newMethod);
+            mark.setLastUpdated(new java.sql.Timestamp(System.currentTimeMillis()));
+            mark.setLastUpdatedBy(
+                    securityService.getCurrentUserModel()
+                            .orElseThrow(() -> new IllegalStateException("No authenticated user"))
+            );
             marksRepository.save(mark);
 
             List<MarksPartsEntity> parts = marksPartsRepository

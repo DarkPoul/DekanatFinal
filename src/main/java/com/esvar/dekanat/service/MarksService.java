@@ -40,7 +40,10 @@ public class MarksService {
             throw new IllegalArgumentException("Студент, план і метод контролю повинні бути задані.");
         }
         mark.setLastUpdated(new Timestamp(System.currentTimeMillis()));
-        securityService.getCurrentUserModel().ifPresent(mark::setLastUpdatedBy);
+        mark.setLastUpdatedBy(
+                securityService.getCurrentUserModel()
+                        .orElseThrow(() -> new IllegalStateException("No authenticated user"))
+        );
         boolean exists = marksRepository.existsByStudentIdAndPlanIdAndControlMethodId(
                 mark.getStudent().getId(),
                 mark.getPlan().getId(),

@@ -49,7 +49,8 @@ public class ModularMarkProcessor implements MarkProcessor {
         marksEntity.setLocked(markDTO.isLocked());
         marksEntity.setLastUpdated(new Timestamp(System.currentTimeMillis()));
         marksEntity.setLastUpdatedBy(
-                userRepository.findByEmail(securityService.getAuthenticatedUser().getUsername()).orElseThrow()
+                securityService.getCurrentUserModel()
+                        .orElseThrow(() -> new IllegalStateException("No authenticated user"))
         );
         return marksEntity;
     }
