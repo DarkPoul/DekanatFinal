@@ -32,6 +32,7 @@ import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.Query;
+import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.dom.Element;
 import com.vaadin.flow.dom.ElementFactory;
 import com.vaadin.flow.router.PageTitle;
@@ -42,6 +43,8 @@ import com.vaadin.flow.server.VaadinServlet;
 import jakarta.annotation.security.PermitAll;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.io.File;
@@ -56,6 +59,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 @PageTitle("Введення оцінок | Деканат")
@@ -805,89 +809,7 @@ public class EnterMarksView extends Div {
     }
 
 
-    private void printReport(String secondTeacher) {
-        String controlType = selectControlType.getValue();
-        if (controlType == null) {
-            Notification.show("Спочатку оберіть тип контролю!", 3000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            return;
-        }
 
-        if (controlType.equals("Перший модульний контроль")) {
-            DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
-            try {
-                DocxUpdater updater = new DocxUpdater();
-                String finalFilePath = updater.generateForMC1(data);
-                // Використовуємо uploadsDir, заданий через application.properties
-
-
-                File pdfFile = new File(finalFilePath);
-                System.out.println("PDF файл: " + pdfFile.getAbsolutePath());
-                if (pdfFile.exists()) {
-                    System.out.println("PDF файл існує: " + pdfFile.getAbsolutePath());
-                    String fileName = pdfFile.getName();
-                    StreamResource resource = new StreamResource(fileName, () -> {
-                        try {
-                            return new FileInputStream(pdfFile);
-                        } catch (IOException e) {
-                            e.fillInStackTrace();
-                            Notification.show("Помилка при завантаженні файлу");
-                            return null;
-                        }
-                    });
-                    Anchor downloadLink = new com.vaadin.flow.component.html.Anchor(resource, "");
-                    downloadLink.getElement().setAttribute("download", true);
-                    downloadLink.getElement().setAttribute("target", "_blank");
-                    add(downloadLink);
-                    UI.getCurrent().getPage().executeJs("document.querySelector('a[download]').click();");
-                    System.out.println("PDF файл успішно згенеровано та відкрито у новій вкладці.");
-                } else {
-                    Notification.show("PDF файл не знайдено.");
-                }
-            } catch (Exception e) {
-                Notification.show("Помилка при генерації документа: " + e.getMessage(), 5000, Notification.Position.MIDDLE)
-                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            }
-        } else if (controlType.equals("Другий модульний контроль")) {
-            DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
-            try {
-                DocxUpdater updater = new DocxUpdater();
-                System.out.println("Генерація PDF для другого модульного контролю завершена.");
-                // Використовуємо uploadsDir, заданий через application.properties
-                String finalFilePath = updater.generateForMC2(data);
-                File pdfFile = new File(finalFilePath);
-                System.out.println("PDF файл: " + pdfFile.getAbsolutePath());
-                if (pdfFile.exists()) {
-                    System.out.println("PDF файл існує: " + pdfFile.getAbsolutePath());
-                    // Створюємо StreamResource для файла
-                    String fileName = pdfFile.getName();
-                    StreamResource resource = new StreamResource(fileName, () -> {
-                        try {
-                            return new FileInputStream(pdfFile);
-                        } catch (IOException e) {
-                            e.fillInStackTrace();
-                            Notification.show("Помилка при завантаженні файлу");
-                            return null;
-                        }
-                    });
-                    Anchor downloadLink = new com.vaadin.flow.component.html.Anchor(resource, "");
-                    downloadLink.getElement().setAttribute("download", true);
-                    downloadLink.getElement().setAttribute("target", "_blank");
-                    add(downloadLink);
-                    UI.getCurrent().getPage().executeJs("document.querySelector('a[download]').click();");
-                    System.out.println("PDF файл успішно згенеровано та відкрито у новій вкладці.");
-                } else {
-                    Notification.show("PDF файл не знайдено.");
-                }
-            } catch (Exception e) {
-                Notification.show("Помилка при генерації документа: " + e.getMessage(), 5000, Notification.Position.MIDDLE)
-                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            }
-        } else {
-            Notification.show("Друк для цього типу контролю знаходиться у розробці.", 3000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
-        }
-    }
 
 
 
@@ -1005,6 +927,8 @@ public class EnterMarksView extends Div {
         teacherField.setPlaceholder("Прізвище Ім'я По батькові");
         teacherField.setPattern("^\\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
         teacherField.setErrorMessage("Формат: Прізвище Ім'я По батькові (наприклад, Іваненко Іван Іванович)");
+        teacherField.setValueChangeMode(ValueChangeMode.EAGER);
+
 
         Button okButton = new Button("Підтвердити", e -> {
             String secondTeacher = formatTeacherName(teacherField.getValue());
@@ -1057,15 +981,75 @@ public class EnterMarksView extends Div {
     private void generateReportWithLoading(String secondTeacher) {
         loadingOverlay.setVisible(true);
         UI ui = UI.getCurrent();
-        CompletableFuture.runAsync(() -> {
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+
+        CompletableFuture.supplyAsync(() -> {
+            SecurityContextHolder.setContext(securityContext);
+            try {
+                return generateReportFile(secondTeacher);
+            } catch (Exception e) {
+                throw new CompletionException(e);
+            } finally {
+                SecurityContextHolder.clearContext();
+            }
+        }).whenComplete((filePath, throwable) -> {
             ui.access(() -> {
                 try {
-                    printReport(secondTeacher);
+                    if (throwable == null) {
+                        showReport(filePath);
+                    } else {
+                        Notification.show("Помилка при генерації документа: "
+                                                + throwable.getCause().getMessage(), 5000,
+                                        Notification.Position.MIDDLE)
+                                .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    }
                 } finally {
-                    ui.access(() -> loadingOverlay.setVisible(false));
+                    loadingOverlay.setVisible(false);
                 }
             });
         });
+    }
+
+    private String generateReportFile(String secondTeacher) throws Exception {
+        String controlType = selectControlType.getValue();
+        if (controlType == null) {
+            throw new IllegalStateException("Спочатку оберіть тип контролю!");
+        }
+
+        DocxUpdater updater = new DocxUpdater();
+        if (controlType.equals("Перший модульний контроль")) {
+            DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
+            return updater.generateForMC1(data);
+        } else if (controlType.equals("Другий модульний контроль")) {
+            DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
+            return updater.generateForMC2(data);
+        }
+
+        throw new IllegalStateException(
+                "Друк для цього типу контролю знаходиться у розробці.");
+    }
+
+    private void showReport(String finalFilePath) {
+        File pdfFile = new File(finalFilePath);
+        if (pdfFile.exists()) {
+            String fileName = pdfFile.getName();
+            StreamResource resource = new StreamResource(fileName, () -> {
+                try {
+                    return new FileInputStream(pdfFile);
+                } catch (IOException e) {
+                    Notification.show("Помилка при завантаженні файлу");
+                    return null;
+                }
+            });
+            Anchor downloadLink = new Anchor(resource, "");
+            downloadLink.getElement().setAttribute("download", true);
+            downloadLink.getElement().setAttribute("target", "_blank");
+            add(downloadLink);
+            UI.getCurrent().getPage()
+                    .executeJs("document.querySelector('a[download]').click();");
+        } else {
+            Notification.show("PDF файл не знайдено.");
+        }
     }
 
     private void configureLoadingOverlay() {
