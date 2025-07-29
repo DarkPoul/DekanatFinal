@@ -913,7 +913,8 @@ public class EnterMarksView extends Div {
         String controlTypeName = selectControlType.getValue();
         String hours = String.valueOf(plansEntity.getHours());
         // Приклад з фіксованими значеннями для викладачів
-        String firstTeacher = getCurrentUserFullName();
+        String firstTeacher = getCurrentUserFullNameSurnameFirst();
+        String gradeTeacher = getCurrentUserFullName();
 
         // Формуємо список студентів для друку
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
@@ -922,14 +923,16 @@ public class EnterMarksView extends Div {
         for (StudentEntity student : studentEntities) {
             // Припустимо, student.getRecordBookNumber() використовується як studentNumber
             String mark = ""; // Для MC1 використаємо 0 або finalGrade з відповідної MarksEntity, якщо потрібно
-            students.add(new StudentModelToDocumentGenerate(index, student.getName() + " " + student.getSurname().toUpperCase(),
+            String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
+            students.add(new StudentModelToDocumentGenerate(index,
+                    student.getSurname() + " " + student.getName() + " " + patronymic,
                     student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "", mark));
             index++;
         }
 
         return new DataModelForMC1(facultyName, specialityName, courseNumber, groupName, studyYear,
                 day, month, year, disciplineName, semesterNumber, controlTypeName,
-                hours, firstTeacher, secondTeacher, firstTeacher, students);
+                hours, firstTeacher, secondTeacher, gradeTeacher, students);
     }
 
     private DataModelForMC2 buildDataModelForMC2(String secondTeacher) {
@@ -949,7 +952,8 @@ public class EnterMarksView extends Div {
         String semesterNumber = String.valueOf(plansEntity.getSemester());
         String controlTypeName = selectControlType.getValue();
         String hours = String.valueOf(plansEntity.getHours());
-        String firstTeacher = getCurrentUserFullName();
+        String firstTeacher = getCurrentUserFullNameSurnameFirst();
+        String gradeTeacher = getCurrentUserFullName();
         String qualityTrue = "Якість1";
         String qualityFalse = "Якість2";
 
@@ -958,14 +962,16 @@ public class EnterMarksView extends Div {
         int index = 1;
         for (StudentEntity student : studentEntities) {
             String mark = ""; // Для MC2 теж використаємо 0 або отриману оцінку, якщо потрібно
-            students.add(new StudentModelToDocumentGenerate(index, student.getName() + " " + student.getSurname().toUpperCase(),
+            String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
+            students.add(new StudentModelToDocumentGenerate(index,
+                    student.getSurname() + " " + student.getName() + " " + patronymic,
                     student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "", mark));
             index++;
         }
 
         return new DataModelForMC2(facultyName, specialityName, courseNumber, groupName, studyYear,
                 day, month, year, disciplineName, semesterNumber, controlTypeName,
-                hours, firstTeacher, secondTeacher, firstTeacher, qualityTrue, qualityFalse, students);
+                hours, firstTeacher, secondTeacher, gradeTeacher, qualityTrue, qualityFalse, students);
     }
 
     private List<MarkDTO> getSelectedOrAllMarks() {
@@ -975,6 +981,14 @@ public class EnterMarksView extends Div {
             return all;
         }
         return new ArrayList<>(selected);
+    }
+
+    private String getCurrentUserFullNameSurnameFirst() {
+        return securityService.getCurrentUserModel()
+                .map(u -> capitalize(u.getLastname()) + " "
+                        + capitalize(u.getFirstname()) + " "
+                        + capitalize(u.getPatronymic()))
+                .orElse("");
     }
 
     private String getCurrentUserFullName() {
@@ -988,9 +1002,9 @@ public class EnterMarksView extends Div {
 
         TextField teacherField = new TextField();
         teacherField.setWidthFull();
-        teacherField.setPlaceholder("Ім'я ПРІЗВИЩЕ");
-        teacherField.setPattern("^\\p{Lu}\\p{Ll}+ \\p{Lu}+$");
-        teacherField.setErrorMessage("Формат: Ім'я ПРІЗВИЩЕ (наприклад, Іван ІВАНЕНКО)");
+        teacherField.setPlaceholder("Прізвище Ім'я По батькові");
+        teacherField.setPattern("^\\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
+        teacherField.setErrorMessage("Формат: Прізвище Ім'я По батькові (наприклад, Іваненко Іван Іванович)");
 
         Button okButton = new Button("Підтвердити", e -> {
             String secondTeacher = formatTeacherName(teacherField.getValue());
@@ -1001,7 +1015,7 @@ public class EnterMarksView extends Div {
 
         teacherField.addValueChangeListener(e -> {
             String value = e.getValue();
-            boolean valid = value.matches("^\\p{Lu}\\p{Ll}+ \\p{Lu}+$");
+            boolean valid = value.matches("^\\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
             okButton.setEnabled(valid);
             teacherField.setInvalid(!valid && !value.isEmpty());
         });
@@ -1027,9 +1041,10 @@ public class EnterMarksView extends Div {
         if (parts.length == 0) {
             return "";
         }
-        String firstName = capitalize(parts[0]);
-        String lastName = parts.length > 1 ? parts[parts.length - 1].toUpperCase() : "";
-        return (firstName + " " + lastName).trim();
+        String lastName = capitalize(parts[0]);
+        String firstName = parts.length > 1 ? capitalize(parts[1]) : "";
+        String patronymic = parts.length > 2 ? capitalize(parts[2]) : "";
+        return (lastName + " " + firstName + " " + patronymic).trim();
     }
 
     private String capitalize(String str) {
