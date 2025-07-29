@@ -24,6 +24,8 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.page.Push;
+import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.NumberField;
@@ -50,11 +52,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @PageTitle("Введення оцінок | Деканат")
 @Route(value = "marks", layout = MainLayout.class)
 @PermitAll
+@Push
 public class EnterMarksView extends Div {
 
     private final FacultyService facultyService;
@@ -74,6 +78,8 @@ public class EnterMarksView extends Div {
     private VerticalLayout leftLayout = new VerticalLayout();
     private VerticalLayout rightLayout = new VerticalLayout();
     private HorizontalLayout buttonLayout = new HorizontalLayout();
+
+    private final Div loadingOverlay = new Div();
 
     private Select<String> selectFaculty = new Select<>();
     private Select<String> selectDepartment = new Select<>();
@@ -190,6 +196,7 @@ public class EnterMarksView extends Div {
         mainLayout.add(contentLayout);
         mainLayout.getStyle().set("height", "calc(100vh - 80px)");
         add(mainLayout);
+        configureLoadingOverlay();
 
         selectDepartment.setReadOnly(true);
         selectSpecialty.setReadOnly(true);
@@ -808,16 +815,16 @@ public class EnterMarksView extends Div {
             DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
             try {
                 DocxUpdater updater = new DocxUpdater();
-                updater.generateForMC1(data);
+                String finalFilePath = updater.generateForMC1(data);
                 // Використовуємо uploadsDir, заданий через application.properties
 
-                String finalFilePath = uploadsDir + File.separator + "firstControl.pdf";
+
                 File pdfFile = new File(finalFilePath);
                 System.out.println("PDF файл: " + pdfFile.getAbsolutePath());
                 if (pdfFile.exists()) {
                     System.out.println("PDF файл існує: " + pdfFile.getAbsolutePath());
-                    // Створюємо StreamResource для файла
-                    StreamResource resource = new StreamResource("firstControl.pdf", () -> {
+                    String fileName = pdfFile.getName();
+                    StreamResource resource = new StreamResource(fileName, () -> {
                         try {
                             return new FileInputStream(pdfFile);
                         } catch (IOException e) {
@@ -843,16 +850,16 @@ public class EnterMarksView extends Div {
             DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
             try {
                 DocxUpdater updater = new DocxUpdater();
-                updater.generateForMC2(data);
                 System.out.println("Генерація PDF для другого модульного контролю завершена.");
                 // Використовуємо uploadsDir, заданий через application.properties
-                String finalFilePath = uploadsDir + File.separator + "secondControl.pdf";
+                String finalFilePath = updater.generateForMC2(data);
                 File pdfFile = new File(finalFilePath);
                 System.out.println("PDF файл: " + pdfFile.getAbsolutePath());
                 if (pdfFile.exists()) {
                     System.out.println("PDF файл існує: " + pdfFile.getAbsolutePath());
                     // Створюємо StreamResource для файла
-                    StreamResource resource = new StreamResource("secondControl.pdf", () -> {
+                    String fileName = pdfFile.getName();
+                    StreamResource resource = new StreamResource(fileName, () -> {
                         try {
                             return new FileInputStream(pdfFile);
                         } catch (IOException e) {
@@ -982,10 +989,44 @@ public class EnterMarksView extends Div {
         Button okButton = new Button("OK", e -> {
             String secondTeacher = teacherField.getValue();
             dialog.close();
-            printReport(secondTeacher);
+            generateReportWithLoading(secondTeacher);
         });
         dialog.add(new VerticalLayout(new Span("ПІБ другого викладача"), teacherField, okButton));
         dialog.open();
+    }
+
+    private void generateReportWithLoading(String secondTeacher) {
+        loadingOverlay.setVisible(true);
+        UI ui = UI.getCurrent();
+        CompletableFuture.runAsync(() -> {
+            ui.access(() -> {
+                try {
+                    printReport(secondTeacher);
+                } finally {
+                    loadingOverlay.setVisible(false);
+                }
+            });
+        });
+    }
+
+    private void configureLoadingOverlay() {
+        loadingOverlay.getStyle()
+                .set("position", "fixed")
+                .set("top", "0")
+                .set("left", "0")
+                .set("width", "100%")
+                .set("height", "100%")
+                .set("display", "flex")
+                .set("align-items", "center")
+                .set("justify-content", "center")
+                .set("background", "rgba(0,0,0,0.3)")
+                .set("z-index", "10000");
+
+        ProgressBar bar = new ProgressBar();
+        bar.setIndeterminate(true);
+        loadingOverlay.add(bar);
+        loadingOverlay.setVisible(false);
+        add(loadingOverlay);
     }
 
 

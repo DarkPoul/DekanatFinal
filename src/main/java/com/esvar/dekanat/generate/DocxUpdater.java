@@ -19,7 +19,7 @@ public class DocxUpdater {
     public DocxUpdater() {
     }
 
-    public void generateForMC1(DataModelForMC1 data) {
+    public String generateForMC1(DataModelForMC1 data) {
 
         System.out.println("################################## START ##############################################");
 
@@ -27,7 +27,7 @@ public class DocxUpdater {
 
         String inputFilePath = "uploads/firstControl.docx";
         String tempFilePath = "uploads/firstControlTemp.docx";
-        String finalFilePath = "uploads/" + inputFilePath.split("/")[1].split("\\.")[0] + ".pdf";
+        String finalFilePath = buildFinalFilePath(data.controlTypeName(), data.groupName(), data.day(), data.month(), data.year());
 
         List<StudentModelToDocumentGenerate> students = data.students();
 
@@ -42,7 +42,7 @@ public class DocxUpdater {
 
             if (tables.size() < 2) {
                 System.out.println("У документі немає другої таблиці.");
-                return;
+                return finalFilePath;
             }
 
             XWPFTable table = tables.get(1);
@@ -135,14 +135,15 @@ public class DocxUpdater {
             System.out.println("################################## START3 ##############################################");
             e.printStackTrace();
         }
+        return finalFilePath;
     }
-    public void generateForMC2(DataModelForMC2 date){
+    public String generateForMC2(DataModelForMC2 date){
 
         int i = 26;
 
         String inputFilePath = "uploads/secondControl.docx";
         String tempFilePath = "uploads/secondControlTemp.docx" ;
-        String finalFilePath = "uploads/" + inputFilePath.split("/")[1].split("\\.")[0] + ".pdf";
+        String finalFilePath = buildFinalFilePath(date.controlTypeName(), date.groupName(), date.day(), date.month(), date.year());
 
         List<StudentModelToDocumentGenerate> students = date.students();
 
@@ -182,7 +183,7 @@ public class DocxUpdater {
             e.fillInStackTrace();
         }
 
-
+        return finalFilePath;
 
     }
 
@@ -415,4 +416,28 @@ public class DocxUpdater {
         int rowHeight = 280; // height defined in createRow()
         return Math.max(availableHeight / rowHeight, 1);
     }
+
+    private String buildFinalFilePath(String controlName, String groupName, String day, String month, String year) {
+        String shortName = toShortControlName(controlName);
+        String safeControl = shortName.replaceAll("\\s+", "_");
+        String fileName = groupName + "_" + safeControl + "_" + day + "_" + month + "_" + year + ".pdf";
+        return "uploads/" + fileName;
+    }
+
+    private String toShortControlName(String controlName) {
+        return switch (controlName) {
+            case "Перший модульний контроль" -> "Перший модуль";
+            case "Другий модульний контроль" -> "Другий модуль";
+            case "Залік" -> "Залік";
+            case "Екзамен" -> "Екзамен";
+            case "Диференційний залік" -> "Д.залік";
+            case "Курсова робота" -> "КР";
+            case "Курсовий проєкт" -> "КП";
+            case "Розрахункова робота" -> "РР";
+            case "Розрахунково-графічна робота" -> "РГР";
+            default -> controlName;
+        };
+    }
+
+
 }
