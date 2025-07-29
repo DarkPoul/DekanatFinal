@@ -1,20 +1,6 @@
 # Вказуємо базовий образ для зборки
 FROM eclipse-temurin:17-jdk-jammy AS build
 
-RUN apt-get update && \
-    apt-get install -y \
-    software-properties-common \
-    apt-transport-https \
-    && add-apt-repository universe && \
-    apt-get update && \
-    echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    ttf-mscorefonts-installer \
-    fontconfig \
-    cabextract \
-    --no-install-recommends && \
-    fc-cache -f -v
-
 # Копіюємо всі файли проекту в контейнер
 WORKDIR /app
 COPY . .
@@ -29,6 +15,10 @@ FROM eclipse-temurin:17-jdk-jammy
 # Копіюємо файли проекту з попереднього образу
 WORKDIR /app
 COPY --from=build /app .
+
+# Copy bundled fonts if provided
+COPY src/main/resources/fonts /usr/local/share/fonts
+RUN fc-cache -f -v
 
 # Встановлюємо Maven Wrapper як виконуваний файл
 RUN chmod +x mvnw

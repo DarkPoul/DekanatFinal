@@ -6,9 +6,11 @@ import com.esvar.dekanat.entity.PlansEntity;
 import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.repository.ControlMethodRepository;
 import com.esvar.dekanat.repository.MarksRepository;
+import com.esvar.dekanat.security.SecurityService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,11 +20,13 @@ public class MarksService {
     private final MarksRepository marksRepository;
     private final ControlMethodRepository controlMethodRepository;
     private final RatingService ratingService;
+    private final SecurityService securityService;
 
-    public MarksService(MarksRepository marksRepository, ControlMethodRepository controlMethodRepository, RatingService ratingService) {
+    public MarksService(MarksRepository marksRepository, ControlMethodRepository controlMethodRepository, RatingService ratingService, SecurityService securityService) {
         this.marksRepository = marksRepository;
         this.controlMethodRepository = controlMethodRepository;
         this.ratingService = ratingService;
+        this.securityService = securityService;
     }
 
     /**
@@ -35,6 +39,8 @@ public class MarksService {
         if (mark == null || mark.getStudent() == null || mark.getPlan() == null || mark.getControlMethod() == null) {
             throw new IllegalArgumentException("Студент, план і метод контролю повинні бути задані.");
         }
+        mark.setLastUpdated(new Timestamp(System.currentTimeMillis()));
+        securityService.getCurrentUserModel().ifPresent(mark::setLastUpdatedBy);
         boolean exists = marksRepository.existsByStudentIdAndPlanIdAndControlMethodId(
                 mark.getStudent().getId(),
                 mark.getPlan().getId(),

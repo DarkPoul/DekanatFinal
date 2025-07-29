@@ -370,6 +370,7 @@ public class DocxUpdater {
         paragraph.setVerticalAlignment(TextAlignment.CENTER);
         XWPFRun run = paragraph.createRun();
         run.setFontSize(10);
+        run.setFontFamily("Times New Roman");
         run.setText(text);
     }
 
