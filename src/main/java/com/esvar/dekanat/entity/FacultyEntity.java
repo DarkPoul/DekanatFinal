@@ -25,4 +25,16 @@ public class FacultyEntity {
 
     @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<StudentEntity> students;
+
+    @Column(nullable = false, length = 100)
+    private String deanP;
+
+    @Column(nullable = false, length = 100)
+    private String deanI;
+
+    @Column(nullable = false, length = 100)
+    private String deanB;
+
+    @Column(nullable = false, length = 100)
+    private String deanLanding;
 }

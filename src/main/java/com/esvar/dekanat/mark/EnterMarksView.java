@@ -2,10 +2,7 @@ package com.esvar.dekanat.mark;
 
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
-import com.esvar.dekanat.generate.DataModelForMC1;
-import com.esvar.dekanat.generate.DataModelForMC2;
-import com.esvar.dekanat.generate.DocxUpdater;
-import com.esvar.dekanat.generate.StudentModelToDocumentGenerate;
+import com.esvar.dekanat.generate.*;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.user.UserModel;
@@ -1034,12 +1031,20 @@ public class EnterMarksView extends Div {
         }
 
         DocxUpdater updater = new DocxUpdater();
-        if (controlType.equals("Перший модульний контроль")) {
-            DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
-            return updater.generateForMC1(data);
-        } else if (controlType.equals("Другий модульний контроль")) {
-            DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
-            return updater.generateForMC2(data);
+        switch (controlType) {
+            case "Перший модульний контроль" -> {
+                DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
+                return updater.generateForMC1(data);
+            }
+            case "Другий модульний контроль" -> {
+                DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
+                return updater.generateForMC2(data);
+            }
+            case "Залік" -> {
+                DataModelForZalik data = buildDataModelForZalik(secondTeacher);
+                ZalikGenerator generator = new ZalikGenerator();
+                return generator.generate(data);
+            }
         }
 
         throw new IllegalStateException(
@@ -1109,6 +1114,41 @@ public class EnterMarksView extends Div {
     private String formatUserName() {
         UserModel user = securityService.getCurrentUserModel().orElseThrow();
         return user.getFirstname() + " " + user.getLastname().toUpperCase();
+    }
+
+    private DataModelForZalik buildDataModelForZalik(String secondTeacher) {
+        String facultyName = plansEntity.getFaculty().getTitle();
+        String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
+                .map(EduProgramEntity::getTitle)
+                .orElse("");
+        String courseNumber = String.valueOf(plansEntity.getGroup().getCourse());
+        String groupName = plansEntity.getGroup().getGroupCode();
+        String studyYear = String.valueOf(plansEntity.getGroup().getYear());
+        String order = plansEntity.getStatementNumber();
+        LocalDate today = LocalDate.now();
+        String day = today.format(DateTimeFormatter.ofPattern("dd"));
+        String month = today.format(DateTimeFormatter.ofPattern("MM"));
+        String year = today.format(DateTimeFormatter.ofPattern("yyyy"));
+        String disciplineName = plansEntity.getDiscipline().getTitle();
+        String semesterNumber = String.valueOf(plansEntity.getSemester());
+        String controlTypeName = selectControlType.getValue();
+        String hours = String.valueOf(plansEntity.getHours());
+        String firstTeacher = getCurrentUserFullNameSurnameFirst();
+        String gradeTeacher = getCurrentUserFullName();
+        String dean = "";
+        String departmentName = plansEntity.getDepartment().getTitle();
+        String a = "90-100";
+        String b = "82-89";
+        String c = "74-81";
+        String d = "64-73";
+        String e = "60-63";
+        String fx = "35-59";
+        String f = "0-34";
+
+        return new DataModelForZalik(facultyName, specialityName, courseNumber, groupName, studyYear,
+                order, day, month, year, disciplineName, semesterNumber, controlTypeName,
+                hours, firstTeacher, secondTeacher, dean, departmentName,
+                a, b, c, d, e, fx, f, gradeTeacher);
     }
 
 }
