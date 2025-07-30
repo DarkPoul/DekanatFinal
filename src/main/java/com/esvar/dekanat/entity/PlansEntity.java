@@ -56,5 +56,8 @@ public class PlansEntity {
     @JoinColumn(name = "group_id", nullable = false)
     private StudentGroupEntity group;
 
+    @Column(name = "statement_number", nullable = false, length = 3)
+    private String statementNumber;
+
 }
 

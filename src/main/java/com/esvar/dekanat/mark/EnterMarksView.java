@@ -8,6 +8,7 @@ import com.esvar.dekanat.generate.DocxUpdater;
 import com.esvar.dekanat.generate.StudentModelToDocumentGenerate;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
+import com.esvar.dekanat.user.UserModel;
 import com.esvar.dekanat.user.UserRepository;
 import com.esvar.dekanat.view.MainLayout;
 import com.vaadin.flow.component.Html;
@@ -635,14 +636,7 @@ public class EnterMarksView extends Div {
                     dto.setLocked(mark.isLocked());
                     SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
                     dto.setLastUpdated(formatter.format(mark.getLastUpdated()));
-                    try {
-                        dto.setLastUpdatedBy(mark.getLastUpdatedBy().getFirstname() + " " +
-                                mark.getLastUpdatedBy().getLastname().toUpperCase());
-                    } catch (NullPointerException e){
-                        dto.setLastUpdatedBy("Система"); // Якщо немає інформації про користувача, можна вказати "Система"
-                    }
-                    dto.setLastUpdatedBy(mark.getLastUpdatedBy().getFirstname() + " " +
-                            mark.getLastUpdatedBy().getLastname().toUpperCase());
+                    dto.setLastUpdatedBy(formatUserName());
                     markDTOList.add(dto);
                 }
             }
@@ -680,8 +674,7 @@ public class EnterMarksView extends Div {
 
                     dto.setLocked(mark.isLocked());
                     SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
-                    dto.setLastUpdated(formatter.format(mark.getLastUpdated()));
-                    dto.setLastUpdatedBy("Система");    // Якщо немає інформації про користувача, можна вказати "Система"
+                    dto.setLastUpdatedBy(formatUserName());
                     markDTOList.add(dto);
                 }
             }
@@ -695,14 +688,9 @@ public class EnterMarksView extends Div {
                     dto.setLocked(mark.isLocked());
                     SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
                     dto.setLastUpdated(formatter.format(mark.getLastUpdated()));
-                    try{
-                        dto.setLastUpdatedBy(mark.getLastUpdatedBy().getFirstname() + " " +
-                                mark.getLastUpdatedBy().getLastname().toUpperCase());
-                        markDTOList.add(dto);
-                    } catch (Exception e) {
-                        dto.setLastUpdatedBy("Система"); // Якщо немає інформації про користувача, можна вказати "Система"
-                        markDTOList.add(dto);
-                    }
+                    dto.setLastUpdatedBy(formatUserName());
+                    markDTOList.add(dto);
+
 
                 }
             }
@@ -1111,6 +1099,12 @@ public class EnterMarksView extends Div {
                 && list.stream().allMatch(MarkDTO::isLocked);
         printReportButton.setEnabled(allLocked);
         additionalReportButton.setEnabled(allLocked);
+    }
+
+
+    private String formatUserName() {
+        UserModel user = securityService.getCurrentUserModel().orElseThrow();
+        return user.getFirstname() + " " + user.getLastname().toUpperCase();
     }
 
 }
