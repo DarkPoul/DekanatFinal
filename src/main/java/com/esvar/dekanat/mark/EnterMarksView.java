@@ -1005,21 +1005,25 @@ public class EnterMarksView extends Div {
                 SecurityContextHolder.clearContext();
             }
         }).whenComplete((filePath, throwable) -> {
-            ui.access(() -> {
-                try {
-                    if (throwable == null) {
-                        showReport(filePath);
-                    } else {
-                        Notification.show("Помилка при генерації документа: "
-                                                + throwable.getCause().getMessage(), 5000,
-                                        Notification.Position.MIDDLE)
-                                .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            if (ui != null && ui.isAttached()) {
+                ui.access(() -> {
+                    try {
+                        if (throwable == null) {
+                            showReport(filePath);
+                        } else {
+                            Notification.show(
+                                            "Помилка при генерації документа: " +
+                                                    throwable.getCause().getMessage(),
+                                            5000, Notification.Position.MIDDLE)
+                                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                        }
+                    } finally {
+                        loadingOverlay.setVisible(false);
                     }
-                } finally {
-                    loadingOverlay.setVisible(false);
-                    ui.push();
-                }
-            });
+                });
+            } else {
+                loadingOverlay.setVisible(false);
+            }
         });
     }
 
