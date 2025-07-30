@@ -23,9 +23,10 @@ public class PlanService {
     private final MarksService marksService;
     private final MarksPartsService marksPartsService;
     private final MarksInitializerService marksInitializerService;
+    private final PlanStatementNumberService planStatementNumberService;
 
 
-    public PlanService(PlanRepository planRepository, StudentPlansRepository studentPlansRepository, StudentRepository studentRepository, FacultyRepository facultyRepository, DepartmentRepository departmentRepository, SpecialtyRepository specialtyRepository, DisciplineRepository disciplineRepository, SessionRepository sessionRepository, MarksService marksService, MarksPartsService marksPartsService, MarksInitializerService marksInitializerService) {
+    public PlanService(PlanRepository planRepository, StudentPlansRepository studentPlansRepository, StudentRepository studentRepository, FacultyRepository facultyRepository, DepartmentRepository departmentRepository, SpecialtyRepository specialtyRepository, DisciplineRepository disciplineRepository, SessionRepository sessionRepository, MarksService marksService, MarksPartsService marksPartsService, MarksInitializerService marksInitializerService, PlanStatementNumberService planStatementNumberService) {
         this.planRepository = planRepository;
         this.studentPlansRepository = studentPlansRepository;
         this.studentRepository = studentRepository;
@@ -37,12 +38,15 @@ public class PlanService {
         this.marksService = marksService;
         this.marksPartsService = marksPartsService;
         this.marksInitializerService = marksInitializerService;
+        this.planStatementNumberService = planStatementNumberService;
     }
 
 
     @Transactional
     public void savePlan(PlansEntity plan) {
+        planStatementNumberService.assignNumber(plan);
         planRepository.save(plan);
+        planStatementNumberService.createRecordsForPlan(plan);
     }
 
     public List<PlansEntity> getAllPlans() {
@@ -83,6 +87,7 @@ public class PlanService {
      */
     @Transactional
     public void updatePlan(PlansEntity updatedPlan) {
+        planStatementNumberService.updateForPlan(updatedPlan);
         updatePlan(updatedPlan, null);
     }
 
@@ -107,11 +112,15 @@ public class PlanService {
         marksPartsService.deleteByPlanId(planId);
         marksService.deleteByPlanId(planId);
         studentPlansRepository.deleteAllByPlanId(planId);
+        planStatementNumberService.deleteByPlanId(planId);
         planRepository.deleteById(planId);
     }
 
     public void deletePlan(PlansEntity plan) {
-        planRepository.delete(plan);
+        if (plan != null) {
+            planStatementNumberService.deleteByPlanId(plan.getId());
+            planRepository.delete(plan);
+        }
     }
 
     public PlansEntity getPlanById(Long id) {
