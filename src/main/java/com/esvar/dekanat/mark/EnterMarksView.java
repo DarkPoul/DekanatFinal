@@ -1162,7 +1162,7 @@ public class EnterMarksView extends Div {
             }
             String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
             students.add(new StudentModelToDocumentGenerate(index,
-                    student.getSurname() + " " + student.getName() + " " + patronymic,
+                    student.getSurname() + " " + student.getName().charAt(0) + ". " + patronymic.charAt(0) + ".",
                     student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
                     mark));
             index++;
