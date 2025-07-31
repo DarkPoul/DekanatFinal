@@ -2,6 +2,7 @@ package com.esvar.dekanat.generate;
 
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.xmlbeans.XmlCursor;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRow;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STHeightRule;
 
@@ -53,7 +54,7 @@ public class DocxUpdater {
                 System.out.println("################################## START 2 ##############################################");
 
                 if (students.size() <= i-3){ //якщо студентів менше ніж i - 3
-                    XWPFTableRow newRow = table.createRow();
+                    XWPFTableRow newRow = createStyledRow(table);
                     newRow.getCtRow().addNewTrPr().addNewTrHeight().setHRule(STHeightRule.EXACT);
                     newRow.getCtRow().getTrPr().getTrHeightArray(0).setVal(280);
                     fillStudentRow(newRow, student);
@@ -62,13 +63,13 @@ public class DocxUpdater {
                     if (student.index() == i + 3){ //створення другої таблиці при умові що індекс студента дорівнює максимальному
                         createTableWithInfo(document, tables, student);
                     } else if (student.index() < i + 3){ // заповнення таблиці при умові що 2-а таблиця ще не створена
-                        XWPFTableRow newRow = table.createRow();
+                        XWPFTableRow newRow = createStyledRow(table);
                         newRow.getCtRow().addNewTrPr().addNewTrHeight().setHRule(STHeightRule.EXACT);
                         newRow.getCtRow().getTrPr().getTrHeightArray(0).setVal(280);
                         fillStudentRow(newRow, student);
                     } else { // заповнення 2 таблиці
                         XWPFTable updateTable = document.getTables().get(2);
-                        XWPFTableRow newRow = updateTable.createRow();
+                        XWPFTableRow newRow = createStyledRow(updateTable);
                         newRow.getCtRow().addNewTrPr().addNewTrHeight().setHRule(STHeightRule.EXACT);
                         newRow.getCtRow().getTrPr().getTrHeightArray(0).setVal(280);
                         fillStudentRow(newRow, student);
@@ -79,13 +80,13 @@ public class DocxUpdater {
                     if (student.index() == i - 2){
                         createTableWithInfo(document, tables, student);
                     } else if (student.index() < i - 2) {
-                        XWPFTableRow newRow = table.createRow();
+                        XWPFTableRow newRow = createStyledRow(table);
                         newRow.getCtRow().addNewTrPr().addNewTrHeight().setHRule(STHeightRule.EXACT);
                         newRow.getCtRow().getTrPr().getTrHeightArray(0).setVal(280);
                         fillStudentRow(newRow, student);
                     } else {
                         XWPFTable updateTable = document.getTables().get(2);
-                        XWPFTableRow newRow = updateTable.createRow();
+                        XWPFTableRow newRow = createStyledRow(updateTable);
                         newRow.getCtRow().addNewTrPr().addNewTrHeight().setHRule(STHeightRule.EXACT);
                         newRow.getCtRow().getTrPr().getTrHeightArray(0).setVal(280);
                         fillStudentRow(newRow, student);
@@ -157,7 +158,7 @@ public class DocxUpdater {
 
             for (StudentModelToDocumentGenerate student : students){
                 if (students.size() <= 14){
-                    XWPFTableRow newRow = table.createRow();
+                    XWPFTableRow newRow = createStyledRow(table);
                     newRow.getCtRow().addNewTrPr().addNewTrHeight().setHRule(STHeightRule.EXACT);
                     newRow.getCtRow().getTrPr().getTrHeightArray(0).setVal(280);
                     fillStudentRow(newRow, student);
@@ -233,7 +234,7 @@ public class DocxUpdater {
         newSecondStudentsTable.removeRow(0);
 
         XWPFTable updateTable = document.getTables().get(2);
-        XWPFTableRow newRow = updateTable.createRow();
+        XWPFTableRow newRow = createStyledRow(updateTable);
         newRow.getCtRow().addNewTrPr().addNewTrHeight().setHRule(STHeightRule.EXACT);
         newRow.getCtRow().getTrPr().getTrHeightArray(0).setVal(280);
         fillStudentRow(newRow, student);
@@ -438,6 +439,16 @@ public class DocxUpdater {
             case "Розрахунково-графічна робота" -> "РГР";
             default -> controlName;
         };
+    }
+
+    private static XWPFTableRow createStyledRow(XWPFTable table) {
+        int lastIndex = table.getNumberOfRows() - 1;
+        XWPFTableRow template = table.getRow(Math.max(lastIndex, 0));
+        CTRow ctRow = CTRow.Factory.newInstance();
+        ctRow.set(template.getCtRow());
+        XWPFTableRow newRow = new XWPFTableRow(ctRow, table);
+        table.addRow(newRow);
+        return newRow;
     }
 
 
