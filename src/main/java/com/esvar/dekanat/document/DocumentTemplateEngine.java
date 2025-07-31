@@ -2,7 +2,6 @@ package com.esvar.dekanat.document;
 
 import com.esvar.dekanat.generate.StudentModelToDocumentGenerate;
 import org.apache.poi.xwpf.usermodel.*;
-import org.apache.xmlbeans.XmlCursor;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +40,6 @@ public class DocumentTemplateEngine {
                 @SuppressWarnings("unchecked")
                 List<StudentModelToDocumentGenerate> students = (List<StudentModelToDocumentGenerate>) studentsObj;
                 fillStudentsTable(document, students);
-                keepSignatureTableWithLastStudent(document);
             }
 
             Path tempFile = Files.createTempFile("document_", ".docx");
@@ -117,9 +115,7 @@ public class DocumentTemplateEngine {
             return;
         }
 
-        repeatTableHeader(table);
-
-        int insertPos = 3; // start after two header rows
+        int insertPos = 3;
         for (StudentModelToDocumentGenerate s : students) {
             XWPFTableRow row = table.insertNewTableRow(insertPos++);
             ensureCells(row, 8);
@@ -142,10 +138,6 @@ public class DocumentTemplateEngine {
             return tables.get(1); // індекс 1 — це друга таблиця
         }
         return null;
-    }
-
-    private static String getCellText(XWPFTableCell cell) {
-        return cell == null ? "" : cell.getText().trim();
     }
 
     private static void ensureCells(XWPFTableRow row, int count) {
@@ -213,61 +205,5 @@ public class DocumentTemplateEngine {
         }
     }
 
-    /**
-     * Mark header rows to be repeated on each page when the table spans multiple pages.
-     *
-     * @param table students table from the template
-     */
-    private void repeatTableHeader(XWPFTable table) {
-        table.getRow(3).setRepeatHeader(true);
-    }
 
-    /**
-     * Ensure the signature table (table 3) stays with table 2 by moving the last
-     * student row to a new page together with the signature table.
-     */
-    private void keepSignatureTableWithLastStudent(XWPFDocument document) {
-        List<XWPFTable> tables = document.getTables();
-        if (tables.size() < 3) {
-            return;
-        }
-
-        XWPFTable students = tables.get(1);
-        XWPFTable signature = tables.get(2);
-
-        int rowCount = students.getNumberOfRows();
-        // need at least one student row to move
-        if (rowCount <= 4) {
-            return;
-        }
-
-        XmlCursor cursor = signature.getCTTbl().newCursor();
-        XWPFParagraph pageBreak = document.insertNewParagraph(cursor);
-        pageBreak.setPageBreak(true);
-
-        cursor = signature.getCTTbl().newCursor();
-        XWPFTable partTable = document.insertNewTbl(cursor);
-        partTable.removeRow(0); // remove default row
-
-        int headerRows = Math.min(students.getNumberOfRows(), 3);
-        for (int i = 0; i < headerRows; i++) {
-            XWPFTableRow header = students.getRow(i);
-            XWPFTableRow newRow = cloneRow(header, partTable);
-            newRow.setRepeatHeader(true);
-        }
-
-        XWPFTableRow lastRow = students.getRow(rowCount - 1);
-        cloneRow(lastRow, partTable);
-        students.removeRow(rowCount - 1);
-
-        repeatTableHeader(partTable);
-    }
-
-    private static XWPFTableRow cloneRow(XWPFTableRow src, XWPFTable target) {
-        CTRow ctRow = CTRow.Factory.newInstance();
-        ctRow.set(src.getCtRow());
-        XWPFTableRow newRow = new XWPFTableRow(ctRow, target);
-        target.addRow(newRow);
-        return newRow;
-    }
 }

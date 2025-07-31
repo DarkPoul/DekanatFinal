@@ -1204,12 +1204,13 @@ public class EnterMarksView extends Div {
             teacherField.setInvalid(!valid && !value.isEmpty());
         });
 
-        VerticalLayout layout = new VerticalLayout();
-        HorizontalLayout hLayout = new HorizontalLayout();
-        hLayout.add(teacherField, typeGroup);
+        HorizontalLayout inputLayout = new HorizontalLayout(teacherField, typeGroup);
+        inputLayout.setWidthFull();
+        inputLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
 
-        layout.add(new Span("Прізвище, ім'я та по батькові викладача, який здійснював поточний контроль"),
-                hLayout,
+        VerticalLayout layout = new VerticalLayout(
+                new Span("Прізвище, ім'я та по батькові викладача, який здійснював поточний контроль"),
+                inputLayout,
                 okButton);
         layout.setPadding(false);
         layout.setSpacing(true);
