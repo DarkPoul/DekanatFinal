@@ -52,10 +52,7 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -1135,15 +1132,22 @@ public class EnterMarksView extends Div {
         String hours = String.valueOf(plansEntity.getHours());
         String firstTeacher = getCurrentUserFullNameSurnameFirst();
         String gradeTeacher = getCurrentUserFullName();
-        String dean = "";
-        String departmentName = plansEntity.getDepartment().getTitle();
-        String a = "90-100";
-        String b = "82-89";
-        String c = "74-81";
-        String d = "64-73";
-        String e = "60-63";
-        String fx = "35-59";
-        String f = "0-34";
+        FacultyEntity faculty = plansEntity.getFaculty();
+        String dean = faculty.getDeanLanding();
+        String departmentName = capitalize(faculty.getDeanI()) + " " + faculty.getDeanP().toUpperCase();
+
+        Map<String, Long> gradeMap = marksService
+                .findMarksByPlanAndTypeControl(plansEntity, controlTypeName)
+                .stream()
+                .collect(Collectors.groupingBy(m -> convertMarkToECTSGrade(m.getFinalGrade()), Collectors.counting()));
+
+        String a = String.valueOf(gradeMap.getOrDefault("A", 0L));
+        String b = String.valueOf(gradeMap.getOrDefault("B", 0L));
+        String c = String.valueOf(gradeMap.getOrDefault("C", 0L));
+        String d = String.valueOf(gradeMap.getOrDefault("D", 0L));
+        String e = String.valueOf(gradeMap.getOrDefault("E", 0L));
+        String fx = String.valueOf(gradeMap.getOrDefault("FX", 0L));
+        String f = String.valueOf(gradeMap.getOrDefault("F", 0L));
 
         return new DataModelForZalik(facultyName, specialityName, courseNumber, groupName, studyYear,
                 order, day, month, year, disciplineName, semesterNumber, controlTypeName,
