@@ -1,9 +1,13 @@
 package com.esvar.dekanat.document;
 
+import com.esvar.dekanat.generate.DocxUpdater;
+import com.esvar.dekanat.generate.ZalikGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +43,19 @@ public class DocumentGenerationService {
         }
         Map<String, Object> context = generator.prepareContext(data);
         log.info("Generating document {}", name);
-        return engine.generate(generator.getTemplatePath(), context);
+        Path docxPath = engine.generate(generator.getTemplatePath(), context);
+
+        if (ZalikGenerator.NAME.equals(name)) {
+            Path pdfPath = docxPath.resolveSibling(docxPath.getFileName().toString().replaceFirst("\\.docx$", ".pdf"));
+            try {
+                DocxUpdater.runJar("WordToDocxConverter.jar", docxPath.toString(), pdfPath.toString());
+                Files.deleteIfExists(docxPath);
+                return pdfPath;
+            } catch (IOException | InterruptedException e) {
+                throw new DocumentException("Failed to convert document to PDF", e);
+            }
+        }
+
+        return docxPath;
     }
 }

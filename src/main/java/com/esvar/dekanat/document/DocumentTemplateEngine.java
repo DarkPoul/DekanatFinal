@@ -1,5 +1,6 @@
 package com.esvar.dekanat.document;
 
+import com.esvar.dekanat.generate.StudentModelToDocumentGenerate;
 import org.apache.poi.xwpf.usermodel.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +10,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -30,6 +32,14 @@ public class DocumentTemplateEngine {
              XWPFDocument document = new XWPFDocument(fis)) {
 
             replaceTags(document, variables);
+            if (variables.containsKey("students")) {
+                Object obj = variables.get("students");
+                if (obj instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof StudentModelToDocumentGenerate) {
+                    @SuppressWarnings("unchecked")
+                    List<StudentModelToDocumentGenerate> students = (List<StudentModelToDocumentGenerate>) list;
+                    insertStudents(document, students);
+                }
+            }
             Path tempFile = Files.createTempFile("document_", ".docx");
             try (FileOutputStream fos = new FileOutputStream(tempFile.toFile())) {
                 document.write(fos);
@@ -44,13 +54,23 @@ public class DocumentTemplateEngine {
 
     private void replaceTags(IBody body, Map<String, Object> variables) {
         for (XWPFParagraph paragraph : body.getParagraphs()) {
-            for (XWPFRun run : paragraph.getRuns()) {
+            List<XWPFRun> runs = paragraph.getRuns();
+            if (runs.isEmpty()) {
+                continue;
+            }
+            StringBuilder sb = new StringBuilder();
+            for (XWPFRun run : runs) {
                 String text = run.getText(0);
                 if (text != null) {
-                    String replaced = replace(text, variables);
-                    run.setText(replaced, 0);
+                    sb.append(text);
                 }
             }
+            String replaced = replace(sb.toString(), variables);
+            // remove old runs and create a new one with replaced text
+            for (int i = runs.size() - 1; i > 0; i--) {
+                paragraph.removeRun(i);
+            }
+            runs.get(0).setText(replaced, 0);
         }
         if (body instanceof XWPFDocument doc) {
             for (XWPFTable table : doc.getTables()) {
@@ -81,5 +101,31 @@ public class DocumentTemplateEngine {
             }
         }
         return result;
+    }
+
+    private void insertStudents(XWPFDocument document, List<StudentModelToDocumentGenerate> students) {
+        List<XWPFTable> tables = document.getTables();
+        if (tables.size() < 2) {
+            log.warn("Students table not found in template");
+            return;
+        }
+        XWPFTable table = tables.get(1);
+        for (StudentModelToDocumentGenerate student : students) {
+            XWPFTableRow row = table.createRow();
+            ensureCells(row, 8);
+            row.getCell(0).setText(String.valueOf(student.index()));
+            row.getCell(1).setText(student.name());
+            row.getCell(2).setText(student.studentNumber());
+            row.getCell(3).setText(student.mark());
+            for (int i = 4; i < 8; i++) {
+                row.getCell(i).setText("");
+            }
+        }
+    }
+
+    private static void ensureCells(XWPFTableRow row, int count) {
+        while (row.getTableCells().size() < count) {
+            row.createCell();
+        }
     }
 }

@@ -45,13 +45,13 @@ public class ZalikGenerator implements DocumentGenerator {
         ctx.put("month", zalik.month());
         ctx.put("year", zalik.year());
         ctx.put("disciplineName", zalik.disciplineName());
-        ctx.put("semesterNumber", zalik.semesterNumber());
+        ctx.put("sN", zalik.semesterNumber());
         ctx.put("controlTypeName", zalik.controlTypeName());
-        ctx.put("hours", zalik.hours());
-        ctx.put("firstTeacher", zalik.firstTeacher());
-        ctx.put("secondTeacher", zalik.secondTeacher());
+        ctx.put("h", zalik.hours());
+        ctx.put("f", zalik.firstTeacher());
+        ctx.put("s", zalik.secondTeacher());
         ctx.put("dekan", zalik.dean());
-        ctx.put("departmentName", zalik.departmentName());
+        ctx.put("dName", zalik.departmentName());
         ctx.put("A", zalik.a());
         ctx.put("B", zalik.b());
         ctx.put("C", zalik.c());
@@ -60,6 +60,7 @@ public class ZalikGenerator implements DocumentGenerator {
         ctx.put("Fx", zalik.fx());
         ctx.put("F", zalik.f());
         ctx.put("tI", zalik.gradeTeacher());
+        ctx.put("students", zalik.students());
         return ctx;
     }
 }
