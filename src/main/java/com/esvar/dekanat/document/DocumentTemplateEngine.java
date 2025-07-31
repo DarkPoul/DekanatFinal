@@ -2,6 +2,7 @@ package com.esvar.dekanat.document;
 
 import com.esvar.dekanat.generate.StudentModelToDocumentGenerate;
 import org.apache.poi.xwpf.usermodel.*;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -109,16 +110,30 @@ public class DocumentTemplateEngine {
             log.warn("Students table not found in template");
             return;
         }
+
         XWPFTable table = tables.get(1);
-        for (StudentModelToDocumentGenerate student : students) {
-            XWPFTableRow row = table.createRow();
+        if (table.getNumberOfRows() < 3) {
+            log.warn("Students template row not found");
+            return;
+        }
+
+        XWPFTableRow templateRow = table.getRow(2);
+        // copy style of the template row then remove it from the table
+        CTRow templateCt = CTRow.Factory.newInstance();
+        templateCt.set(templateRow.getCtRow());
+        table.removeRow(2);
+
+        for (int i = 0; i < students.size(); i++) {
+            StudentModelToDocumentGenerate student = students.get(i);
+            XWPFTableRow row = copyRowStyle(templateCt, table);
             ensureCells(row, 8);
-            row.getCell(0).setText(String.valueOf(student.index()));
-            row.getCell(1).setText(student.name());
-            row.getCell(2).setText(student.studentNumber());
-            row.getCell(3).setText(student.mark());
-            for (int i = 4; i < 8; i++) {
-                row.getCell(i).setText("");
+            // numbering should be sequential regardless of student record index
+            setCellText(row.getCell(0), String.valueOf(i + 1));
+            setCellText(row.getCell(1), student.name());
+            setCellText(row.getCell(2), student.studentNumber());
+            setCellText(row.getCell(3), student.mark());
+            for (int c = 4; c < 8; c++) {
+                setCellText(row.getCell(c), "");
             }
         }
     }
@@ -126,6 +141,41 @@ public class DocumentTemplateEngine {
     private static void ensureCells(XWPFTableRow row, int count) {
         while (row.getTableCells().size() < count) {
             row.createCell();
+        }
+    }
+
+    private static XWPFTableRow copyRowStyle(CTRow templateCtRow, XWPFTable table) {
+        CTRow ctRow = CTRow.Factory.newInstance();
+        ctRow.set(templateCtRow);
+        XWPFTableRow newRow = new XWPFTableRow(ctRow, table);
+        table.addRow(newRow);
+        return newRow;
+    }
+
+    private static void setCellText(XWPFTableCell cell, String text) {
+        XWPFParagraph paragraph;
+        if (cell.getParagraphs().isEmpty()) {
+            paragraph = cell.addParagraph();
+        } else {
+            paragraph = cell.getParagraphs().get(0);
+        }
+
+        List<XWPFRun> runs = paragraph.getRuns();
+        if (runs.isEmpty()) {
+            XWPFRun run = paragraph.createRun();
+            run.setFontFamily("Times New Roman");
+            run.setFontSize(11);
+            run.setBold(false);
+            run.setText(text);
+        } else {
+            for (int i = runs.size() - 1; i > 0; i--) {
+                paragraph.removeRun(i);
+            }
+            XWPFRun run = runs.get(0);
+            run.setBold(false);
+            run.setFontFamily("Times New Roman");
+            run.setFontSize(11);
+            run.setText(text, 0);
         }
     }
 }
