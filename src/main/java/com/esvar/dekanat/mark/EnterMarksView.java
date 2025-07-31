@@ -1,5 +1,6 @@
 package com.esvar.dekanat.mark;
 
+import com.esvar.dekanat.document.DocumentGenerationService;
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
@@ -48,6 +49,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -73,6 +75,7 @@ public class EnterMarksView extends Div {
     private final ControlMethodService controlMethodService;
     private final MarksPartsService marksPartsService;
     private final ControlPartsService controlPartsService;
+    private final DocumentGenerationService documentGenerationService;
 
     private VerticalLayout mainLayout = new VerticalLayout();
     private HorizontalLayout contentLayout = new HorizontalLayout();
@@ -103,7 +106,7 @@ public class EnterMarksView extends Div {
     public EnterMarksView(FacultyService facultyService, DepartmentService departmentService, PlanService planService,
                           StudentService studentService, StudentPlansService studentPlansService, SecurityService securityService,
                           UserRepository userRepository, MarksService marksService, ControlMethodService controlMethodService,
-                          MarksPartsService marksPartsService, ControlPartsService controlPartsService) {
+                          MarksPartsService marksPartsService, ControlPartsService controlPartsService, DocumentGenerationService documentGenerationService) {
         this.facultyService = facultyService;
         this.departmentService = departmentService;
         this.planService = planService;
@@ -115,6 +118,7 @@ public class EnterMarksView extends Div {
         this.controlMethodService = controlMethodService;
         this.marksPartsService = marksPartsService;
         this.controlPartsService = controlPartsService;
+        this.documentGenerationService = documentGenerationService;
 
         // Налаштування форми вибору параметрів
         selectFaculty.setLabel("Факультет");
@@ -1039,8 +1043,8 @@ public class EnterMarksView extends Div {
             }
             case "Залік" -> {
                 DataModelForZalik data = buildDataModelForZalik(secondTeacher);
-                ZalikGenerator generator = new ZalikGenerator();
-                return generator.generate(data);
+                Path path = documentGenerationService.generate(ZalikGenerator.NAME, data);
+                return path.toString();
             }
         }
 
@@ -1148,11 +1152,24 @@ public class EnterMarksView extends Div {
         String e = String.valueOf(gradeMap.getOrDefault("E", 0L));
         String fx = String.valueOf(gradeMap.getOrDefault("FX", 0L));
         String f = String.valueOf(gradeMap.getOrDefault("F", 0L));
-
+        List<StudentModelToDocumentGenerate> students = new ArrayList<>();
+        List<StudentEntity> studentEntities = studentService.getStudentByGroupId(plansEntity.getGroup().getId());
+        int index = 1;
+        for (StudentEntity student : studentEntities) {
+            String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
+            if (mark == null) {
+                mark = "";
+            }
+            String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
+            students.add(new StudentModelToDocumentGenerate(index,
+                    student.getSurname() + " " + student.getName() + " " + patronymic,
+                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
+                    mark));
+            index++;
+        }
         return new DataModelForZalik(facultyName, specialityName, courseNumber, groupName, studyYear,
                 order, day, month, year, disciplineName, semesterNumber, controlTypeName,
                 hours, firstTeacher, secondTeacher, dean, departmentName,
-                a, b, c, d, e, fx, f, gradeTeacher);
+                a, b, c, d, e, fx, f, gradeTeacher, students);
     }
-
 }

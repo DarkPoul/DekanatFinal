@@ -1,5 +1,7 @@
 package com.esvar.dekanat.generate;
 
+import java.util.List;
+
 /**
  * Data model for generating zalik documents.
  */
@@ -28,5 +30,6 @@ public record DataModelForZalik(
         String e,
         String fx,
         String f,
-        String gradeTeacher
+        String gradeTeacher,
+        List<StudentModelToDocumentGenerate> students
 ) {}

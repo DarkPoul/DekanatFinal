@@ -1,108 +1,65 @@
 package com.esvar.dekanat.generate;
 
+import com.esvar.dekanat.document.DocumentException;
+import com.esvar.dekanat.document.DocumentGenerator;
 import org.apache.poi.xwpf.usermodel.*;
+import org.springframework.stereotype.Component;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 
 /**
  * Generator for zalik documents based on a docx template.
  */
-public class ZalikGenerator {
+@Component
+public class ZalikGenerator implements DocumentGenerator {
 
-    public String generate(DataModelForZalik data) {
-        String inputFilePath = "uploads/zalik.docx";
-        String tempFilePath = "uploads/zalikTemp.docx";
-        String finalFilePath = buildFinalFilePath(
-                data.controlTypeName(),
-                data.groupName(),
-                data.day(),
-                data.month(),
-                data.year()
-        );
+    public static final String NAME = "zalik";
+    private static final String TEMPLATE = "uploads/zalik.docx";
 
-        try (FileInputStream fis = new FileInputStream(inputFilePath);
-             XWPFDocument document = new XWPFDocument(fis)) {
+    @Override
+    public String getName() {
+        return NAME;
+    }
 
-            replaceTagsInDocument(document, data);
+    @Override
+    public String getTemplatePath() {
+        return TEMPLATE;
+    }
 
-            try (FileOutputStream fos = new FileOutputStream(tempFilePath)) {
-                document.write(fos);
-                DocxUpdater.runJar("WordToDocxConverter.jar", tempFilePath, finalFilePath);
-            }
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
+    @Override
+    public Map<String, Object> prepareContext(Object data) {
+        if (!(data instanceof DataModelForZalik zalik)) {
+            throw new DocumentException("Expected DataModelForZalik");
         }
-        return finalFilePath;
-    }
-
-    private void replaceTagsInDocument(XWPFDocument document, DataModelForZalik data) {
-        replaceTagsInParagraphs(document, data);
-        for (XWPFTable table : document.getTables()) {
-            for (XWPFTableRow row : table.getRows()) {
-                for (XWPFTableCell cell : row.getTableCells()) {
-                    replaceTagsInParagraphs(cell, data);
-                }
-            }
-        }
-    }
-
-    private void replaceTagsInParagraphs(IBody body, DataModelForZalik data) {
-        for (XWPFParagraph paragraph : body.getParagraphs()) {
-            for (XWPFRun run : paragraph.getRuns()) {
-                String text = run.getText(0);
-                if (text != null) {
-                    text = text.replace("{facultyName}", data.facultyName())
-                            .replace("{specialityName}", data.specialityName())
-                            .replace("{courseNumber}", data.courseNumber())
-                            .replace("{groupName}", data.groupName())
-                            .replace("{studyYear}", data.studyYear())
-                            .replace("{order}", data.order())
-                            .replace("{day}", data.day())
-                            .replace("{month}", data.month())
-                            .replace("{year}", data.year())
-                            .replace("{disciplineName}", data.disciplineName())
-                            .replace("{sN}", data.semesterNumber())
-                            .replace("{controlTypeName}", data.controlTypeName())
-                            .replace("{h}", data.hours())
-                            .replace("{f}", data.firstTeacher())
-                            .replace("{s}", data.secondTeacher())
-                            .replace("{dekan}", data.dean())
-                            .replace("{dName}", data.departmentName())
-                            .replace("{A}", data.a())
-                            .replace("{B}", data.b())
-                            .replace("{C}", data.c())
-                            .replace("{D}", data.d())
-                            .replace("{E}", data.e())
-                            .replace("{Fx}", data.fx())
-                            .replace("{F}", data.f())
-                            .replace("{tI}", data.gradeTeacher());
-                    run.setText(text, 0);
-                }
-            }
-        }
-    }
-
-    private String buildFinalFilePath(String controlName, String groupName, String day, String month, String year) {
-        String shortName = toShortControlName(controlName);
-        String safeControl = shortName.replaceAll("\\s+", "_");
-        String fileName = groupName + "_" + safeControl + "_" + day + "_" + month + "_" + year + ".pdf";
-        return "uploads/" + fileName;
-    }
-
-    private String toShortControlName(String controlName) {
-        return switch (controlName) {
-            case "Перший модульний контроль" -> "Перший модуль";
-            case "Другий модульний контроль" -> "Другий модуль";
-            case "Залік" -> "Залік";
-            case "Екзамен" -> "Екзамен";
-            case "Диференційний залік" -> "Д.залік";
-            case "Курсова робота" -> "КР";
-            case "Курсовий проєкт" -> "КП";
-            case "Розрахункова робота" -> "РР";
-            case "Розрахунково-графічна робота" -> "РГР";
-            default -> controlName;
-        };
+        Map<String, Object> ctx = new HashMap<>();
+        ctx.put("facultyName", zalik.facultyName());
+        ctx.put("specialityName", zalik.specialityName());
+        ctx.put("courseNumber", zalik.courseNumber());
+        ctx.put("groupName", zalik.groupName());
+        ctx.put("studyYear", zalik.studyYear());
+        ctx.put("order", zalik.order());
+        ctx.put("day", zalik.day());
+        ctx.put("month", zalik.month());
+        ctx.put("year", zalik.year());
+        ctx.put("disciplineName", zalik.disciplineName());
+        ctx.put("semesterNumber", zalik.semesterNumber());
+        ctx.put("controlTypeName", zalik.controlTypeName());
+        ctx.put("hours", zalik.hours());
+        ctx.put("firstTeacher", zalik.firstTeacher());
+        ctx.put("secondTeacher", zalik.secondTeacher());
+        ctx.put("dekan", zalik.dean());
+        ctx.put("departmentName", zalik.departmentName());
+        ctx.put("A", zalik.a());
+        ctx.put("B", zalik.b());
+        ctx.put("C", zalik.c());
+        ctx.put("D", zalik.d());
+        ctx.put("E", zalik.e());
+        ctx.put("Fx", zalik.fx());
+        ctx.put("F", zalik.f());
+        ctx.put("tI", zalik.gradeTeacher());
+        return ctx;
     }
 }
