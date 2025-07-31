@@ -1,7 +1,7 @@
 package com.esvar.dekanat.document;
 
-import com.esvar.dekanat.generate.DocxUpdater;
 import com.esvar.dekanat.generate.ZalikGenerator;
+import com.esvar.dekanat.utilites.PdfConverterUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -47,13 +47,13 @@ public class DocumentGenerationService {
 
         if (ZalikGenerator.NAME.equals(name)) {
             Path pdfPath = docxPath.resolveSibling(docxPath.getFileName().toString().replaceFirst("\\.docx$", ".pdf"));
+            PdfConverterUtil.convert(docxPath, pdfPath);
             try {
-                DocxUpdater.runJar("WordToDocxConverter.jar", docxPath.toString(), pdfPath.toString());
                 Files.deleteIfExists(docxPath);
-                return pdfPath;
-            } catch (IOException | InterruptedException e) {
-                throw new DocumentException("Failed to convert document to PDF", e);
+            } catch (IOException e) {
+                log.warn("Could not delete temporary DOCX file", e);
             }
+            return pdfPath;
         }
 
         return docxPath;
