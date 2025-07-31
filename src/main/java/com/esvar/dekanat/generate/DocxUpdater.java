@@ -366,11 +366,15 @@ public class DocxUpdater {
     }
 
     private static void setCellText(XWPFTableCell cell, String text, ParagraphAlignment align) {
-        XWPFParagraph paragraph = cell.getParagraphs().get(0);
+        int pCount = cell.getParagraphs().size();
+        for (int i = pCount - 1; i >= 0; i--) {
+            cell.removeParagraph(i);
+        }
+        XWPFParagraph paragraph = cell.addParagraph();
         paragraph.setAlignment(align);
         paragraph.setVerticalAlignment(TextAlignment.CENTER);
         XWPFRun run = paragraph.createRun();
-        run.setFontSize(10);
+        run.setFontSize(11);
         run.setFontFamily("Times New Roman");
         run.setText(text);
     }
@@ -380,7 +384,7 @@ public class DocxUpdater {
         paragraph.setAlignment(ParagraphAlignment.CENTER);
         paragraph.setVerticalAlignment(TextAlignment.CENTER);
         XWPFRun run = paragraph.createRun();
-        run.setFontSize(10);
+        run.setFontSize(11);
         run.setBold(true);
         run.setItalic(false);
         run.setFontFamily("Times New Roman");

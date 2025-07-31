@@ -50,7 +50,10 @@ public class DocumentTemplateEngine {
         } catch (IOException e) {
             log.error("Error generating document", e);
             throw new DocumentException("Failed to generate document", e);
-        }
+        }  catch (RuntimeException e) {
+        log.error("Unexpected error generating document", e);
+        throw new DocumentException("Unexpected error", e);
+    }
     }
 
     private void replaceTags(IBody body, Map<String, Object> variables) {
@@ -105,37 +108,57 @@ public class DocumentTemplateEngine {
     }
 
     private void insertStudents(XWPFDocument document, List<StudentModelToDocumentGenerate> students) {
-        List<XWPFTable> tables = document.getTables();
-        if (tables.size() < 2) {
-            log.warn("Students table not found in template");
+        XWPFTable table = findStudentsTable(document);
+        if (table == null || table.getNumberOfRows() < 3) {
+            log.warn("Students table not found or too small");
             return;
         }
 
-        XWPFTable table = tables.get(1);
-        if (table.getNumberOfRows() < 3) {
-            log.warn("Students template row not found");
-            return;
-        }
-
+        // 1. Зчитати шаблонний рядок
         XWPFTableRow templateRow = table.getRow(2);
-        // copy style of the template row then remove it from the table
-        CTRow templateCt = CTRow.Factory.newInstance();
-        templateCt.set(templateRow.getCtRow());
-        table.removeRow(2);
+        CTRow templateCt = templateRow.getCtRow();
 
+        // 2. Видалити всі рядки нижче 2-го (починаючи з останнього)
+        for (int i = table.getNumberOfRows() - 1; i >= 2; i--) {
+            table.removeRow(i);
+        }
+
+        // 3. Створити рядки студентів
         for (int i = 0; i < students.size(); i++) {
             StudentModelToDocumentGenerate student = students.get(i);
-            XWPFTableRow row = copyRowStyle(templateCt, table);
+
+            log.info("Insert student [{}] - Name: {}, RecordBook: {}, Mark: {}",
+                    i + 1,
+                    student.name(),
+                    student.studentNumber(),
+                    student.mark());
+
+            // копія шаблонного рядка (нова щоразу!)
+            CTRow copiedCt = (CTRow) templateCt.copy(); // ключова зміна
+            XWPFTableRow row = new XWPFTableRow(copiedCt, table);
+            table.addRow(row);
             ensureCells(row, 8);
-            // numbering should be sequential regardless of student record index
+
+            if (row.getCell(0) == null || row.getCell(1) == null || row.getCell(2) == null || row.getCell(3) == null) {
+                log.error("One of the table cells is null at index {}", i);
+            }
+
             setCellText(row.getCell(0), String.valueOf(i + 1));
             setCellText(row.getCell(1), student.name());
             setCellText(row.getCell(2), student.studentNumber());
             setCellText(row.getCell(3), student.mark());
             for (int c = 4; c < 8; c++) {
+                String mark = student.mark();
+                if (mark == null) {
+                    log.warn("Student [{}] has null mark, replacing with empty string", i + 1);
+                    mark = "";
+                }
                 setCellText(row.getCell(c), "");
             }
         }
+
+        // 4. Видалити шаблонний рядок після вставки
+        table.removeRow(2);
     }
 
     private static void ensureCells(XWPFTableRow row, int count) {
@@ -153,29 +176,48 @@ public class DocumentTemplateEngine {
     }
 
     private static void setCellText(XWPFTableCell cell, String text) {
-        XWPFParagraph paragraph;
-        if (cell.getParagraphs().isEmpty()) {
-            paragraph = cell.addParagraph();
-        } else {
-            paragraph = cell.getParagraphs().get(0);
+        int pCount = cell.getParagraphs().size();
+        for (int i = pCount - 1; i >= 0; i--) {
+            cell.removeParagraph(i);
         }
 
-        List<XWPFRun> runs = paragraph.getRuns();
-        if (runs.isEmpty()) {
-            XWPFRun run = paragraph.createRun();
-            run.setFontFamily("Times New Roman");
-            run.setFontSize(11);
-            run.setBold(false);
-            run.setText(text);
-        } else {
-            for (int i = runs.size() - 1; i > 0; i--) {
-                paragraph.removeRun(i);
+        XWPFParagraph paragraph = cell.addParagraph();
+        XWPFRun run = paragraph.createRun();
+        run.setFontFamily("Times New Roman");
+        run.setFontSize(11);
+        run.setBold(false);
+        run.setText(text);
+
+    }
+
+    private XWPFTable findStudentsTable(XWPFDocument document) {
+        for (XWPFTable tbl : document.getTables()) {
+            if (tbl.getNumberOfRows() < 1) {
+                continue;
             }
-            XWPFRun run = runs.get(0);
-            run.setBold(false);
-            run.setFontFamily("Times New Roman");
-            run.setFontSize(11);
-            run.setText(text, 0);
+            XWPFTableRow header = tbl.getRow(0);
+            if (header.getTableCells().isEmpty()) {
+                continue;
+            }
+            String first = getCellPlainText(header.getCell(0)).toLowerCase();
+            String second = header.getTableCells().size() > 1 ? getCellPlainText(header.getCell(1)).toLowerCase() : "";
+            if (first.contains("№") && second.contains("прізвище")) {
+                return tbl;
+            }
         }
+        return null;
+    }
+
+    private static String getCellPlainText(XWPFTableCell cell) {
+        StringBuilder sb = new StringBuilder();
+        for (XWPFParagraph p : cell.getParagraphs()) {
+            for (XWPFRun r : p.getRuns()) {
+                String t = r.getText(0);
+                if (t != null) {
+                    sb.append(t);
+                }
+            }
+        }
+        return sb.toString();
     }
 }
