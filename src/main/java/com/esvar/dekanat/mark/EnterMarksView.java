@@ -26,6 +26,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.page.Push;
 import com.vaadin.flow.component.progressbar.ProgressBar;
+import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.NumberField;
@@ -415,6 +416,7 @@ public class EnterMarksView extends Div {
         });
 
         printReportButton.addClickListener(e -> showSecondTeacherDialog());
+        additionalReportButton.addClickListener(e -> showAdditionalReportDialog());
     }
 
     private void configureGrid(String typeControl, int part) {
@@ -1171,5 +1173,50 @@ public class EnterMarksView extends Div {
                 order, day, month, year, disciplineName, semesterNumber, controlTypeName,
                 hours, firstTeacher, secondTeacher, dean, departmentName,
                 a, b, c, d, e, fx, f, gradeTeacher, students);
+    }
+
+    private void showAdditionalReportDialog() {
+        Dialog dialog = new Dialog();
+
+        TextField teacherField = new TextField();
+        teacherField.setWidthFull();
+        teacherField.setPlaceholder("Прізвище Ім'я По батькові");
+        teacherField.setPattern("^\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)? \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
+        teacherField.setErrorMessage("Формат: Прізвище Ім'я По батькові (наприклад, Іваненко Іван Іванович)");
+        teacherField.setValueChangeMode(ValueChangeMode.EAGER);
+
+        RadioButtonGroup<String> typeGroup = new RadioButtonGroup<>();
+        typeGroup.setItems("Додаткова 1", "Додаткова 2");
+        typeGroup.setLabel("Тип додаткової відомості");
+        typeGroup.setValue("Додаткова 1");
+
+        Button okButton = new Button("Підтвердити", e -> {
+            String secondTeacher = formatTeacherName(teacherField.getValue());
+            dialog.close();
+            generateReportWithLoading(secondTeacher);
+        });
+        okButton.setEnabled(false);
+
+        teacherField.addValueChangeListener(e -> {
+            String value = e.getValue();
+            boolean valid = value.matches("^\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)? \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
+            okButton.setEnabled(valid);
+            teacherField.setInvalid(!valid && !value.isEmpty());
+        });
+
+        VerticalLayout layout = new VerticalLayout();
+        HorizontalLayout hLayout = new HorizontalLayout();
+        hLayout.add(teacherField, typeGroup);
+
+        layout.add(new Span("Прізвище, ім'я та по батькові викладача, який здійснював поточний контроль"),
+                hLayout,
+                okButton);
+        layout.setPadding(false);
+        layout.setSpacing(true);
+        layout.setAlignItems(FlexComponent.Alignment.STRETCH);
+        layout.setHorizontalComponentAlignment(FlexComponent.Alignment.CENTER, okButton);
+
+        dialog.add(layout);
+        dialog.open();
     }
 }
