@@ -18,6 +18,8 @@ spring:
 vaadin:
   launch-browser: false  # у контейнері браузер відкривати не треба
   allowed-packages: com.esvar.dekanat
+  frontend:
+    hotdeploy: false
 
 upload:
   dir: uploads
