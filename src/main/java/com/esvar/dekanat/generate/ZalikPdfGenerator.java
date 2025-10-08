@@ -2,14 +2,19 @@ package com.esvar.dekanat.generate;
 
 import com.esvar.dekanat.document.DocumentException;
 import com.esvar.dekanat.document.PdfGenerator;
+import com.itextpdf.io.font.FontProgram;
+import com.itextpdf.io.font.FontProgramFactory;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.io.font.PdfEncodings;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.io.font.constants.StandardFonts;
+import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
 import com.itextpdf.layout.Document;
+import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.LineSeparator;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
@@ -17,6 +22,7 @@ import com.itextpdf.layout.properties.UnitValue;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -50,8 +56,13 @@ public class ZalikPdfGenerator implements PdfGenerator {
             PdfDocument pdfDoc = new PdfDocument(writer);
 
             PdfFont font;
-            try {
-                font = PdfFontFactory.createFont("/src/main/resources/fonts/times.ttf", PdfEncodings.IDENTITY_H);
+            try (InputStream fontStream = ZalikPdfGenerator.class.getResourceAsStream("/fonts/times.ttf")) {
+                if (fontStream != null) {
+                    FontProgram fp = FontProgramFactory.createFont(fontStream.readAllBytes());
+                    font = PdfFontFactory.createFont(fp, PdfEncodings.IDENTITY_H);
+                } else {
+                    font = PdfFontFactory.createFont(StandardFonts.TIMES_ROMAN);
+                }
             } catch (IOException e) {
                 font = PdfFontFactory.createFont(StandardFonts.TIMES_ROMAN);
             }
@@ -59,13 +70,28 @@ public class ZalikPdfGenerator implements PdfGenerator {
             Document doc = new Document(pdfDoc);
             doc.setFont(font);
 
-            doc.add(new Paragraph("Залікова відомість")
+            doc.add(new Paragraph("НАЦІОНАЛЬНИЙ ТРАНСПОРТНИЙ УНІВЕРСИТЕТ")
+                    .setFontSize(11)
                     .setBold()
                     .setTextAlignment(TextAlignment.CENTER));
 
-            doc.add(new Paragraph("Факультет: " + zalik.facultyName()));
-            doc.add(new Paragraph("Група: " + zalik.groupName()));
-            doc.add(new Paragraph("Дисципліна: " + zalik.disciplineName()));
+            SolidLine solidLine = new SolidLine(1f); // товщина 1 пт
+            LineSeparator line = new LineSeparator(solidLine);
+            line.setMarginTop(2);
+            line.setMarginBottom(0);
+            doc.add(line);
+
+            doc.add(new Paragraph(zalik.facultyName()).setFontSize(11));
+            doc.add(line);
+
+            doc.add(new Paragraph("Спеціальність: " + zalik.specialityName()).setFontSize(11));
+            doc.add(line);
+
+            doc.add(new Paragraph("Курс : " + zalik.courseNumber() + "    Група: " + zalik.groupName())
+                    .setFontSize(11)
+                    .setTextAlignment(TextAlignment.LEFT)
+                    .setMarginBottom(5));
+            doc.add(line);
 
             float[] columnWidths = {30, 160, 80, 60, 40, 40, 60, 60};
             Table table = new Table(UnitValue.createPercentArray(columnWidths))
@@ -108,7 +134,7 @@ public class ZalikPdfGenerator implements PdfGenerator {
     }
 
     private static void addHeaderCell(Table table, String text) {
-        table.addHeaderCell(new Cell().add(new Paragraph(text))
+        table.addHeaderCell(new Cell().add(new Paragraph(text).setFontSize(11))
                 .setTextAlignment(TextAlignment.CENTER));
     }
 

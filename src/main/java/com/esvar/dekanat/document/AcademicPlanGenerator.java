@@ -27,9 +27,13 @@ public class AcademicPlanGenerator implements DocumentGenerator {
     @Override
     public Map<String, Object> prepareContext(Object data) throws DocumentException {
         if (data instanceof Map<?, ?> map) {
+
             // unchecked cast, caller responsible for passing correct map
+
             return (Map<String, Object>) map;
         }
+
         throw new DocumentException("Expected Map<String,Object> as context");
+
     }
 }
