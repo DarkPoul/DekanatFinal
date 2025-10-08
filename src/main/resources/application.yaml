@@ -3,8 +3,8 @@ spring:
     name: Dekanat
   datasource:
     url: ${DB_URL}
-    username: ${MYSQL_USER}
-    password: ${MYSQL_PASSWORD}
+    username: ${MYSQL_ROOT_USER}
+    password: ${MYSQL_ROOT_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -16,18 +16,18 @@ spring:
         generate_statistics: true
 
 vaadin:
-  launch-browser: false  # у контейнері браузер відкривати не треба
-  allowed-packages: com.esvar.dekanat
-  frontend:
-    hotdeploy: false
+  launch-browser: true
 
 upload:
   dir: uploads
+
+#server:
+#  # Порт береться із змінної оточення SERVER_PORT (за замовчуванням 8080)
+#  port: ${SERVER_PORT:8080}
+#  # Довіряємо заголовкам від проксі (nginx)
+#  forward-headers-strategy: framework
 
 logging:
   level:
     root: INFO
     com.esvar.dekanat: DEBUG
-
-server:
-  port: ${SERVER_PORT:8080}

@@ -1,17 +1,35 @@
-# ---------- Build ----------
+# Вказуємо базовий образ для зборки
 FROM eclipse-temurin:17-jdk-jammy AS build
+
+# Копіюємо всі файли проекту в контейнер
 WORKDIR /app
 COPY . .
-RUN chmod +x mvnw
-# ключове: зібрати фронт у JAR
-RUN ./mvnw -Pproduction -DskipTests clean package
 
-# ---------- Runtime ----------
-FROM eclipse-temurin:17-jre-jammy
+# Виконуємо збірку проекту, включаючи Maven Wrapper
+RUN chmod +x mvnw
+RUN ./mvnw clean package
+
+# Вказуємо базовий образ для виконання
+FROM eclipse-temurin:17-jdk-jammy
+
+# Копіюємо файли проекту з попереднього образу
 WORKDIR /app
-# (за потреби шрифти)
-RUN apt-get update && apt-get install -y fontconfig && rm -rf /var/lib/apt/lists/*
-COPY --from=build /app/target/*.jar /app/app.jar
-ENV VAADIN_DISABLE_DEV_SERVER=true
+COPY --from=build /app .
+
+# Install fontconfig so the converter can find the bundled fonts
+RUN apt-get update && \
+    apt-get install -y fontconfig && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy bundled fonts if provided
+COPY src/main/resources/fonts /usr/local/share/fonts
+RUN fc-cache -f -v
+
+# Встановлюємо Maven Wrapper як виконуваний файл
+RUN chmod +x mvnw
+
+# Вказуємо порти для додатку
 EXPOSE 8080
-ENTRYPOINT ["sh","-c","java -jar /app/app.jar"]
+
+# Команда для запуску додатку
+CMD ["./mvnw", "spring-boot:run"]
