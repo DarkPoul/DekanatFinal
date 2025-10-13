@@ -36,13 +36,13 @@ public class StudentPassportEntity {
     private Gender sex;
 
     @Column(nullable = false)
-    private Date issueDate;
+    private String issueDate;
 
     @Column
     private String issuedBy;
 
     @Column(nullable = false)
-    private Date expireDate;
+    private String expireDate;
 
     @Column(nullable = false, length = 10)
     private String series;
@@ -57,7 +57,7 @@ public class StudentPassportEntity {
     private String UnzrCode;
 
     @Column
-    private Date birthdate;
+    private String birthdate;
 
     @Column
     private String edboNumberPhis;

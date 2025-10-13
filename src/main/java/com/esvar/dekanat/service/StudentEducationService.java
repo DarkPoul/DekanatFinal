@@ -14,7 +14,7 @@ public class StudentEducationService {
     }
 
     public StudentEducationEntity getEducationByStudentModel(StudentEntity studentEntity) {
-        return studentEducationRepository.findByStudentId(studentEntity.getId());
+        return studentEducationRepository.findByStudent_Id(studentEntity.getId());
     }
 
     public void save(StudentEducationEntity educationEntity) {

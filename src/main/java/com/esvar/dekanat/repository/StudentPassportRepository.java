@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface StudentPassportRepository extends JpaRepository<StudentPassportEntity, Long> {
-    StudentPassportEntity findByStudentId(Long studentId);
+    StudentPassportEntity findByStudent_Id(Long studentId);
 }

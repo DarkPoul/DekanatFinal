@@ -15,6 +15,6 @@ public class StudentReportService {
     }
 
     public List<ReportEntity> getReportsByStudentId(Long studentId) {
-        return studentReportRepository.findByStudentId(studentId);
+        return studentReportRepository.findByStudent_Id(studentId);
     }
 }

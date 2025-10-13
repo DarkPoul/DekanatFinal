@@ -205,9 +205,9 @@ public class AddStudentDialog extends Dialog {
         passport.setNameEng(firstNameEng.getValue());
         passport.setSurnameEng(lastNameEng.getValue());
         if (issueDate.getValue() != null)
-            passport.setIssueDate(Date.valueOf(issueDate.getValue()));
+            passport.setIssueDate(String.valueOf(Date.valueOf(issueDate.getValue())));
         if (expireDate.getValue() != null)
-            passport.setExpireDate(Date.valueOf(expireDate.getValue()));
+            passport.setExpireDate(String.valueOf(Date.valueOf(expireDate.getValue())));
         passport.setNationality(nationality.getValue());
         passport.setSex(gender.getValue());
         passportService.save(passport);

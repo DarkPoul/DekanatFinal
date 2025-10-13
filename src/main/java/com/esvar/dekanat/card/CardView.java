@@ -924,6 +924,7 @@ public class CardView extends Div {
 
 
                 studentEntity = studentService.getStudentForCard(selectGroup.getValue(), selectStudent.getValue());
+                System.out.println(studentEntity.getId());
                 studentPassportEntity = studentPassportService.getPassportByStudentModel(studentEntity);
                 studentInfoEntity = studentInfoService.getInfoByStudentModel(studentEntity);
                 studentEducationEntity = studentEducationService.getEducationByStudentModel(studentEntity);
@@ -971,13 +972,13 @@ public class CardView extends Div {
                 passportNumberField.setValue(studentPassportEntity.getNumber());
                 passportNumberField.setReadOnly(true);
 
-                passportIssueDatePicker.setValue(studentPassportEntity.getIssueDate().toLocalDate());
+                passportIssueDatePicker.setValue(Date.valueOf(studentPassportEntity.getIssueDate()).toLocalDate());
                 passportIssueDatePicker.setReadOnly(true);
 
                 passportIssuedByField.setValue(studentPassportEntity.getIssuedBy());
                 passportIssuedByField.setReadOnly(true);
 
-                passportExpiryDatePicker.setValue(studentPassportEntity.getExpireDate().toLocalDate());
+                passportExpiryDatePicker.setValue(Date.valueOf(studentPassportEntity.getExpireDate()).toLocalDate());
                 passportExpiryDatePicker.setReadOnly(true);
 
                 idCodeField.setValue(studentPassportEntity.getIdentificationNumber());
@@ -986,7 +987,7 @@ public class CardView extends Div {
                 unzrField.setValue(studentPassportEntity.getUnzrCode());
                 unzrField.setReadOnly(true);
 
-                birthDatePicker.setValue(studentPassportEntity.getBirthdate().toLocalDate());
+                birthDatePicker.setValue(Date.valueOf(studentPassportEntity.getBirthdate()).toLocalDate());
                 birthDatePicker.setReadOnly(true);
 
                 nationalityField.setValue(studentPassportEntity.getNationality());
@@ -1258,14 +1259,14 @@ public class CardView extends Div {
                                 lastNameEngField.getValue(),
                                 nationalityField.getValue(),
                                 Gender.valueOf(genderSelect.getValue()),
-                                Date.valueOf(passportIssueDatePicker.getValue()),
+                                passportIssueDatePicker.getValue().toString(),
                                 passportIssuedByField.getValue(),
-                                Date.valueOf(passportExpiryDatePicker.getValue()),
+                                passportExpiryDatePicker.getValue().toString(),
                                 passportSeriesField.getValue(),
                                 passportNumberField.getValue(),
                                 idCodeField.getValue(),
                                 unzrField.getValue(),
-                                Date.valueOf(birthDatePicker.getValue()),
+                                birthDatePicker.getValue().toString(),
                                 personNumberEDEBOField.getValue(),
                                 studentCardNumberEDEBOField.getValue()
 
@@ -1440,12 +1441,12 @@ public class CardView extends Div {
             passportEntitySave.setId(studentPassportEntity.getId());
             passportEntitySave.setSeries(passportSeriesField.getValue());
             passportEntitySave.setNumber(passportNumberField.getValue());
-            passportEntitySave.setIssueDate(Date.valueOf(passportIssueDatePicker.getValue()));
-            passportEntitySave.setExpireDate(Date.valueOf(passportExpiryDatePicker.getValue()));
+            passportEntitySave.setIssueDate(String.valueOf(Date.valueOf(passportIssueDatePicker.getValue())));
+            passportEntitySave.setExpireDate(String.valueOf(Date.valueOf(passportExpiryDatePicker.getValue())));
             passportEntitySave.setIssuedBy(passportIssuedByField.getValue());
             passportEntitySave.setIdentificationNumber(idCodeField.getValue());
             passportEntitySave.setUnzrCode(unzrField.getValue());
-            passportEntitySave.setBirthdate(Date.valueOf(birthDatePicker.getValue()));
+            passportEntitySave.setBirthdate(String.valueOf(Date.valueOf(birthDatePicker.getValue())));
             passportEntitySave.setNationality(nationalityField.getValue());
             passportEntitySave.setSex(Gender.valueOf(genderSelect.getValue()));
             passportEntitySave.setEdboNumberPhis(personNumberEDEBOField.getValue());
@@ -1510,12 +1511,12 @@ public class CardView extends Div {
             recordBookNumberField.setValue(studentEntity.getRecordBookNumber());
             passportSeriesField.setValue(studentPassportEntity.getSeries());
             passportNumberField.setValue(studentPassportEntity.getNumber());
-            passportIssueDatePicker.setValue(studentPassportEntity.getIssueDate().toLocalDate());
+            passportIssueDatePicker.setValue(Date.valueOf(studentPassportEntity.getIssueDate()).toLocalDate());
             passportIssuedByField.setValue(studentPassportEntity.getIssuedBy());
-            passportExpiryDatePicker.setValue(studentPassportEntity.getExpireDate().toLocalDate());
+            passportExpiryDatePicker.setValue(Date.valueOf(studentPassportEntity.getExpireDate()).toLocalDate());
             idCodeField.setValue(studentPassportEntity.getIdentificationNumber());
             unzrField.setValue(studentPassportEntity.getUnzrCode());
-            birthDatePicker.setValue(studentPassportEntity.getBirthdate().toLocalDate());
+            birthDatePicker.setValue(Date.valueOf(studentPassportEntity.getBirthdate()).toLocalDate());
             nationalityField.setValue(studentPassportEntity.getNationality());
             genderSelect.setValue(studentPassportEntity.getSex().name());
             personNumberEDEBOField.setValue(studentPassportEntity.getEdboNumberPhis());

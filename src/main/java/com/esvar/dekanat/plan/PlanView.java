@@ -46,7 +46,6 @@ public class PlanView extends Div {
     private final DisciplineService disciplineService;
     private final DepartmentService departmentService;
     private final ControlMethodService controlMethodService;
-    private final SpecialtyService specialtyService;
     private final GroupService groupService;
     private final PlanService planService;
     private final MarksPartsService marksPartsService;
@@ -65,7 +64,7 @@ public class PlanView extends Div {
     // Діалогове вікно для створення/редагування планів
     private final PlanDialog planDialog;
     public PlanView(DisciplineService disciplineService, DepartmentService departmentService,
-                    ControlMethodService controlMethodService, SpecialtyService specialtyService,
+                    ControlMethodService controlMethodService,
                     GroupService groupService, PlanService planService,
                     MarksPartsService marksPartsService, StudentPlansService studentPlansService,
                     MarksService marksService, ControlPartsService controlPartsService, StudentService studentService, MarksInitializerService marksInitializerService) {
@@ -73,7 +72,6 @@ public class PlanView extends Div {
         this.disciplineService = disciplineService;
         this.departmentService = departmentService;
         this.controlMethodService = controlMethodService;
-        this.specialtyService = specialtyService;
         this.groupService = groupService;
         this.planService = planService;
         this.marksPartsService = marksPartsService;
@@ -207,7 +205,12 @@ public class PlanView extends Div {
         newPlan.setFirstControl(controlMethodService.getControlMethodByName(firstControl));
         newPlan.setSecondControl(controlMethodService.getControlMethodByName(secondControl));
         newPlan.setDepartment(departmentService.getDepartmentByTitle(department));
-        newPlan.setSpecialty(getSelectedSpecialty());
+        StudentGroupEntity selectedGroup = getSelectedGroup();
+        if (selectedGroup == null || selectedGroup.getSpecialty() == null) {
+            return;
+        }
+        newPlan.setGroup(selectedGroup);
+        newPlan.setSpecialty(selectedGroup.getSpecialty());
         newPlan.setSemester(getSelectedSemester());
         newPlan.setParts(Integer.parseInt(parts));
         newPlan.setFaculty(newPlan.getSpecialty().getFaculty());
@@ -354,13 +357,12 @@ public class PlanView extends Div {
         }
     }
 
-    private SpecialtyEntity getSelectedSpecialty() {
+    private StudentGroupEntity getSelectedGroup() {
         String selectedGroup = groupSelect.getValue();
         if (selectedGroup == null) {
             return null;
         }
-        String abbreviation = selectedGroup.split("-")[0];
-        return specialtyService.getSpecialtyByAbbreviation(abbreviation);
+        return groupService.getGroupByTitle(selectedGroup);
     }
 
 }

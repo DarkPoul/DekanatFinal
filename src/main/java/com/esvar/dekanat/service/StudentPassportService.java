@@ -15,7 +15,7 @@ public class StudentPassportService {
 
 
     public StudentPassportEntity getPassportByStudentModel(StudentEntity studentEntity) {
-        return studentPassportRepository.findByStudentId(studentEntity.getId());
+        return studentPassportRepository.findByStudent_Id(studentEntity.getId());
     }
 
     public void save(StudentPassportEntity passportEntity) {
