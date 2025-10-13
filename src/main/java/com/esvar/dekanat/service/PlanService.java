@@ -27,8 +27,7 @@ public class PlanService {
     private final PlanStatementNumberService planStatementNumberService;
 
 
-    public PlanService(PlanRepository planRepository, StudentPlansRepository studentPlansRepository, StudentRepository studentRepository, FacultyRepository facultyRepository, DepartmentRepository departmentRepository, SessionRepository sessionRepository, MarksService marksService, MarksPartsService marksPartsService, MarksInitializerService marksInitializerService, PlanStatementNumberService planStatementNumberService) {
-        this.planRepository = planRepository;
+    public PlanService(PlanRepository planRepository, StudentPlansRepository studentPlansRepository, StudentRepository studentRepository, FacultyRepository facultyRepository, DepartmentRepository departmentRepository, SessionRepository sessionRepository, MarksService marksService, MarksPartsService marksPartsService, MarksInitializerService marksInitializerService, PlanStatementNumberService planStatementNumberService) {    this.planRepository = planRepository;
         this.studentPlansRepository = studentPlansRepository;
         this.studentRepository = studentRepository;
         this.facultyRepository = facultyRepository;
@@ -187,7 +186,6 @@ public class PlanService {
                 .distinct()
                 .collect(Collectors.toList());
     }
-
 
     public List<String> getControlTypesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
             String faculty, String department, String specialty, int course, int groupNumber, String discipline) {
