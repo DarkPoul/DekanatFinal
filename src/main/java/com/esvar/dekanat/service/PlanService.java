@@ -1,12 +1,15 @@
 package com.esvar.dekanat.service;
 
+import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -153,19 +156,25 @@ public class PlanService {
                 .collect(Collectors.toList());
     }
 
-    public List<String> getNumGroupsByFacultyAndDepartmentAndSpecialtyAndCourse(String faculty, String department, String specialty, int course) {
-        return planRepository.findByFacultyAndDepartmentAndSpecialtyAndGroup_Course
-                (
+    public List<GroupDTO> getGroupsByFacultyAndDepartmentAndSpecialtyAndCourse(String faculty, String department, String specialty, int course) {
+        return planRepository.findByFacultyAndDepartmentAndSpecialtyAndGroup_Course(
                         facultyRepository.findByTitle(faculty),
                         departmentRepository.findByTitle(department),
                         specialtyRepository.findByAbbreviation(specialty),
                         course
                 ).stream()
                 .map(PlansEntity::getGroup)
-                .map(StudentGroupEntity::getGroupNumber)
-                .map(String::valueOf)
-                .distinct()
-                .collect(Collectors.toList());
+                .filter(Objects::nonNull)
+                .collect(Collectors.collectingAndThen(Collectors.toCollection(LinkedHashSet::new),
+                        groups -> groups.stream()
+                                .map(group -> new GroupDTO(
+                                        group.getGroupCode(),
+                                        group.getSpecialty().getAbbreviation(),
+                                        group.getCourse(),
+                                        group.getGroupNumber(),
+                                        group.getYear()
+                                ))
+                                .collect(Collectors.toList())));
     }
 
     public List<String> getDisciplinesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupGroupNumber(String faculty, String department, String specialty, int course, int groupNumber) {

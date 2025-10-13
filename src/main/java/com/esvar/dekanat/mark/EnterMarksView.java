@@ -1,6 +1,7 @@
 package com.esvar.dekanat.mark;
 
 import com.esvar.dekanat.document.DocumentGenerationService;
+import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
@@ -90,7 +91,7 @@ public class EnterMarksView extends Div {
     private Select<String> selectDepartment = new Select<>();
     private Select<String> selectSpecialty = new Select<>();
     private Select<String> selectCourse = new Select<>();
-    private Select<String> selectGroup = new Select<>();
+    private final Select<GroupDTO> selectGroup = new Select<>();
     private Select<String> selectDiscipline = new Select<>();
     private Select<String> selectControlType = new Select<>();
     private PlansEntity plansEntity = new PlansEntity();
@@ -158,6 +159,7 @@ public class EnterMarksView extends Div {
         selectGroup.setLabel("Група");
         selectGroup.setWidth("100%");
         selectGroup.getStyle().set("padding", "0px").set("margin", "0px").set("margin-bottom", "5px");
+        selectGroup.setItemLabelGenerator(GroupDTO::getGroupCode);
 
         selectDiscipline.setLabel("Дисципліна");
         selectDiscipline.setWidth("100%");
@@ -298,7 +300,7 @@ public class EnterMarksView extends Div {
                 selectDiscipline.clear();
                 selectControlType.clear();
 
-                selectGroup.setItems(planService.getNumGroupsByFacultyAndDepartmentAndSpecialtyAndCourse(
+                selectGroup.setItems(planService.getGroupsByFacultyAndDepartmentAndSpecialtyAndCourse(
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
                         selectSpecialty.getValue(),
@@ -309,7 +311,8 @@ public class EnterMarksView extends Div {
 
         selectGroup.addValueChangeListener(event -> {
             clearGrid();
-            if (selectGroup.getValue() != null) {
+            GroupDTO selectedGroup = selectGroup.getValue();
+            if (selectedGroup != null) {
                 selectDiscipline.setReadOnly(false);
                 selectControlType.setReadOnly(true);
 
@@ -319,23 +322,24 @@ public class EnterMarksView extends Div {
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
                         selectSpecialty.getValue(),
-                        Integer.parseInt(selectCourse.getValue()),
-                        Integer.parseInt(selectGroup.getValue())
+                        selectedGroup.getCourse(),
+                        selectedGroup.getGroupNumber()
                 ));
             }
         });
 
         selectDiscipline.addValueChangeListener(event -> {
             clearGrid();
-            if (selectDiscipline.getValue() != null) {
+            GroupDTO selectedGroup = selectGroup.getValue();
+            if (selectDiscipline.getValue() != null && selectedGroup != null) {
                 selectControlType.setReadOnly(false);
 
                 selectControlType.setItems(planService.getControlTypesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
                         selectSpecialty.getValue(),
-                        Integer.parseInt(selectCourse.getValue()),
-                        Integer.parseInt(selectGroup.getValue()),
+                        selectedGroup.getCourse(),
+                        selectedGroup.getGroupNumber(),
                         selectDiscipline.getValue()
                 ));
 
@@ -343,8 +347,8 @@ public class EnterMarksView extends Div {
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
                         selectSpecialty.getValue(),
-                        Integer.parseInt(selectCourse.getValue()),
-                        Integer.parseInt(selectGroup.getValue()),
+                        selectedGroup.getCourse(),
+                        selectedGroup.getGroupNumber(),
                         selectDiscipline.getValue()
                 );
             }
