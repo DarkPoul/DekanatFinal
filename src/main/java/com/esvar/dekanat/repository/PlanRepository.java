@@ -19,4 +19,34 @@ public interface PlanRepository extends JpaRepository<PlansEntity, Long> {
     List<PlansEntity> findByFacultyAndDepartmentAndSpecialtyAndGroup_CourseAndGroup_GroupNumber(FacultyEntity faculty, DepartmentEntity department, SpecialtyEntity specialty, int course, int groupNumber);
     List<PlansEntity> findByFacultyAndDepartmentAndSpecialtyAndGroup_CourseAndGroup_GroupNumberAndDiscipline(FacultyEntity faculty, DepartmentEntity department, SpecialtyEntity specialty, int course, int groupNumber, DisciplineEntity discipline);
 
+    List<PlansEntity> findByFacultyAndDepartmentAndSpecialty_Abbreviation(
+            FacultyEntity faculty,
+            DepartmentEntity department,
+            String specialtyAbbreviation
+    );
+
+    List<PlansEntity> findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_Course(
+            FacultyEntity faculty,
+            DepartmentEntity department,
+            String specialtyAbbreviation,
+            int course
+    );
+
+    List<PlansEntity> findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumber(
+            FacultyEntity faculty,
+            DepartmentEntity department,
+            String specialtyAbbreviation,
+            int course,
+            int groupNumber
+    );
+
+    List<PlansEntity> findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumberAndDiscipline_Title(
+            FacultyEntity faculty,
+            DepartmentEntity department,
+            String specialtyAbbreviation,
+            int course,
+            int groupNumber,
+            String disciplineTitle
+    );
+
 }

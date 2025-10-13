@@ -20,8 +20,6 @@ public class PlanService {
     private final StudentRepository studentRepository;
     private final FacultyRepository facultyRepository;
     private final DepartmentRepository departmentRepository;
-    private final SpecialtyRepository specialtyRepository;
-    private final DisciplineRepository disciplineRepository;
     private final SessionRepository sessionRepository;
     private final MarksService marksService;
     private final MarksPartsService marksPartsService;
@@ -29,14 +27,12 @@ public class PlanService {
     private final PlanStatementNumberService planStatementNumberService;
 
 
-    public PlanService(PlanRepository planRepository, StudentPlansRepository studentPlansRepository, StudentRepository studentRepository, FacultyRepository facultyRepository, DepartmentRepository departmentRepository, SpecialtyRepository specialtyRepository, DisciplineRepository disciplineRepository, SessionRepository sessionRepository, MarksService marksService, MarksPartsService marksPartsService, MarksInitializerService marksInitializerService, PlanStatementNumberService planStatementNumberService) {
+    public PlanService(PlanRepository planRepository, StudentPlansRepository studentPlansRepository, StudentRepository studentRepository, FacultyRepository facultyRepository, DepartmentRepository departmentRepository, SessionRepository sessionRepository, MarksService marksService, MarksPartsService marksPartsService, MarksInitializerService marksInitializerService, PlanStatementNumberService planStatementNumberService) {
         this.planRepository = planRepository;
         this.studentPlansRepository = studentPlansRepository;
         this.studentRepository = studentRepository;
         this.facultyRepository = facultyRepository;
         this.departmentRepository = departmentRepository;
-        this.specialtyRepository = specialtyRepository;
-        this.disciplineRepository = disciplineRepository;
         this.sessionRepository = sessionRepository;
         this.marksService = marksService;
         this.marksPartsService = marksPartsService;
@@ -143,11 +139,10 @@ public class PlanService {
     }
 
     public List<String> getCourseByFacultyAndDepartmentAndSpecialty(String faculty, String department, String specialty) {
-        return planRepository.findByFacultyAndDepartmentAndSpecialty
-                (
+        return planRepository.findByFacultyAndDepartmentAndSpecialty_Abbreviation(
                         facultyRepository.findByTitle(faculty),
                         departmentRepository.findByTitle(department),
-                        specialtyRepository.findByAbbreviation(specialty)
+                        specialty
                 ).stream()
                 .map(PlansEntity::getGroup)
                 .map(StudentGroupEntity::getCourse)
@@ -157,10 +152,10 @@ public class PlanService {
     }
 
     public List<GroupDTO> getGroupsByFacultyAndDepartmentAndSpecialtyAndCourse(String faculty, String department, String specialty, int course) {
-        return planRepository.findByFacultyAndDepartmentAndSpecialtyAndGroup_Course(
+        return planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_Course(
                         facultyRepository.findByTitle(faculty),
                         departmentRepository.findByTitle(department),
-                        specialtyRepository.findByAbbreviation(specialty),
+                        specialty,
                         course
                 ).stream()
                 .map(PlansEntity::getGroup)
@@ -179,30 +174,31 @@ public class PlanService {
 
     public List<String> getDisciplinesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupGroupNumber(String faculty, String department, String specialty, int course, int groupNumber) {
         int semester = getNumberSemester(String.valueOf(course));
-        return planRepository.findByFacultyAndDepartmentAndSpecialtyAndGroup_CourseAndGroup_GroupNumber
-                (
+        return planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumber(
                         facultyRepository.findByTitle(faculty),
                         departmentRepository.findByTitle(department),
-                        specialtyRepository.findByAbbreviation(specialty),
+                        specialty,
                         course,
                         groupNumber
                 ).stream()
                 .filter(p -> p.getSemester() == semester)
                 .map(PlansEntity::getDiscipline)
                 .map(DisciplineEntity::getTitle)
+                .distinct()
                 .collect(Collectors.toList());
     }
+
 
     public List<String> getControlTypesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
             String faculty, String department, String specialty, int course, int groupNumber, String discipline) {
         int semester = getNumberSemester(String.valueOf(course));
-        List<String> controlTypes = planRepository.findByFacultyAndDepartmentAndSpecialtyAndGroup_CourseAndGroup_GroupNumberAndDiscipline(
+        List<String> controlTypes = planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumberAndDiscipline_Title(
                         facultyRepository.findByTitle(faculty),
                         departmentRepository.findByTitle(department),
-                        specialtyRepository.findByAbbreviation(specialty),
+                        specialty,
                         course,
                         groupNumber,
-                        disciplineRepository.findByTitle(discipline)
+                        discipline
                 ).stream()
                 .filter(p -> p.getSemester() == semester)
                 .flatMap(plan -> Stream.of(plan.getFirstControl().getName(), plan.getSecondControl().getName())) // Отримуємо обидва значення
@@ -219,14 +215,14 @@ public class PlanService {
 
     public PlansEntity getPlanEntityByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(String faculty, String department, String specialty, int course, int groupNumber, String discipline){
         int semester = getNumberSemester(String.valueOf(course));
-        return planRepository.findByFacultyAndDepartmentAndSpecialtyAndGroup_CourseAndGroup_GroupNumberAndDiscipline(
-                facultyRepository.findByTitle(faculty),
-                departmentRepository.findByTitle(department),
-                specialtyRepository.findByAbbreviation(specialty),
-                course,
-                groupNumber,
-                disciplineRepository.findByTitle(discipline)
-            ).stream()
+        return planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumberAndDiscipline_Title(
+                        facultyRepository.findByTitle(faculty),
+                        departmentRepository.findByTitle(department),
+                        specialty,
+                        course,
+                        groupNumber,
+                        discipline
+                ).stream()
                 .filter(p -> p.getSemester() == semester)
                 .findFirst().orElse(null);
     }
