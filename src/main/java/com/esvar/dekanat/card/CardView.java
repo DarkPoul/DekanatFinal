@@ -1467,6 +1467,7 @@ public class CardView extends Div {
         newGroup.setCourse(Integer.parseInt(course));
         newGroup.setGroupNumber(Integer.parseInt(groupNumber));
         newGroup.setYear(Integer.parseInt(graduationYear));
+        newGroup.setGroupCode(groupCode);
 
         try {
             StudentGroupEntity savedGroup = groupService.save(newGroup);
