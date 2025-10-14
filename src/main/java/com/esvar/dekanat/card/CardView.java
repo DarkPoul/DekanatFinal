@@ -1708,6 +1708,7 @@ public class CardView extends Div {
         return fallback;
     }
 
+
     private String resolveSelectValue(Select<String> select, String fallback) {
         String value = select.getValue();
         if (value != null) {
