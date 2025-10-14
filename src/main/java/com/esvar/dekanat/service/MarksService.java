@@ -1,12 +1,15 @@
 package com.esvar.dekanat.service;
 
 import com.esvar.dekanat.dto.MarkDTO;
+import com.esvar.dekanat.entity.ControlMethodEntity;
 import com.esvar.dekanat.entity.MarksEntity;
 import com.esvar.dekanat.entity.PlansEntity;
 import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.repository.ControlMethodRepository;
 import com.esvar.dekanat.repository.MarksRepository;
 import com.esvar.dekanat.security.SecurityService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +24,9 @@ public class MarksService {
     private final ControlMethodRepository controlMethodRepository;
     private final RatingService ratingService;
     private final SecurityService securityService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public MarksService(MarksRepository marksRepository, ControlMethodRepository controlMethodRepository, RatingService ratingService, SecurityService securityService) {
         this.marksRepository = marksRepository;
@@ -69,6 +75,13 @@ public class MarksService {
             existing.setLastUpdatedBy(mark.getLastUpdatedBy());
             saved = marksRepository.save(existing);
         } else {
+            StudentEntity managedStudent = entityManager.getReference(StudentEntity.class, mark.getStudent().getId());
+            PlansEntity managedPlan = entityManager.getReference(PlansEntity.class, mark.getPlan().getId());
+            ControlMethodEntity managedControl = entityManager.getReference(ControlMethodEntity.class, mark.getControlMethod().getId());
+
+            mark.setStudent(managedStudent);
+            mark.setPlan(managedPlan);
+            mark.setControlMethod(managedControl);
             saved = marksRepository.save(mark);
         }
         ratingService.updateRatingForStudent(saved.getStudent());

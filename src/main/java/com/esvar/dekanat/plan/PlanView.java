@@ -90,7 +90,11 @@ public class PlanView extends Div {
         List<String> firstControlTypes = controlMethodService.getTypeControlMethod(1).stream()
                 .map(ControlMethodEntity::getName).collect(Collectors.toList());
         List<String> secondControlTypes = controlMethodService.getTypeControlMethod(2).stream()
-                .map(ControlMethodEntity::getName).collect(Collectors.toList());
+                .map(ControlMethodEntity::getName)
+                .collect(Collectors.toCollection(ArrayList::new));
+        if (!secondControlTypes.contains("Відсутній")) {
+            secondControlTypes.add(0, "Відсутній");
+        }
         planDialog = new PlanDialog(disciplines, departments, firstControlTypes, secondControlTypes, new ArrayList<>());
 
         // Встановлення слухачів для збереження/оновлення плану
