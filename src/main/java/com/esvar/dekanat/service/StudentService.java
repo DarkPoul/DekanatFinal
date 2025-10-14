@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class StudentService {
@@ -79,20 +81,45 @@ public class StudentService {
             throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
         }
 
-        String[] parts = fullName.trim().split("\\s+");
+        String normalizedFullName = normalizeFullName(fullName);
+        if (normalizedFullName.isBlank()) {
+            throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
+        }
+
+        String[] parts = normalizedFullName.split(" ");
         if (parts.length < 3) {
-            throw new IllegalArgumentException("Невірний формат ПІБ студента: '" + fullName + "'.");
+            throw new IllegalArgumentException("Невірний формат ПІБ студента: '" + normalizedFullName + "'.");
         }
 
         String surname = parts[0];
         String name = parts[1];
         String patronymic = parts[2];
 
-        StudentEntity student = getStudentByFullName(surname, name, patronymic);
+        StudentEntity student = Optional.ofNullable(getStudentByFullName(surname, name, patronymic))
+                .orElseGet(() -> studentRepository.findAll()
+                        .stream()
+                        .filter(existing -> normalizeFullName(existing.getFullName()).equalsIgnoreCase(normalizedFullName))
+                        .findFirst()
+                        .orElse(null));
+
         if (student == null) {
-            throw new IllegalArgumentException("Студента '" + fullName + "' не знайдено.");
+            throw new IllegalArgumentException("Студента '" + normalizedFullName + "' не знайдено.");
         }
 
         return student;
+    }
+
+    private static String normalizeFullName(String fullName) {
+        return Arrays.stream(fullName.trim().split("\\s+"))
+                .map(StudentService::sanitizeNamePart)
+                .filter(part -> !part.isBlank())
+                .collect(Collectors.joining(" "));
+    }
+
+    private static String sanitizeNamePart(String part) {
+        if (part == null) {
+            return "";
+        }
+        return part.replaceAll("^[^\\p{L}0-9]+|[^\\p{L}0-9]+$", "");
     }
 }
