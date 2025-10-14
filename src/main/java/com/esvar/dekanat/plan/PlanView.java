@@ -9,6 +9,7 @@ package com.esvar.dekanat.plan;
 import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.plan.dialog.PlanDialog;
+import com.esvar.dekanat.repository.StudentRepository;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.view.MainLayout;
 import com.vaadin.flow.component.button.Button;
@@ -24,9 +25,7 @@ import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
 
 import java.text.Collator;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import java.util.stream.Collectors;
 
 //todo після оновлення студентів що обрали дисципліну, при повторному вході в діалог вибору студентів, відображаються всі студенти, хоча в бд записи правильні(проблема на стороні фронта)
@@ -54,6 +53,7 @@ public class PlanView extends Div {
     private final ControlPartsService controlPartsService;
     private final StudentService studentService;
     private final MarksInitializerService marksInitializerService;
+    private final StudentRepository studentRepository;
 
     // UI-компоненти
     private final ComboBox<String> groupSelect = new ComboBox<>(); // Вибір групи
@@ -67,7 +67,7 @@ public class PlanView extends Div {
                     ControlMethodService controlMethodService,
                     GroupService groupService, PlanService planService,
                     MarksPartsService marksPartsService, StudentPlansService studentPlansService,
-                    MarksService marksService, ControlPartsService controlPartsService, StudentService studentService, MarksInitializerService marksInitializerService) {
+                    MarksService marksService, ControlPartsService controlPartsService, StudentService studentService, MarksInitializerService marksInitializerService, StudentRepository studentRepository) {
         // Ініціалізація сервісів
         this.disciplineService = disciplineService;
         this.departmentService = departmentService;
@@ -80,6 +80,7 @@ public class PlanView extends Div {
         this.controlPartsService = controlPartsService;
         this.studentService = studentService;
         this.marksInitializerService = marksInitializerService;
+        this.studentRepository = studentRepository;
 
         // Ініціалізація діалогового вікна
         List<String> disciplines = disciplineService.getAllDisciplines().stream()
@@ -220,8 +221,7 @@ public class PlanView extends Div {
         if (isElective && students != null && !students.isEmpty()) {
             targetStudents = new ArrayList<>();
             for (String studentName : students) {
-                StudentEntity student = studentService.getStudentByFullName(studentName.split(" ")[0],
-                        studentName.split(" ")[1], studentName.split(" ")[2]);
+                StudentEntity student = studentService.getStudentByFullName(studentName);
                 StudentPlansEntity studentPlan = new StudentPlansEntity();
                 studentPlan.setStudent(student);
                 studentPlan.setPlan(newPlan);
@@ -363,6 +363,24 @@ public class PlanView extends Div {
             return null;
         }
         return groupService.getGroupByTitle(selectedGroup);
+    }
+
+    private StudentEntity findStudentByFullName(String fullName) {
+        if (fullName == null || fullName.isBlank()) {
+            throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
+        }
+
+        String[] parts = fullName.trim().split("\\s+");
+        if (parts.length < 3) {
+            throw new IllegalArgumentException("Невірний формат ПІБ студента: '" + fullName + "'.");
+        }
+
+        String surname = parts[0];
+        String name = parts[1];
+        String patronymic = String.join(" ", Arrays.copyOfRange(parts, 2, parts.length));
+
+        return Optional.ofNullable(studentRepository.findBySurnameAndNameAndPatronymic(surname, name, patronymic))
+                .orElseThrow(() -> new IllegalArgumentException("Студент '" + fullName + "' не знайдений."));
     }
 
 }

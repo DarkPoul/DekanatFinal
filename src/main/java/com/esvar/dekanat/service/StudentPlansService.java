@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -75,11 +76,7 @@ public class StudentPlansService{
         List<StudentEntity> newStudents = new ArrayList<>();
         if (students != null) {
             for (String studentName : students) {
-                StudentEntity student = Optional.ofNullable(studentRepository.findBySurnameAndNameAndPatronymic(
-                        studentName.split(" ")[0],
-                        studentName.split(" ")[1],
-                        studentName.split(" ")[2]
-                )).orElseThrow(() -> new IllegalArgumentException("Студент '" + studentName + "' не знайдений."));
+                StudentEntity student = findStudentByFullName(studentName);
                 newStudents.add(student);
                 boolean exists = existingStudents.stream()
                         .anyMatch(s -> s.getId().equals(student.getId()));
@@ -133,6 +130,24 @@ public class StudentPlansService{
             return new ArrayList<>();
         }
         return studentPlansRepository.findByStudent(student);
+    }
+
+    private StudentEntity findStudentByFullName(String fullName) {
+        if (fullName == null || fullName.isBlank()) {
+            throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
+        }
+
+        String[] parts = fullName.trim().split("\\s+");
+        if (parts.length < 3) {
+            throw new IllegalArgumentException("Невірний формат ПІБ студента: '" + fullName + "'.");
+        }
+
+        String surname = parts[0];
+        String name = parts[1];
+        String patronymic = parts[2];
+
+        return Optional.ofNullable(studentRepository.findBySurnameAndNameAndPatronymic(surname, name, patronymic))
+                .orElseThrow(() -> new IllegalArgumentException("Студент '" + fullName + "' не знайдений."));
     }
 
 }

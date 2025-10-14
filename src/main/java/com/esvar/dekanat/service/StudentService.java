@@ -7,6 +7,7 @@ import com.esvar.dekanat.repository.GroupRepository;
 import com.esvar.dekanat.repository.StudentRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -71,5 +72,27 @@ public class StudentService {
 
     public List<StudentEntity> getAllStudents() {
         return studentRepository.findAll();
+    }
+
+    public StudentEntity getStudentByFullName(String fullName) {
+        if (fullName == null) {
+            throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
+        }
+
+        String[] parts = fullName.trim().split("\\s+");
+        if (parts.length < 3) {
+            throw new IllegalArgumentException("Невірний формат ПІБ студента: '" + fullName + "'.");
+        }
+
+        String surname = parts[0];
+        String name = parts[1];
+        String patronymic = parts[2];
+
+        StudentEntity student = getStudentByFullName(surname, name, patronymic);
+        if (student == null) {
+            throw new IllegalArgumentException("Студента '" + fullName + "' не знайдено.");
+        }
+
+        return student;
     }
 }

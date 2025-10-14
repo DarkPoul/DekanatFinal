@@ -30,7 +30,7 @@ public class StudentGroupEntity {
     @Column(nullable = false)
     private int year;
 
-    @Column(unique = true, updatable = false, insertable = false)
+    @Column(unique = true, updatable = false)
     private String groupCode;
 
     @PrePersist
