@@ -58,13 +58,41 @@ public class StudentService {
     }
 
     public StudentEntity getStudentByStudentPIB_AndGroup(String studentPIB, StudentGroupEntity group) {
-        return studentRepository.findBySurnameAndNameAndPatronymicAndGroup_GroupCode
-                (
-                        studentPIB.split(" ")[0],
-                        studentPIB.split(" ")[1],
-                        studentPIB.split(" ")[2],
-                        group.getGroupCode()
-        );
+        if (studentPIB == null) {
+            throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
+        }
+        if (group == null) {
+            throw new IllegalArgumentException("Група студента не може бути порожньою.");
+        }
+
+        String normalizedFullName = normalizeFullName(studentPIB);
+        if (normalizedFullName.isBlank()) {
+            throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
+        }
+
+        String[] parts = normalizedFullName.split(" ");
+        if (parts.length >= 3) {
+            String surname = parts[0];
+            String name = parts[1];
+            String patronymic = String.join(" ", Arrays.copyOfRange(parts, 2, parts.length));
+            StudentEntity student = studentRepository.findBySurnameAndNameAndPatronymicAndGroup_GroupCode(
+                    surname,
+                    name,
+                    patronymic,
+                    group.getGroupCode()
+            );
+            if (student != null) {
+                return student;
+            }
+        }
+
+        String normalizedTarget = normalizedFullName.toLowerCase();
+        return studentRepository.findByGroup(group).stream()
+                .filter(existing -> normalizeFullName(existing.getFullName()).equalsIgnoreCase(normalizedTarget))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Студента '" + normalizedFullName + "' у групі '" + group.getGroupCode() + "' не знайдено."
+                ));
     }
 
 
