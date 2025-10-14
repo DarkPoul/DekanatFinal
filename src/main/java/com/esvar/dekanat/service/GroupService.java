@@ -111,4 +111,12 @@ public class GroupService {
     public StudentGroupEntity getGroupByTitle(String title){
         return groupRepository.findByGroupCode(title);
     }
+
+    public StudentGroupEntity save(StudentGroupEntity group) {
+        return groupRepository.save(group);
+    }
+
+    public void deleteById(Long id) {
+        groupRepository.deleteById(id);
+    }
 }
