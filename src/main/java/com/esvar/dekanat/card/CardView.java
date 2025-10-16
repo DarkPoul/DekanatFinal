@@ -1213,7 +1213,12 @@ public class CardView extends Div {
                 StudentGroupEntity selectedGroupEntity = resolveSelectedGroup();
                 if (selectedGroupEntity == null) {
                     if (isGroupSelectionComplete()) {
-                        promptGroupCreation();
+                        Optional<StudentGroupEntity> legacyCandidate = findLegacyGroupCandidate();
+                        if (legacyCandidate.isPresent()) {
+                            promptLegacyGroupDecision(legacyCandidate.get());
+                        } else {
+                            promptGroupCreation();
+                        }
                     } else {
                         Notification.show("Заповніть курс, номер групи та рік випуску.");
                     }
@@ -1240,11 +1245,60 @@ public class CardView extends Div {
 
         String groupCode = buildGroupCode(groupPrefix, course, groupNumber, graduationYear);
         StudentGroupEntity group = groupService.getGroupByTitle(groupCode);
-        if (group == null) {
-            String legacyGroupCode = buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
-            group = groupService.getGroupByTitle(legacyGroupCode);
+        if (group != null) {
+            return group;
         }
-        return group;
+
+        String legacyGroupCode = buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
+        StudentGroupEntity legacyGroup = groupService.getGroupByTitle(legacyGroupCode);
+        if (legacyGroup != null && isCurrentStudentGroup(legacyGroup)) {
+            return legacyGroup;
+        }
+
+        return null;
+    }
+
+    private Optional<StudentGroupEntity> findLegacyGroupCandidate() {
+        if (!isGroupSelectionComplete()) {
+            return Optional.empty();
+        }
+
+        String legacyGroupCode = buildLegacyGroupCode(
+                groupSelect.getValue(),
+                courseSelect.getValue(),
+                groupNumberField.getValue(),
+                admissionYearSelect.getValue()
+        );
+
+        StudentGroupEntity legacyGroup = groupService.getGroupByTitle(legacyGroupCode);
+        if (legacyGroup != null && !isCurrentStudentGroup(legacyGroup)) {
+            return Optional.of(legacyGroup);
+        }
+        return Optional.empty();
+    }
+
+    private boolean isCurrentStudentGroup(StudentGroupEntity group) {
+        if (studentEntity == null || studentEntity.getGroup() == null) {
+            return false;
+        }
+        return Objects.equals(studentEntity.getGroup().getId(), group.getId());
+    }
+
+    private void promptLegacyGroupDecision(StudentGroupEntity legacyGroup) {
+        String legacyGroupCode = legacyGroup.getGroupCode();
+        ConfirmDialog dialog = new ConfirmDialog(
+                "Групу знайдено",
+                "Група " + legacyGroupCode + " вже існує у старому форматі. Перенести студента до неї?",
+                "Перенести",
+                event -> {
+                    pendingCreatedGroupId = null;
+                    processSave(legacyGroup);
+                },
+                "Створити нову",
+                cancelEvent -> promptGroupCreation()
+        );
+        dialog.setCancelable(true);
+        dialog.open();
     }
 
     private boolean isGroupSelectionComplete() {

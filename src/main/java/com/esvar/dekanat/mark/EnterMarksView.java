@@ -700,6 +700,7 @@ public class EnterMarksView extends Div {
 
                 }
             }
+            ensureAllStudentsPresent(markDTOList);
             setRowNumbers(markDTOList);
             studentGrid.setItems(markDTOList);
             updatePrintButtonsState(markDTOList);
@@ -707,54 +708,15 @@ public class EnterMarksView extends Div {
         // Якщо немає жодного MarksEntity, завантажуємо студентів із групи та намагаємося підвантажити модульні оцінки
         else {
             StudentGroupEntity studentGroupEntity = plansEntity.getGroup();
-            List<StudentEntity> studentEntities;
-            if (plansEntity.isElective()) {
-                studentEntities = sortStudentsByFullName(studentPlansService.getStudentByPlan(plansEntity));
-            } else {
-                studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(studentGroupEntity.getId()));
-            }
+            List<StudentEntity> studentEntities = getSortedStudentsForPlan(studentGroupEntity);
             List<MarkDTO> fallbackList = new ArrayList<>();
             long id = 1;
             // Перевіряємо, чи тип контролю вказує на модульну логіку
-            boolean useModuleData = (selectControlType.getValue().equals("Залік") ||
-                    selectControlType.getValue().equals("Екзамен") ||
-                    selectControlType.getValue().equals("Курсова робота") ||
-                    selectControlType.getValue().equals("Курсовий проєкт") ||
-                    selectControlType.getValue().equals("Диференційний залік") ||
-                    selectControlType.getValue().equals("Другий модульний контроль"));
 
             for (StudentEntity student : studentEntities) {
-                MarkDTO dto = new MarkDTO();
+                MarkDTO dto = createPlaceholderMarkDTO(student);
                 dto.setId(id);
-                dto.setStudentPIB(student.getSurname() + " " + student.getName() + " " + student.getPatronymic());
-                if (useModuleData) {
-                    try {
-                        StudentEntity stud = studentService.findStudentById(student.getId());
-                        String firstModule = marksService.getMarkForFirstModalControl(stud, plansEntity, "Перший модульний контроль");
-                        if (firstModule == null || firstModule.isEmpty()) {
-                            firstModule = "0";
-                        }
-                        String secondModule = marksService.getMarkForFirstModalControl(stud, plansEntity, "Другий модульний контроль");
-                        if (secondModule == null || secondModule.isEmpty()) {
-                            secondModule = "0";
-                        }
-                        dto.setMarkByFirstModule(firstModule);
-                        int sumModules = Integer.parseInt(firstModule) + Integer.parseInt(secondModule);
-                        dto.setTotalMarkByFirstAndSecondModule(String.valueOf(sumModules));
-                        // Так само, для перетворення finalGrade використаємо суму модулів
-                        dto.setNationalGrade(convertMarkToNationalGrade(sumModules));
-                        dto.setECTSGrade(convertMarkToECTSGrade(sumModules));
-                    } catch (Exception e) {
-                        dto.setMarkByFirstModule("0");
-                        dto.setTotalMarkByFirstAndSecondModule("0");
-                        dto.setEnterMark("0");
-                        dto.setNationalGrade(convertMarkToNationalGrade(0));
-                        dto.setECTSGrade(convertMarkToECTSGrade(0));
-                    }
-                }
-                dto.setLocked(false);
-                dto.setLastUpdated("");
-                dto.setLastUpdatedBy("");
+
                 fallbackList.add(dto);
                 id++;
             }
@@ -809,6 +771,83 @@ public class EnterMarksView extends Div {
         } else {
             return "F";
         }
+    }
+
+
+    private void ensureAllStudentsPresent(List<MarkDTO> markDTOList) {
+        StudentGroupEntity studentGroupEntity = plansEntity.getGroup();
+        List<StudentEntity> studentEntities = getSortedStudentsForPlan(studentGroupEntity);
+        Set<String> existingStudents = markDTOList.stream()
+                .map(MarkDTO::getStudentPIB)
+                .collect(Collectors.toSet());
+
+        for (StudentEntity student : studentEntities) {
+            String fullName = student.getFullName();
+            if (!existingStudents.contains(fullName)) {
+                markDTOList.add(createPlaceholderMarkDTO(student));
+            }
+        }
+
+        markDTOList.sort(Comparator.comparing(MarkDTO::getStudentPIB, ukrainianCollator));
+    }
+
+    private MarkDTO createPlaceholderMarkDTO(StudentEntity student) {
+        MarkDTO dto = new MarkDTO();
+        dto.setStudentPIB(student.getFullName());
+        dto.setEnterMark("");
+        dto.setLocked(false);
+        dto.setLastUpdated("");
+        dto.setLastUpdatedBy("");
+        populateModuleAggregatesIfNeeded(dto, student);
+        return dto;
+    }
+
+    private void populateModuleAggregatesIfNeeded(MarkDTO dto, StudentEntity student) {
+        String controlType = selectControlType.getValue();
+        if (controlType == null) {
+            return;
+        }
+        boolean useModuleData = controlType.equals("Залік") ||
+                controlType.equals("Екзамен") ||
+                controlType.equals("Курсова робота") ||
+                controlType.equals("Курсовий проєкт") ||
+                controlType.equals("Диференційний залік") ||
+                controlType.equals("Другий модульний контроль");
+        if (!useModuleData) {
+            return;
+        }
+        try {
+            StudentEntity stud = studentService.findStudentById(student.getId());
+            String firstModule = marksService.getMarkForFirstModalControl(stud, plansEntity, "Перший модульний контроль");
+            if (firstModule == null || firstModule.isEmpty()) {
+                firstModule = "0";
+            }
+            String secondModule = marksService.getMarkForFirstModalControl(stud, plansEntity, "Другий модульний контроль");
+            if (secondModule == null || secondModule.isEmpty()) {
+                secondModule = "0";
+            }
+            dto.setMarkByFirstModule(firstModule);
+            int sumModules = Integer.parseInt(firstModule) + Integer.parseInt(secondModule);
+            dto.setTotalMarkByFirstAndSecondModule(String.valueOf(sumModules));
+            dto.setNationalGrade(convertMarkToNationalGrade(sumModules));
+            dto.setECTSGrade(convertMarkToECTSGrade(sumModules));
+        } catch (Exception e) {
+            dto.setMarkByFirstModule("0");
+            dto.setTotalMarkByFirstAndSecondModule("0");
+            dto.setEnterMark("0");
+            dto.setNationalGrade(convertMarkToNationalGrade(0));
+            dto.setECTSGrade(convertMarkToECTSGrade(0));
+        }
+    }
+
+    private List<StudentEntity> getSortedStudentsForPlan(StudentGroupEntity studentGroupEntity) {
+        List<StudentEntity> studentEntities;
+        if (plansEntity.isElective()) {
+            studentEntities = sortStudentsByFullName(studentPlansService.getStudentByPlan(plansEntity));
+        } else {
+            studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(studentGroupEntity.getId()));
+        }
+        return studentEntities;
     }
 
 
