@@ -211,15 +211,15 @@ public class PlanView extends Div {
         newPlan.setSecondControl(controlMethodService.getControlMethodByName(secondControl));
         newPlan.setDepartment(departmentService.getDepartmentByTitle(department));
         StudentGroupEntity selectedGroup = getSelectedGroup();
-        if (selectedGroup == null || selectedGroup.getSpecialty() == null) {
+        if (selectedGroup == null || selectedGroup.getSpecialty() == null
+                || selectedGroup.getSpecialty().getFaculty() == null) {
             return;
         }
         newPlan.setGroup(selectedGroup);
         newPlan.setSpecialty(selectedGroup.getSpecialty());
         newPlan.setSemester(getSelectedSemester());
         newPlan.setParts(Integer.parseInt(parts));
-        newPlan.setFaculty(newPlan.getSpecialty().getFaculty());
-        newPlan.setGroup(groupService.getGroupByTitle(groupSelect.getValue()));
+        newPlan.setFaculty(selectedGroup.getSpecialty().getFaculty());
         planService.savePlan(newPlan);
         List<StudentEntity> targetStudents;
         if (isElective && students != null && !students.isEmpty()) {

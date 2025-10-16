@@ -1475,13 +1475,9 @@ public class CardView extends Div {
     private StudentGroupEntity createGroupForSelection(String groupPrefix, String course, String groupNumber, String graduationYear, String group) {
 
         StudentGroupEntity oldGroup = groupService.getGroupByTitle(group);
-        SpecialtyEntity targetSpecialty = oldGroup != null
-                ? oldGroup.getSpecialty()
-                : specialtyService.getSpecialtyByAbbreviation(groupPrefix);
-
-        if (targetSpecialty == null) {
-            Notification.show("Не вдалося визначити спеціальність для групи " + groupPrefix + ".");
-            return null;
+        SpecialtyEntity targetSpecialty = specialtyService.getSpecialtyByAbbreviation(groupPrefix);
+        if (targetSpecialty == null && oldGroup != null) {
+            targetSpecialty = oldGroup.getSpecialty();
         }
 
         String groupCode = buildGroupCode(groupPrefix, course, groupNumber, graduationYear, targetSpecialty);

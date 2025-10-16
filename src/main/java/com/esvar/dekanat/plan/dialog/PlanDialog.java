@@ -17,10 +17,7 @@ import com.vaadin.flow.component.textfield.TextField;
 import lombok.Setter;
 
 import java.text.Collator;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class PlanDialog extends Dialog {
@@ -111,6 +108,9 @@ public class PlanDialog extends Dialog {
 
         // Обробка чекбокса "Обрати всіх"
         checkAllStudents.addValueChangeListener(event -> {
+            if (!event.isFromClient()) {
+                return;
+            }
             if (event.getValue()) {
                 checkboxGroup.setValue(new HashSet<>(currentStudents));
             } else {
@@ -118,15 +118,9 @@ public class PlanDialog extends Dialog {
             }
         });
 
-        checkboxGroup.addValueChangeListener(event -> {
-            if (event.getValue().size() == currentStudents.size()) {
-                checkAllStudents.setValue(true);
-            } else if (event.getValue().isEmpty()) {
-                checkAllStudents.setValue(false);
-            } else {
-                checkAllStudents.setIndeterminate(true);
-            }
-        });
+
+
+        checkboxGroup.addValueChangeListener(event -> updateCheckAllState(event.getValue()));
 
         // Налаштування кнопок
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
@@ -195,7 +189,6 @@ public class PlanDialog extends Dialog {
             VLayoutStudent.setEnabled(isElective);
             if (!isElective) {
                 checkboxGroup.deselectAll(); // Скидаємо вибір студентів
-                checkAllStudents.setValue(false);
             }
         });
     }
@@ -283,6 +276,7 @@ public class PlanDialog extends Dialog {
     }
 
     public void openForCreation() {
+        isUpdateMode=false;
         clearFields();
         update.setVisible(false); // Приховуємо кнопку "Оновити"
         save.setVisible(true); // Показуємо кнопку "Зберегти"
@@ -305,7 +299,6 @@ public class PlanDialog extends Dialog {
 
         if (isElective) {
             checkboxGroup.setValue(new HashSet<>(selectedStudents));
-            checkAllStudents.setValue(!selectedStudents.isEmpty());
         }
 
         update.setVisible(true);
@@ -330,10 +323,37 @@ public class PlanDialog extends Dialog {
     }
 
     public void updateStudentsList(List<String> students) {
+        Set<String> previousSelection = new HashSet<>(checkboxGroup.getSelectedItems());
         this.currentStudents = sortStudents(students); // Оновлюємо внутрішній список студентів
         checkboxGroup.setItems(currentStudents); // Встановлюємо нові елементи для CheckboxGroup
-        checkboxGroup.setValue(new HashSet<>(currentStudents)); // Вибираємо всіх студентів за замовчуванням
-        checkAllStudents.setValue(!students.isEmpty()); // Якщо є студенти, встановлюємо чекбокс "Обрати всіх" у true
+
+        if (currentStudents.isEmpty()) {
+            checkboxGroup.deselectAll();
+            updateCheckAllState(Collections.emptySet());
+            return;
+        }
+
+        if (isUpdateMode) {
+            Set<String> filteredSelection = previousSelection.stream()
+                    .filter(currentStudents::contains)
+                    .collect(Collectors.toCollection(HashSet::new));
+
+            if (filteredSelection.isEmpty()) {
+                checkboxGroup.deselectAll();
+            } else {
+                checkboxGroup.setValue(filteredSelection);
+            }
+        } else {
+            checkboxGroup.setValue(new HashSet<>(currentStudents)); // Вибираємо всіх студентів за замовчуванням
+        }
+
+        updateCheckAllState(new HashSet<>(checkboxGroup.getSelectedItems()));
+    }
+
+    @Override
+    public void close() {
+        isUpdateMode = false;
+        super.close();
     }
 
     public interface SavePlanListener {
@@ -355,5 +375,22 @@ public class PlanDialog extends Dialog {
         return students.stream()
                 .sorted(ukrainianCollator)
                 .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private void updateCheckAllState(Collection<String> selectedStudents) {
+        Collection<String> safeSelection = selectedStudents != null ? selectedStudents : Collections.emptySet();
+        boolean allSelected = !currentStudents.isEmpty() && safeSelection.size() == currentStudents.size();
+        boolean noneSelected = safeSelection.isEmpty();
+
+        if (allSelected) {
+            checkAllStudents.setIndeterminate(false);
+            checkAllStudents.setValue(true);
+        } else if (noneSelected) {
+            checkAllStudents.setIndeterminate(false);
+            checkAllStudents.setValue(false);
+        } else {
+            checkAllStudents.setValue(false);
+            checkAllStudents.setIndeterminate(true);
+        }
     }
 }

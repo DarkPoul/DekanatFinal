@@ -428,11 +428,7 @@ public class EnterMarksView extends Div {
 
     private void configureGrid(String typeControl, int part) {
         studentGrid.removeAllColumns();
-        if (typeControl.equals("Перший модульний контроль") || typeControl.equals("Другий модульний контроль")) {
-            studentGrid.setSelectionMode(Grid.SelectionMode.NONE);
-        } else {
-            studentGrid.setSelectionMode(Grid.SelectionMode.MULTI);
-        }
+        studentGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         studentGrid.addColumn(MarkDTO::getRowNum)
                 .setHeader("№")
                 .setFlexGrow(1).setWidth("35px");
@@ -610,10 +606,13 @@ public class EnterMarksView extends Div {
         // Якщо є збережені записи MarksEntity
         if (marksEntityList != null && !marksEntityList.isEmpty()) {
             // Гілка для розрахункових робіт (РР/РГР)
+            List<MarksEntity> sortedMarks = marksEntityList.stream()
+                    .sorted(Comparator.comparing(mark -> mark.getStudent().getFullName(), ukrainianCollator))
+                    .collect(Collectors.toList());
             if (selectControlType.getValue().equals("Розрахункова робота") ||
                     selectControlType.getValue().equals("Розрахунково-графічна робота")) {
 
-                for (MarksEntity mark : marksEntityList) {
+                for (MarksEntity mark : sortedMarks) {
                     MarkDTO dto = new MarkDTO();
                     dto.setId(mark.getId());
                     dto.setStudentPIB(mark.getStudent().getFullName());
@@ -655,7 +654,7 @@ public class EnterMarksView extends Div {
                     selectControlType.getValue().equals("Диференційний залік") ||
                     selectControlType.getValue().equals("Другий модульний контроль")) {
 
-                for (MarksEntity mark : marksEntityList) {
+                for (MarksEntity mark : sortedMarks) {
                     MarkDTO dto = new MarkDTO();
                     dto.setId(mark.getId());
                     dto.setStudentPIB(mark.getStudent().getFullName());
@@ -687,7 +686,7 @@ public class EnterMarksView extends Div {
             }
             // Фолбек для інших типів контролю
             else {
-                for (MarksEntity mark : marksEntityList) {
+                for (MarksEntity mark : sortedMarks) {
                     MarkDTO dto = new MarkDTO();
                     dto.setId(mark.getId());
                     dto.setStudentPIB(mark.getStudent().getFullName());
