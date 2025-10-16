@@ -19,11 +19,10 @@ public interface StudentRepository extends JpaRepository<StudentEntity, Long> {
      */
     List<StudentEntity> findByIdIn(List<Long> studentIds);
 
-    StudentEntity findBySurnameAndNameAndPatronymic(String studentSurname, String studentName, String studentPatronymic);
+    StudentEntity findFirstBySurnameAndNameAndPatronymicOrderByIdAsc(String studentSurname, String studentName, String studentPatronymic);
 
-    StudentEntity findBySurnameAndNameAndPatronymicAndGroupId(String studentSurname, String studentName, String studentPatronymic, long groupId);
+    StudentEntity findFirstBySurnameAndNameAndPatronymicAndGroupIdOrderByIdAsc(String studentSurname, String studentName, String studentPatronymic, long groupId);
 
     List<StudentEntity> findByGroup(StudentGroupEntity group);
 
-    StudentEntity findBySurnameAndNameAndPatronymicAndGroup_GroupCode(String studentSurname, String studentName, String studentPatronymic, String groupCode);
-}
+    StudentEntity findFirstBySurnameAndNameAndPatronymicAndGroup_GroupCodeOrderByIdAsc(String studentSurname, String studentName, String studentPatronymic, String groupCode);}

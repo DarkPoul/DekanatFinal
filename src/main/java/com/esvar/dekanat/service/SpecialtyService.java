@@ -13,6 +13,6 @@ public class SpecialtyService {
     }
 
     public SpecialtyEntity getSpecialtyByAbbreviation(String abbreviation) {
-        return specialtyRepository.findByAbbreviation(abbreviation);
+        return specialtyRepository.findFirstByAbbreviationOrderByIdAsc(abbreviation);
     }
 }

@@ -29,7 +29,7 @@ public class StudentService {
     }
 
     public StudentEntity getStudentByFullName(String studentSurname, String studentName, String studentPatronymic) {
-        return studentRepository.findBySurnameAndNameAndPatronymic(studentSurname, studentName, studentPatronymic);
+        return studentRepository.findFirstBySurnameAndNameAndPatronymicOrderByIdAsc(studentSurname, studentName, studentPatronymic);
     }
 
 
@@ -76,7 +76,7 @@ public class StudentService {
             String surname = parts[0];
             String name = parts[1];
             String patronymic = String.join(" ", Arrays.copyOfRange(parts, 2, parts.length));
-            StudentEntity student = studentRepository.findBySurnameAndNameAndPatronymicAndGroup_GroupCode(
+            StudentEntity student = studentRepository.findFirstBySurnameAndNameAndPatronymicAndGroup_GroupCodeOrderByIdAsc(
                     surname,
                     name,
                     patronymic,

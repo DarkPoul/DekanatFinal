@@ -383,7 +383,7 @@ public class PlanView extends Div {
         String name = parts[1];
         String patronymic = String.join(" ", Arrays.copyOfRange(parts, 2, parts.length));
 
-        return Optional.ofNullable(studentRepository.findBySurnameAndNameAndPatronymic(surname, name, patronymic))
+        return Optional.ofNullable(studentRepository.findFirstBySurnameAndNameAndPatronymicOrderByIdAsc(surname, name, patronymic))
                 .orElseThrow(() -> new IllegalArgumentException("Студент '" + fullName + "' не знайдений."));
     }
 

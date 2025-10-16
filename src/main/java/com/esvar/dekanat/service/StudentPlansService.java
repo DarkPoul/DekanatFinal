@@ -153,7 +153,7 @@ public class StudentPlansService{
                 ? String.join(" ", Arrays.copyOfRange(parts, 2, parts.length))
                 : null;
 
-        StudentEntity directMatch = studentRepository.findBySurnameAndNameAndPatronymic(surname, name, patronymic);
+        StudentEntity directMatch = studentRepository.findFirstBySurnameAndNameAndPatronymicOrderByIdAsc(surname, name, patronymic);
         if (directMatch != null) {
             return directMatch;
         }

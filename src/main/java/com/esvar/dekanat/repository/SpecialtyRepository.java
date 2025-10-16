@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface SpecialtyRepository extends JpaRepository<SpecialtyEntity, Long> {
-    SpecialtyEntity findByAbbreviation(String abr);
+    SpecialtyEntity findFirstByAbbreviationOrderByIdAsc(String abbreviation);
 }
