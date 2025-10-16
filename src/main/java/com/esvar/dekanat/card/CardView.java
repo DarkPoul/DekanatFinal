@@ -355,6 +355,8 @@ public class CardView extends Div {
                 groupService.getGroupsDTO().stream()
                         .map(GroupDTO::getGroupCode)
                         .map(code -> code.split("-")[0])
+                        .distinct()
+                        .sorted(ukrainianCollator)
                         .collect(Collectors.toList())
         );
 
@@ -1231,13 +1233,18 @@ public class CardView extends Div {
             return null;
         }
 
-        String groupCode = buildGroupCode(
-                groupSelect.getValue(),
-                courseSelect.getValue(),
-                groupNumberField.getValue(),
-                admissionYearSelect.getValue()
-        );
-        return groupService.getGroupByTitle(groupCode);
+        String groupPrefix = groupSelect.getValue();
+        String course = courseSelect.getValue();
+        String groupNumber = groupNumberField.getValue();
+        String graduationYear = admissionYearSelect.getValue();
+
+        String groupCode = buildGroupCode(groupPrefix, course, groupNumber, graduationYear);
+        StudentGroupEntity group = groupService.getGroupByTitle(groupCode);
+        if (group == null) {
+            String legacyGroupCode = buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
+            group = groupService.getGroupByTitle(legacyGroupCode);
+        }
+        return group;
     }
 
     private boolean isGroupSelectionComplete() {
@@ -1253,7 +1260,18 @@ public class CardView extends Div {
     }
 
     private String buildGroupCode(String groupPrefix, String course, String groupNumber, String graduationYear) {
+        SpecialtyEntity specialty = specialtyService.getSpecialtyByAbbreviation(groupPrefix);
+        return buildGroupCode(groupPrefix, course, groupNumber, graduationYear, specialty);
+    }
 
+    private String buildGroupCode(String groupPrefix, String course, String groupNumber, String graduationYear, SpecialtyEntity specialty) {
+        if (specialty != null && specialty.getId() != null) {
+            return String.format("%s-%s-%s-%s(%d)", groupPrefix, course, groupNumber, graduationYear, specialty.getId());
+        }
+        return buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
+    }
+
+    private String buildLegacyGroupCode(String groupPrefix, String course, String groupNumber, String graduationYear) {
         return String.format("%s-%s-%s-%s", groupPrefix, course, groupNumber, graduationYear);
     }
 
@@ -1456,18 +1474,24 @@ public class CardView extends Div {
 
     private StudentGroupEntity createGroupForSelection(String groupPrefix, String course, String groupNumber, String graduationYear, String group) {
 
-        String groupCode = buildGroupCode(groupPrefix, course, groupNumber, graduationYear);
         StudentGroupEntity oldGroup = groupService.getGroupByTitle(group);
+        SpecialtyEntity targetSpecialty = oldGroup != null
+                ? oldGroup.getSpecialty()
+                : specialtyService.getSpecialtyByAbbreviation(groupPrefix);
 
+        if (targetSpecialty == null) {
+            Notification.show("Не вдалося визначити спеціальність для групи " + groupPrefix + ".");
+            return null;
+        }
 
-
+        String groupCode = buildGroupCode(groupPrefix, course, groupNumber, graduationYear, targetSpecialty);
 
         StudentGroupEntity newGroup = new StudentGroupEntity();
-        newGroup.setSpecialty(oldGroup.getSpecialty());
+        newGroup.setSpecialty(targetSpecialty);
         newGroup.setCourse(Integer.parseInt(course));
         newGroup.setGroupNumber(Integer.parseInt(groupNumber));
         newGroup.setYear(Integer.parseInt(graduationYear));
-        newGroup.setGroupCode(groupPrefix + "-" + course + "-" + groupNumber + "-" + graduationYear);
+        newGroup.setGroupCode(groupCode);
 
         try {
             StudentGroupEntity savedGroup = groupService.save(newGroup);
@@ -1496,6 +1520,7 @@ public class CardView extends Div {
                 .map(GroupDTO::getGroupCode)
                 .map(code -> code.split("-")[0])
                 .distinct()
+                .sorted(ukrainianCollator)
                 .collect(Collectors.toList());
         String currentPrefixValue = groupSelect.getValue();
         groupSelect.setItems(groupPrefixes);
@@ -1811,7 +1836,17 @@ public class CardView extends Div {
     }
 
     private String getGroupPart(String[] parts, int index) {
-        return parts.length > index ? parts[index] : null;
+        if (parts.length <= index) {
+            return null;
+        }
+        String part = parts[index];
+        if (index == parts.length - 1) {
+            int suffixIndex = part.indexOf('(');
+            if (suffixIndex > -1) {
+                return part.substring(0, suffixIndex);
+            }
+        }
+        return part;
     }
 
     private MainLayout findMainLayout() {

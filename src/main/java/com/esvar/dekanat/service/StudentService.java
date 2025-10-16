@@ -7,10 +7,8 @@ import com.esvar.dekanat.repository.GroupRepository;
 import com.esvar.dekanat.repository.StudentRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import java.text.Collator;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,7 +22,10 @@ public class StudentService {
     }
 
     public List<StudentEntity> getStudentByGroupId(long groupId) {
-        return studentRepository.findByGroupId(groupId);
+        Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
+        return studentRepository.findByGroupId(groupId).stream()
+                .sorted(Comparator.comparing(StudentEntity::getFullName, ukrainianCollator))
+                .collect(Collectors.toList());
     }
 
     public StudentEntity getStudentByFullName(String studentSurname, String studentName, String studentPatronymic) {

@@ -22,7 +22,9 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
 
+import java.text.Collator;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -52,6 +54,7 @@ public class SuccessView extends Div {
     private final Grid<Row> otherGrid = new Grid<>(Row.class, false);
     private final MarkEditDialog editDialog;
     private final SyncService syncService;
+    private final Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
 
     public SuccessView(GroupService groupService,
                        StudentService studentService,
@@ -96,7 +99,9 @@ public class SuccessView extends Div {
     private void configureSelectors() {
         groupSelect.setLabel("Група");
         groupSelect.setItems(groupService.getGroupsDTO().stream()
-                .map(GroupDTO::toString).collect(Collectors.toList()));
+                .map(GroupDTO::toString)
+                .sorted(ukrainianCollator)
+                .collect(Collectors.toList()));
         groupSelect.addValueChangeListener(e -> updateStudents());
 
         studentSelect.setLabel("Студент");
@@ -179,7 +184,7 @@ public class SuccessView extends Div {
         String group = groupSelect.getValue();
         if (group != null) {
             List<String> students = groupService.getAllStudentsForSelectedGroup(group);
-            studentSelect.setItems(students);
+            studentSelect.setItems(students.stream().sorted(ukrainianCollator).toList());
         } else {
             studentSelect.setItems(List.of());
         }
@@ -236,7 +241,10 @@ public class SuccessView extends Div {
             return;
         }
         otherStudentSelect.setItems(groupService.getAllStudentsForSelectedGroup(group)
-                .stream().filter(s -> !s.equals(current)).toList());
+                .stream()
+                .filter(s -> !s.equals(current))
+                .sorted(ukrainianCollator)
+                .toList());
         studentSelect.setEnabled(false);
         syncButton.setVisible(false);
         otherStudentSelect.setVisible(true);

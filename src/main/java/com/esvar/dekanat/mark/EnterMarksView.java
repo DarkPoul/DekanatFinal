@@ -53,6 +53,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.Timestamp;
+import java.text.Collator;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -101,6 +102,8 @@ public class EnterMarksView extends Div {
             new Button("Друк відомості", new Icon(VaadinIcon.PRINT));
     private final Button additionalReportButton =
             new Button("Додаткова відомість", new Icon(VaadinIcon.FILE_ADD));
+
+    private final Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
 
     @Value("${upload.dir}")
     private String uploadsDir;
@@ -707,9 +710,9 @@ public class EnterMarksView extends Div {
             StudentGroupEntity studentGroupEntity = plansEntity.getGroup();
             List<StudentEntity> studentEntities;
             if (plansEntity.isElective()) {
-                studentEntities = studentPlansService.getStudentByPlan(plansEntity);
+                studentEntities = sortStudentsByFullName(studentPlansService.getStudentByPlan(plansEntity));
             } else {
-                studentEntities = studentService.getStudentByGroupId(studentGroupEntity.getId());
+                studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(studentGroupEntity.getId()));
             }
             List<MarkDTO> fallbackList = new ArrayList<>();
             long id = 1;
@@ -841,7 +844,7 @@ public class EnterMarksView extends Div {
 
         // Формуємо список студентів для друку
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
-        List<StudentEntity> studentEntities = studentService.getStudentByGroupId(plansEntity.getGroup().getId());
+        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(plansEntity.getGroup().getId()));
         int index = 1;
         for (StudentEntity student : studentEntities) {
             // Припустимо, student.getRecordBookNumber() використовується як studentNumber
@@ -885,7 +888,7 @@ public class EnterMarksView extends Div {
         String qualityFalse = "Якість2";
 
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
-        List<StudentEntity> studentEntities = studentService.getStudentByGroupId(plansEntity.getGroup().getId());
+        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(plansEntity.getGroup().getId()));
         int index = 1;
         for (StudentEntity student : studentEntities) {
             String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
@@ -1159,7 +1162,7 @@ public class EnterMarksView extends Div {
         String fx = String.valueOf(gradeMap.getOrDefault("FX", 0L));
         String f = String.valueOf(gradeMap.getOrDefault("F", 0L));
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
-        List<StudentEntity> studentEntities = studentService.getStudentByGroupId(plansEntity.getGroup().getId());
+        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(plansEntity.getGroup().getId()));
         int index = 1;
         for (StudentEntity student : studentEntities) {
             String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
@@ -1223,5 +1226,11 @@ public class EnterMarksView extends Div {
 
         dialog.add(layout);
         dialog.open();
+    }
+
+    private List<StudentEntity> sortStudentsByFullName(List<StudentEntity> students) {
+        return students.stream()
+                .sorted(Comparator.comparing(StudentEntity::getFullName, ukrainianCollator))
+                .collect(Collectors.toList());
     }
 }

@@ -19,6 +19,8 @@ import com.vaadin.flow.component.textfield.TextField;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.text.Collator;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 public class AddStudentDialog extends Dialog {
@@ -36,6 +38,8 @@ public class AddStudentDialog extends Dialog {
     private final Tab tab2 = new Tab("Паспортні дані");
     private final Tab tab3 = new Tab("Контакти");
     private final Tab tab4 = new Tab("Освіта");
+
+    private final Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
 
     private final VerticalLayout page1 = new VerticalLayout();
     private final VerticalLayout page2 = new VerticalLayout();
@@ -114,7 +118,9 @@ public class AddStudentDialog extends Dialog {
     private void configurePages() {
         groupSelect.setLabel("Група");
         groupSelect.setItems(groupService.getGroupsDTO().stream()
-                .map(GroupDTO::toString).collect(Collectors.toList()));
+                .map(GroupDTO::toString)
+                .sorted(ukrainianCollator)
+                .collect(Collectors.toList()));
 
         lastName.setRequiredIndicatorVisible(true);
         firstName.setRequiredIndicatorVisible(true);

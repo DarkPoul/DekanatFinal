@@ -55,12 +55,18 @@ public class RatingService {
     }
 
     public List<String> getYears() {
-            return groupService.getGroupsDTO().stream()
-                    .map(GroupDTO::getGroupCode)
-                    .map(split -> split.split("-")[3])
-                    .distinct()
-                    .sorted(Comparator.reverseOrder())
-                    .toList();
+        return groupService.getGroupsDTO().stream()
+                .map(GroupDTO::getGroupCode)
+                .map(split -> split.split("-")[3])
+                .map(this::stripSpecialtySuffix)
+                .distinct()
+                .sorted(Comparator.reverseOrder())
+                .toList();
+    }
+
+    private String stripSpecialtySuffix(String value) {
+        int index = value.indexOf('(');
+        return index > -1 ? value.substring(0, index) : value;
     }
 
     public List<StudentRatingEntity> searchRatings(String specialty,

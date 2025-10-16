@@ -10,7 +10,10 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import java.text.Collator;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -63,6 +66,8 @@ public class GroupService {
             groupIdsForFaculty = null;
         }
 
+        Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
+
         // 4. Фільтруємо та мапимо
         return groups.stream()
                 .filter(group -> {
@@ -78,14 +83,17 @@ public class GroupService {
                         group.getGroupNumber(),
                         group.getYear()
                 ))
+                .sorted(Comparator.comparing(GroupDTO::getGroupCode, ukrainianCollator))
                 .collect(Collectors.toList());
     }
 
 
 
     public List<String> getAllStudentsForSelectedGroup(String groupSelectValue) {
+        Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
         return studentService.getStudentByGroupId(groupRepository.findByGroupCode(groupSelectValue).getId()).stream()
                 .map(student -> student.getSurname() + " " + student.getName() + " " + student.getPatronymic())
+                .sorted(ukrainianCollator)
                 .collect(Collectors.toList());
     }
 

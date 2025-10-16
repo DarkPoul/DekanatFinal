@@ -137,17 +137,98 @@ public class StudentPlansService{
             throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
         }
 
-        String[] parts = fullName.trim().split("\\s+");
-        if (parts.length < 3) {
+        String normalizedFullName = normalizeFullName(fullName);
+        if (normalizedFullName.isBlank()) {
+            throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
+        }
+
+        String[] parts = normalizedFullName.split(" ");
+        if (parts.length < 2) {
             throw new IllegalArgumentException("Невірний формат ПІБ студента: '" + fullName + "'.");
         }
 
         String surname = parts[0];
         String name = parts[1];
-        String patronymic = parts[2];
+        String patronymic = parts.length > 2
+                ? String.join(" ", Arrays.copyOfRange(parts, 2, parts.length))
+                : null;
 
-        return Optional.ofNullable(studentRepository.findBySurnameAndNameAndPatronymic(surname, name, patronymic))
+        StudentEntity directMatch = studentRepository.findBySurnameAndNameAndPatronymic(surname, name, patronymic);
+        if (directMatch != null) {
+            return directMatch;
+        }
+
+        String normalizedWithoutPatronymic = patronymic == null ? surname + " " + name : null;
+
+        return studentRepository.findAll().stream()
+                .filter(existing -> matchesFullName(existing, normalizedFullName, normalizedWithoutPatronymic))
+                .sorted((a, b) -> compareByPatronymicPresence(a, b, normalizedWithoutPatronymic != null))
+                .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Студент '" + fullName + "' не знайдений."));
+    }
+
+    private static boolean matchesFullName(StudentEntity student,
+                                           String normalizedFullName,
+                                           String normalizedWithoutPatronymic) {
+        String existingNormalized = normalizeFullName(student.getFullName());
+        if (existingNormalized.equalsIgnoreCase(normalizedFullName)) {
+            return true;
+        }
+
+        if (normalizedWithoutPatronymic == null || existingNormalized.isBlank()) {
+            return false;
+        }
+
+        if (existingNormalized.equalsIgnoreCase(normalizedWithoutPatronymic)) {
+            return true;
+        }
+
+        String[] parts = existingNormalized.split(" ");
+        if (parts.length < 2) {
+            return false;
+        }
+
+        String candidateWithoutPatronymic = parts[0] + " " + parts[1];
+        return candidateWithoutPatronymic.equalsIgnoreCase(normalizedWithoutPatronymic);
+    }
+
+    private static int compareByPatronymicPresence(StudentEntity first,
+                                                   StudentEntity second,
+                                                   boolean preferMissingPatronymic) {
+        if (!preferMissingPatronymic) {
+            return 0;
+        }
+
+        boolean firstHasPatronymic = hasText(first.getPatronymic());
+        boolean secondHasPatronymic = hasText(second.getPatronymic());
+
+        if (firstHasPatronymic == secondHasPatronymic) {
+            return 0;
+        }
+        return firstHasPatronymic ? 1 : -1;
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private static String normalizeFullName(String fullName) {
+        if (fullName == null) {
+            return "";
+        }
+        return Arrays.stream(fullName.trim().split("\\s+"))
+                .map(StudentPlansService::sanitizeNamePart)
+                .map(String::trim)
+                .filter(part -> !part.isBlank())
+                .filter(part -> !part.equalsIgnoreCase("null"))
+                .collect(Collectors.joining(" "));
+    }
+
+    private static String sanitizeNamePart(String part) {
+        if (part == null) {
+            return "";
+        }
+        return part.replaceAll("^[^\\p{L}0-9]+|[^\\p{L}0-9]+$", "");
     }
 
 }

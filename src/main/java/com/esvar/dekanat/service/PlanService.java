@@ -6,10 +6,8 @@ import com.esvar.dekanat.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Objects;
+import java.text.Collator;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -151,7 +149,9 @@ public class PlanService {
     }
 
     public List<GroupDTO> getGroupsByFacultyAndDepartmentAndSpecialtyAndCourse(String faculty, String department, String specialty, int course) {
-        return planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_Course(
+        Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
+
+        List<StudentGroupEntity> uniqueGroups = planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_Course(
                         facultyRepository.findByTitle(faculty),
                         departmentRepository.findByTitle(department),
                         specialty,
@@ -159,16 +159,20 @@ public class PlanService {
                 ).stream()
                 .map(PlansEntity::getGroup)
                 .filter(Objects::nonNull)
-                .collect(Collectors.collectingAndThen(Collectors.toCollection(LinkedHashSet::new),
-                        groups -> groups.stream()
-                                .map(group -> new GroupDTO(
-                                        group.getGroupCode(),
-                                        group.getSpecialty().getAbbreviation(),
-                                        group.getCourse(),
-                                        group.getGroupNumber(),
-                                        group.getYear()
-                                ))
-                                .collect(Collectors.toList())));
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .toList();
+
+        return uniqueGroups.stream()
+                .map(group -> new GroupDTO(
+                        group.getGroupCode(),
+                        group.getSpecialty().getAbbreviation(),
+                        group.getCourse(),
+                        group.getGroupNumber(),
+                        group.getYear()
+                ))
+                .sorted(Comparator.comparing(GroupDTO::getGroupCode, ukrainianCollator))
+                .collect(Collectors.toList());
     }
 
     public List<String> getDisciplinesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupGroupNumber(String faculty, String department, String specialty, int course, int groupNumber) {

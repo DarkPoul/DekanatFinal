@@ -16,9 +16,12 @@ import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.TextField;
 import lombok.Setter;
 
+import java.text.Collator;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
 
 public class PlanDialog extends Dialog {
 
@@ -30,6 +33,8 @@ public class PlanDialog extends Dialog {
     private UpdatePlanListener updatePlanListener; // Слухач для оновлення існуючого плану
     @Setter
     private RemovePlanListener removePlanListener; // Слухач для видалення плану
+
+    private final Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
 
     // Компоненти для вибору дисципліни, годин, кафедри тощо
     private final ComboBox<String> discipline = new ComboBox<>("Дисципліни");
@@ -58,7 +63,7 @@ public class PlanDialog extends Dialog {
     public PlanDialog(List<String> disciplines, List<String> departments,
                       List<String> firstControlTypes, List<String> secondControlTypes,
                       List<String> students) {
-        this.currentStudents = new ArrayList<>(students); // Зберігаємо поточний список студентів
+        this.currentStudents = sortStudents(students); // Зберігаємо поточний список студентів
 
 
 
@@ -325,7 +330,7 @@ public class PlanDialog extends Dialog {
     }
 
     public void updateStudentsList(List<String> students) {
-        this.currentStudents = new ArrayList<>(students); // Оновлюємо внутрішній список студентів
+        this.currentStudents = sortStudents(students); // Оновлюємо внутрішній список студентів
         checkboxGroup.setItems(currentStudents); // Встановлюємо нові елементи для CheckboxGroup
         checkboxGroup.setValue(new HashSet<>(currentStudents)); // Вибираємо всіх студентів за замовчуванням
         checkAllStudents.setValue(!students.isEmpty()); // Якщо є студенти, встановлюємо чекбокс "Обрати всіх" у true
@@ -344,5 +349,11 @@ public class PlanDialog extends Dialog {
 
     public interface RemovePlanListener {
         void onRemove(Long planId); // Метод для видалення плану
+    }
+
+    private List<String> sortStudents(List<String> students) {
+        return students.stream()
+                .sorted(ukrainianCollator)
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 }
