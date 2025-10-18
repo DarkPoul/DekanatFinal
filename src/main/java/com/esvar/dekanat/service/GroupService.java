@@ -11,10 +11,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.text.Collator;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,30 +49,15 @@ public class GroupService {
         System.out.println("isAdmin=" + isAdmin + " isDekanat=" + isDekanat + " roleType=" + roleType);
 
         // 3. Якщо користувач — методист, готуємо набір ID груп його факультету
-        Set<Long> groupIdsForFaculty;
-        if (isDekanat) {
-            Long facultyId = Long.valueOf(roleType);
-            List<StudentEntity> studentsByFaculty = studentService.getAllStudents().stream()
-                    .filter(s -> s.getFaculty() != null && s.getFaculty().getId().equals(facultyId))
-                    .toList();
-
-            groupIdsForFaculty = studentsByFaculty.stream()
-                    .map(s -> s.getGroup().getId())
-                    .collect(Collectors.toSet());
-        } else {
-            groupIdsForFaculty = null;
-        }
+        Set<Long> groupIdsForFaculty = isDekanat
+                ? studentService.getGroupIdsByFaculty(Long.valueOf(roleType))
+                : Collections.emptySet();
 
         Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
 
         // 4. Фільтруємо та мапимо
         return groups.stream()
-                .filter(group -> {
-                    if (!isDekanat) {
-                        return true; // адміністратор бачить усе
-                    }
-                    return groupIdsForFaculty.contains(group.getId());
-                })
+                .filter(group -> !isDekanat || groupIdsForFaculty.contains(group.getId()))
                 .map(group -> new GroupDTO(
                         group.getGroupCode(),
                         group.getSpecialty().getTitle(),

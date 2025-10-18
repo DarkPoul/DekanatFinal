@@ -96,6 +96,12 @@ public class StudentService {
                 ));
     }
 
+    public Set<Long> getGroupIdsByFaculty(Long facultyId) {
+        if (facultyId == null) {
+            return Collections.emptySet();
+        }
+        return new HashSet<>(studentRepository.findDistinctGroupIdsByFacultyId(facultyId));
+    }
 
     public StudentEntity findStudentById(Long id) {
         return studentRepository.findById(id).orElseThrow();

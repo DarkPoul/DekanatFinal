@@ -3,12 +3,16 @@ package com.esvar.dekanat.repository;
 import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.entity.StudentGroupEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
 public interface StudentRepository extends JpaRepository<StudentEntity, Long> {
+    @Query("SELECT DISTINCT s.group.id FROM StudentEntity s WHERE s.faculty.id = :facultyId")
+    List<Long> findDistinctGroupIdsByFacultyId(Long facultyId);
+
     List<StudentEntity> findByGroupId(long groupId);
 
     /**
