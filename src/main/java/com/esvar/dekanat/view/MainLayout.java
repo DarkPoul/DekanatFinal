@@ -1,6 +1,5 @@
 package com.esvar.dekanat.view;
 
-import com.esvar.dekanat.DekanatApplication;
 import com.esvar.dekanat.entity.SessionEntity;
 import com.esvar.dekanat.mark.EnterMarksView;
 import com.esvar.dekanat.plan.PlanView;
@@ -118,6 +117,7 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
 
             tabs.removeAll();
             navigationTargetToTab.clear();
+
             tabs.add(
                     createTab(VaadinIcon.CLIPBOARD_CHECK, "Навчальні плани", PlanView.class),
                     createTab(VaadinIcon.USER_CARD, "Перегляд карток", CardView.class),
@@ -125,6 +125,10 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
                     createTab(VaadinIcon.BAR_CHART, "Рейтинг", RatingView.class),
                     createTab(VaadinIcon.BOOK, "Успішність", SuccessView.class)
             );
+
+            if (isAdmin) {
+                tabs.add(createTab(VaadinIcon.USERS, "Користувачі", UsersView.class));
+            }
             tabs.setOrientation(Tabs.Orientation.VERTICAL);
             addToDrawer(tabs);
 
