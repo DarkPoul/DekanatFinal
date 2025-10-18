@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Розсилка користувачам</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        body { max-width: 720px; margin: 2rem auto; }
+        textarea { min-height: 12rem; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Розсилка Gmail по користувачах</h1>
+    <p>Вкажіть тему та текст повідомлення. Лист буде надіслано всім користувачам з таблиці <code>users</code>.
+        Дані SMTP задаються у <code>application.yaml</code> або змінними середовища <code>MAIL_HOST</code>,
+        <code>MAIL_USERNAME</code>, <code>MAIL_PASSWORD</code>.</p>
+
+    <div th:if="${error}" class="error" style="color: #b00020;">
+        <p th:text="${error}"></p>
+    </div>
+    <div th:if="${success}" class="success" style="color: #006400;">
+        <p th:text="${success}"></p>
+    </div>
+
+    <form th:action="@{/mailer/send}" th:object="${emailRequest}" method="post">
+        <label>
+            Тема
+            <input type="text" th:field="*{subject}" placeholder="Тема листа" required>
+        </label>
+        <label>
+            Текст листа
+            <textarea th:field="*{body}" placeholder="Ваше повідомлення" required></textarea>
+        </label>
+        <small>
+            Доступні плейсхолдери:
+            <code>{{email}}</code>, <code>{{pib}}</code>, <code>{{fullname}}</code>, <code>{{fullName}}</code>,
+            <code>{{firstname}}</code>, <code>{{lastname}}</code>, <code>{{patronymic}}</code>, <code>{{pass}}</code>,
+            <code>{{password}}</code>, <code>{{role}}</code>, <code>{{roleType}}</code>, <code>{{enabled}}</code>.
+        </small>
+        <button type="submit">Надіслати</button>
+    </form>
+
+    <section th:if="${#lists.size(report) > 0}">
+        <h2>Звіт</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>#</th>
+                <th>Email</th>
+                <th>Статус</th>
+                <th>Повідомлення</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="item : ${report}">
+                <td th:text="${item.rowNumber}"></td>
+                <td th:text="${item.email}"></td>
+                <td th:text="${item.success} ? '✅' : '❌'"></td>
+                <td th:text="${item.message}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+</main>
+</body>
+</html>
