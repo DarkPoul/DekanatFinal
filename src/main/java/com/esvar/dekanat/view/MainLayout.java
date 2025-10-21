@@ -94,10 +94,6 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
         boolean isDekanatGroup = roles.contains("ROLE_DEKANAT");
         boolean isAdmin        = roles.contains("ROLE_ADMIN");
 
-        System.out.println("isDepartment: " + isDepartment);
-        System.out.println("isDekanatGroup: " + isDekanatGroup);
-        System.out.println("isAdmin: " + isAdmin);
-
         if (isDepartment) {
             UI.getCurrent().navigate(EnterMarksView.class);
             event.rerouteTo(EnterMarksView.class);

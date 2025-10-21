@@ -46,7 +46,6 @@ public class GroupService {
         boolean isDekanat = user.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().startsWith("ROLE_DEKANAT"));
         String roleType   = securityService.getCurrentRoleType();
-        System.out.println("isAdmin=" + isAdmin + " isDekanat=" + isDekanat + " roleType=" + roleType);
 
         // 3. Якщо користувач — методист, готуємо набір ID груп його факультету
         Set<Long> groupIdsForFaculty = isDekanat
@@ -94,7 +93,6 @@ public class GroupService {
             return null;
         }
 
-        System.out.println("groupCode = " + groupCode);
         return groupRepository.findIdByGroupCode(groupCode).orElse(null);
     }
 

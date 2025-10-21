@@ -7,7 +7,7 @@ spring:
   jpa:
     properties:
       hibernate:
-        generate_statistics: true
+        generate_statistics: false
 
 upload:
   dir: uploads

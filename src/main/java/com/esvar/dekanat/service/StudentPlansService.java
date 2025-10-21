@@ -52,7 +52,7 @@ public class StudentPlansService{
             studentPlansRepository.save(studentPlan);
         } else {
             // Якщо запис вже існує, можна або проігнорувати, або оновити його
-            System.out.println("Пов'язання між студентом і планом вже існує.");
+
         }
     }
 

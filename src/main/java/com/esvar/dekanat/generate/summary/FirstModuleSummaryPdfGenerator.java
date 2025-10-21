@@ -2,6 +2,7 @@ package com.esvar.dekanat.generate.summary;
 
 import com.esvar.dekanat.document.DocumentException;
 import com.esvar.dekanat.document.PdfGenerator;
+import com.esvar.dekanat.entity.ControlMethodEntity;
 import com.esvar.dekanat.entity.PlansEntity;
 import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.entity.StudentGroupEntity;
@@ -109,8 +110,7 @@ public class FirstModuleSummaryPdfGenerator implements PdfGenerator {
 
         List<PlansEntity> plans = planService.getAllPlansForGroupAndSemester(group, request.semester()).stream()
                 .filter(plan -> !plan.isElective())
-                .filter(plan -> plan.getFirstControl() != null
-                        && request.controlType().equals(plan.getFirstControl().getName()))
+                .filter(plan -> matchesControlType(plan, request.controlType()))
                 .sorted(byDiscipline)
                 .toList();
 
@@ -143,5 +143,28 @@ public class FirstModuleSummaryPdfGenerator implements PdfGenerator {
         } catch (Exception ex) {
             return 0;
         }
+    }
+
+    private boolean matchesControlType(PlansEntity plan, String controlType) {
+        if (controlType == null || controlType.isBlank() || plan == null) {
+            return false;
+        }
+        String requested = normalize(controlType);
+        return requested.equals(normalize(plan.getFirstControl()))
+                || requested.equals(normalize(plan.getSecondControl()));
+    }
+
+    private String normalize(ControlMethodEntity control) {
+        if (control == null) {
+            return "";
+        }
+        return normalize(control.getName());
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.strip().toLowerCase(Locale.ROOT);
     }
 }

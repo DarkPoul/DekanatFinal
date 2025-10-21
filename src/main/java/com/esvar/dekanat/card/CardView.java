@@ -920,7 +920,6 @@ public class CardView extends Div {
 
 
                 studentEntity = studentService.getStudentForCard(selectGroup.getValue(), selectStudent.getValue());
-                System.out.println(studentEntity.getId());
 //                studentPassportEntity = studentPassportService.getPassportByStudentModel(studentEntity);
 //                studentInfoEntity = studentInfoService.getInfoByStudentModel(studentEntity);
 //                studentEducationEntity = studentEducationService.getEducationByStudentModel(studentEntity);
@@ -1457,7 +1456,7 @@ public class CardView extends Div {
 //                        && studentEducationEntity.equals(educationEntityCheck)
         )
         {
-            System.out.println("Дані не були змінені");
+
         } else {
             showConfirmationDialog(selectedGroupEntity);
         }
@@ -1624,7 +1623,7 @@ public class CardView extends Div {
                 "Ви впевнені, що хочете зберегти зміни?",
                 "Так", (event) -> {
 
-            System.out.println("Зміни збережено");
+
             //Збереження змін StudentModel
             StudentEntity studentEntitySave = new StudentEntity();
             studentEntitySave.setId(studentEntity.getId());
@@ -1710,7 +1709,7 @@ public class CardView extends Div {
 
             },
             "Ні", (event) -> {
-                System.out.println("Ви відмінили зміни");
+
                 //Відміна змін
             setTextFieldValue(lastNameUkrField, studentEntity.getSurname());
             setTextFieldValue(firstNameUkrField, studentEntity.getName());

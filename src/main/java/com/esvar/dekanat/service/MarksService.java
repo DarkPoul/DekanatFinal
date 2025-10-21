@@ -43,10 +43,6 @@ public class MarksService {
     @Transactional
     public MarksEntity saveMark(MarksEntity mark) {
         if (mark == null || mark.getStudent() == null || mark.getPlan() == null || mark.getControlMethod() == null) {
-            System.out.println("Invalid mark data: " + mark);
-            System.out.println("Student: " + (mark != null ? mark.getStudent() : "null"));
-            System.out.println("Plan: " + (mark != null ? mark.getPlan() : "null"));
-            System.out.println("Control Method: " + (mark != null ? mark.getControlMethod() : "null"));
             throw new IllegalArgumentException("Студент, план і метод контролю повинні бути задані.");
         }
         mark.setLastUpdated(new Timestamp(System.currentTimeMillis()));

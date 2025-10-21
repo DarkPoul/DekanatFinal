@@ -35,13 +35,8 @@ public class StudentService {
 
     public StudentEntity getStudentForCard(String selectGroupValue, String selectStudentValue) {
         Long groupId = groupRepository.findIdByGroupCode(selectGroupValue).orElseThrow();
-        System.out.println("groupId "+groupId);
-        System.out.println("groupEntities "+studentRepository.findByGroupId(groupId).stream().map(StudentEntity::getFullName));
-
         List<StudentEntity> studentEntities = studentRepository.findByGroupId(groupId);
-        for (StudentEntity studentEntity : studentEntities) {
-            System.out.println("studentEntity "+studentEntity.getFullName());
-        }
+
 
         return studentRepository.findByGroupId(groupId)
                 .stream()

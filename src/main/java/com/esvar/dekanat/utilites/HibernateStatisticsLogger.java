@@ -18,6 +18,6 @@ public class HibernateStatisticsLogger {
 
     @PreDestroy
     public void logStatistics() {
-        System.out.println("Hibernate executed " + statistics.getQueryExecutionCount() + " queries");
+
     }
 }

@@ -39,7 +39,6 @@ public class StudentEntity {
     private String recordBookNumber;
 
     public String getFullName() {
-        System.out.println("surname: " + surname + " name: " + name + " patronymic: " + patronymic);
         return surname + " " + name + " " + patronymic;
     }
 

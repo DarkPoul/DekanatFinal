@@ -22,7 +22,6 @@ public class DocxUpdater {
 
     public String generateForMC1(DataModelForMC1 data) {
 
-        System.out.println("################################## START ##############################################");
 
         int i;
 
@@ -42,7 +41,6 @@ public class DocxUpdater {
             List<XWPFTable> tables = document.getTables();
 
             if (tables.size() < 2) {
-                System.out.println("У документі немає другої таблиці.");
                 return finalFilePath;
             }
 
@@ -51,7 +49,6 @@ public class DocxUpdater {
 
             for (StudentModelToDocumentGenerate student : students) {
 
-                System.out.println("################################## START 2 ##############################################");
 
                 if (students.size() <= i-3){ //якщо студентів менше ніж i - 3
                     XWPFTableRow newRow = createStyledRow(table);
@@ -120,20 +117,15 @@ public class DocxUpdater {
 
 
             try (FileOutputStream fos = new FileOutputStream(tempFilePath)) {
-                System.out.println("word to pdf");
                 document.write(fos);
                 runJar("WordToDocxConverter.jar", tempFilePath, finalFilePath);
             }
 
             File file = new File(tempFilePath);
-            if (file.exists()){
-                if (file.delete()){
-                    System.out.println("Тимчасовий файл видалено");
-                } else System.out.println("Сталася помилка: тимчасовий файл не видалено");
-            } else System.out.println("Тимчасовий файл не знайдено");
+            file.delete();
 
         } catch (IOException | InterruptedException e) {
-            System.out.println("################################## START3 ##############################################");
+
             e.printStackTrace();
         }
         return finalFilePath;
@@ -168,17 +160,12 @@ public class DocxUpdater {
 
 
             try (FileOutputStream fos = new FileOutputStream(tempFilePath)) {
-                System.out.println("word to pdf");
                 document.write(fos);
                 runJar("WordToDocxConverter.jar", tempFilePath, finalFilePath.split("\\.")[0]  + "." + finalFilePath.split("\\.")[1]);
             }
 
             File file = new File(tempFilePath);
-            if (file.exists()){
-                if (file.delete()){
-                    System.out.println("Тимчасовий файл видалено");
-                } else System.out.println("Сталася помилка: тимчасовий файл не видалено");
-            } else System.out.println("Тимчасовий файл не знайдено");
+            file.delete();
 
         } catch (IOException | InterruptedException e) {
             e.fillInStackTrace();
@@ -357,12 +344,8 @@ public class DocxUpdater {
         processBuilder.inheritIO();
         Process process = processBuilder.start();
 
-        int exitCode = process.waitFor();
-        if (exitCode == 0) {
-            System.out.println("JAR файл виконано успішно.");
-        } else {
-            System.out.println("Сталася помилка під час виконання JAR файлу.");
-        }
+
+
     }
 
     private static void setCellText(XWPFTableCell cell, String text, ParagraphAlignment align) {
