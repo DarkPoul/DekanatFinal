@@ -6,6 +6,7 @@ import com.esvar.dekanat.entity.ControlMethodEntity;
 import com.esvar.dekanat.entity.PlansEntity;
 import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.entity.StudentGroupEntity;
+import com.esvar.dekanat.repository.ControlMethodRepository;
 import com.esvar.dekanat.repository.GroupRepository;
 import com.esvar.dekanat.service.MarksService;
 import com.esvar.dekanat.service.PlanService;
@@ -42,15 +43,17 @@ public class FirstModuleSummaryPdfGenerator implements PdfGenerator {
     private final PlanService planService;
     private final StudentService studentService;
     private final MarksService marksService;
+    private final ControlMethodRepository controlMethodRepository;
 
     public FirstModuleSummaryPdfGenerator(GroupRepository groupRepository,
                                           PlanService planService,
                                           StudentService studentService,
-                                          MarksService marksService) {
+                                          MarksService marksService, ControlMethodRepository controlMethodRepository) {
         this.groupRepository = groupRepository;
         this.planService = planService;
         this.studentService = studentService;
         this.marksService = marksService;
+        this.controlMethodRepository = controlMethodRepository;
     }
 
     @Override
@@ -108,9 +111,11 @@ public class FirstModuleSummaryPdfGenerator implements PdfGenerator {
                 collator
         );
 
+        ControlMethodEntity controlMethod = resolveControlMethod(request.controlType());
+
         List<PlansEntity> plans = planService.getAllPlansForGroupAndSemester(group, request.semester()).stream()
                 .filter(plan -> !plan.isElective())
-                .filter(plan -> matchesControlType(plan, request.controlType()))
+                .filter(plan -> matchesControlType(plan, controlMethod))
                 .sorted(byDiscipline)
                 .toList();
 
@@ -145,26 +150,27 @@ public class FirstModuleSummaryPdfGenerator implements PdfGenerator {
         }
     }
 
-    private boolean matchesControlType(PlansEntity plan, String controlType) {
-        if (controlType == null || controlType.isBlank() || plan == null) {
+    private boolean matchesControlType(PlansEntity plan, ControlMethodEntity controlMethod) {
+        if (plan == null || controlMethod == null) {
             return false;
         }
-        String requested = normalize(controlType);
-        return requested.equals(normalize(plan.getFirstControl()))
-                || requested.equals(normalize(plan.getSecondControl()));
+        Long controlId = controlMethod.getId();
+        return hasControl(plan.getFirstControl(), controlId)
+                || hasControl(plan.getSecondControl(), controlId);
     }
 
-    private String normalize(ControlMethodEntity control) {
-        if (control == null) {
-            return "";
-        }
-        return normalize(control.getName());
+    private boolean hasControl(ControlMethodEntity control, Long controlId) {
+        return control != null && control.getId() != null && control.getId().equals(controlId);
     }
 
-    private String normalize(String value) {
-        if (value == null) {
-            return "";
+    private ControlMethodEntity resolveControlMethod(String controlType) {
+        if (controlType == null || controlType.isBlank()) {
+            throw new DocumentException("Control type must be provided");
         }
-        return value.strip().toLowerCase(Locale.ROOT);
+        ControlMethodEntity controlMethod = controlMethodRepository.findByName(controlType);
+        if (controlMethod == null) {
+            throw new DocumentException("Control method not found: " + controlType);
+        }
+        return controlMethod;
     }
 }
