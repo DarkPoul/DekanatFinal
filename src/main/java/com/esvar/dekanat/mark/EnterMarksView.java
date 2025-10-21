@@ -5,6 +5,9 @@ import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
+import com.esvar.dekanat.generate.summary.FirstModuleSummaryPdfGenerator;
+import com.esvar.dekanat.generate.summary.FirstModuleSummaryRequest;
+import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.user.UserModel;
@@ -13,6 +16,7 @@ import com.esvar.dekanat.view.MainLayout;
 import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Anchor;
@@ -42,6 +46,8 @@ import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.VaadinServlet;
 import jakarta.annotation.security.PermitAll;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
@@ -67,6 +73,9 @@ import java.util.stream.Collectors;
 @PermitAll
 public class EnterMarksView extends Div {
 
+    private static final Logger log = LoggerFactory.getLogger(EnterMarksView.class);
+    private static final String CONTROL_TYPE_FIRST_MODULE = "Перший модульний контроль";
+
     private final FacultyService facultyService;
     private final DepartmentService departmentService;
     private final PlanService planService;
@@ -79,6 +88,8 @@ public class EnterMarksView extends Div {
     private final MarksPartsService marksPartsService;
     private final ControlPartsService controlPartsService;
     private final DocumentGenerationService documentGenerationService;
+    private final GroupService groupService;
+
 
     private VerticalLayout mainLayout = new VerticalLayout();
     private HorizontalLayout contentLayout = new HorizontalLayout();
@@ -103,6 +114,9 @@ public class EnterMarksView extends Div {
     private final Button additionalReportButton =
             new Button("Додаткова відомість", new Icon(VaadinIcon.FILE_ADD));
 
+    private final Button reportButton = new Button("Звіт");
+    private final Dialog reportDialog = new Dialog();
+
     private final Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
 
     @Value("${upload.dir}")
@@ -111,7 +125,7 @@ public class EnterMarksView extends Div {
     public EnterMarksView(FacultyService facultyService, DepartmentService departmentService, PlanService planService,
                           StudentService studentService, StudentPlansService studentPlansService, SecurityService securityService,
                           UserRepository userRepository, MarksService marksService, ControlMethodService controlMethodService,
-                          MarksPartsService marksPartsService, ControlPartsService controlPartsService, DocumentGenerationService documentGenerationService) {
+                          MarksPartsService marksPartsService, ControlPartsService controlPartsService, DocumentGenerationService documentGenerationService, GroupService groupService) {
         this.facultyService = facultyService;
         this.departmentService = departmentService;
         this.planService = planService;
@@ -124,6 +138,7 @@ public class EnterMarksView extends Div {
         this.marksPartsService = marksPartsService;
         this.controlPartsService = controlPartsService;
         this.documentGenerationService = documentGenerationService;
+        this.groupService = groupService;
 
         // Налаштування форми вибору параметрів
         selectFaculty.setLabel("Факультет");
@@ -185,11 +200,15 @@ public class EnterMarksView extends Div {
 
         printReportButton.setEnabled(false);
         additionalReportButton.setEnabled(false);
+        reportButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        reportButton.setEnabled(false);
 
-        buttonLayout.add(saveButton, approveButton, unlockButton, printReportButton, additionalReportButton);
+        buttonLayout.add(saveButton, approveButton, unlockButton, printReportButton, additionalReportButton, reportButton);
         buttonLayout.setWidth("100%");
-        buttonLayout.setFlexGrow(1, saveButton, approveButton, unlockButton, printReportButton, additionalReportButton);
+        buttonLayout.setFlexGrow(1, saveButton, approveButton, unlockButton, printReportButton, additionalReportButton, reportButton);
         buttonLayout.getStyle().set("gap", "10px");
+
+        configureReportControls();
 
         // Налаштування таблиці студентів
         studentGrid.getStyle().set("border-radius", "8px");
@@ -212,7 +231,7 @@ public class EnterMarksView extends Div {
 
         mainLayout.add(contentLayout);
         mainLayout.getStyle().set("height", "calc(100vh - 80px)");
-        add(mainLayout);
+        add(mainLayout, reportDialog);
         configureLoadingOverlay();
 
         selectDepartment.setReadOnly(true);
@@ -315,6 +334,7 @@ public class EnterMarksView extends Div {
         selectGroup.addValueChangeListener(event -> {
             clearGrid();
             GroupDTO selectedGroup = selectGroup.getValue();
+            updateReportButtonState();
             if (selectedGroup != null) {
                 selectDiscipline.setReadOnly(false);
                 selectControlType.setReadOnly(true);
@@ -1097,6 +1117,96 @@ public class EnterMarksView extends Div {
 
         throw new IllegalStateException(
                 "Друк для цього типу контролю знаходиться у розробці.");
+    }
+
+    private void configureReportControls() {
+        reportButton.addClickListener(event -> reportDialog.open());
+
+        reportDialog.setHeaderTitle("Оберіть тип звіту");
+        reportDialog.setCloseOnEsc(true);
+        reportDialog.setCloseOnOutsideClick(true);
+
+        Button firstModuleButton = new Button("Зведений для першого м.к.");
+        firstModuleButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        firstModuleButton.setWidthFull();
+        firstModuleButton.addClickListener(event -> {
+            reportDialog.close();
+            generateFirstModuleSummaryReport();
+        });
+
+        Button secondModuleButton = new Button("Зведений для другого м.к.");
+        secondModuleButton.setWidthFull();
+        secondModuleButton.addClickListener(event -> {
+            reportDialog.close();
+            notifyFeatureInDevelopment();
+        });
+
+        Button semesterButton = new Button("Семестровий");
+        semesterButton.setWidthFull();
+        semesterButton.addClickListener(event -> {
+            reportDialog.close();
+            notifyFeatureInDevelopment();
+        });
+
+        VerticalLayout dialogContent = new VerticalLayout(firstModuleButton, secondModuleButton, semesterButton);
+        dialogContent.setPadding(false);
+        dialogContent.setSpacing(true);
+        dialogContent.setWidth("320px");
+        dialogContent.setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.STRETCH);
+
+        reportDialog.removeAll();
+        reportDialog.add(dialogContent);
+    }
+
+    private void generateFirstModuleSummaryReport() {
+        GroupDTO selectedGroup = selectGroup.getValue();
+        if (selectedGroup == null) {
+            notifySelectGroup();
+            return;
+        }
+
+        StudentGroupEntity group = groupService.getGroupByTitle(selectedGroup.getGroupCode());
+        if (group == null) {
+            Notification.show("Групу не знайдено");
+            return;
+        }
+
+        int semester = computeFirstModuleSemester(selectedGroup.getCourse());
+        FirstModuleSummaryRequest request = new FirstModuleSummaryRequest(group.getId(), semester, CONTROL_TYPE_FIRST_MODULE);
+        try {
+            Path reportPath = documentGenerationService.generate(FirstModuleSummaryPdfGenerator.NAME, request);
+            if (reportPath == null) {
+                Notification.show("Файл звіту не знайдено");
+                return;
+            }
+            showReport(reportPath.toString());
+            Notification notification = Notification.show("Звіт сформовано");
+            notification.setDuration(3000);
+        } catch (RuntimeException ex) {
+            log.error("Не вдалося згенерувати зведений звіт", ex);
+            Notification.show("Не вдалося згенерувати звіт");
+        }
+    }
+
+    private void notifyFeatureInDevelopment() {
+        Notification notification = Notification.show("Функція у розробці");
+        notification.setDuration(3000);
+    }
+
+    private void notifySelectGroup() {
+        Notification notification = Notification.show("Оберіть групу для формування звіту");
+        notification.setDuration(3000);
+    }
+
+    private void updateReportButtonState() {
+        reportButton.setEnabled(selectGroup.getValue() != null);
+    }
+
+    private int computeFirstModuleSemester(int course) {
+        if (course <= 0) {
+            return 1;
+        }
+        return course * 2 - 1;
     }
 
     private void showReport(String finalFilePath) {

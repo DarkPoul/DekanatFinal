@@ -14,6 +14,7 @@ public class UserEntity {
 
     private Long id;
     private String pib;
+    private String email;
     private boolean active;
     private String role;
     private String roleType;
