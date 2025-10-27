@@ -6,6 +6,17 @@ import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.repository.StudentRatingRepository;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.view.MainLayout;
+import com.itextpdf.io.font.PdfEncodings;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
+import com.itextpdf.kernel.geom.PageSize;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.LineSeparator;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.properties.TextAlignment;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.checkbox.Checkbox;
@@ -15,6 +26,7 @@ import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
@@ -27,8 +39,12 @@ import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamResource;
 import jakarta.annotation.security.PermitAll;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.sql.Date;
 import java.text.Collator;
 import java.time.LocalDate;
@@ -89,7 +105,7 @@ public class CardView extends Div {
     private TextField firstNameEngField = new TextField();
     private Select<String> groupSelect = new Select<>();
     private Select<String> courseSelect = new Select<>();
-    private TextField groupNumberField= new TextField();
+    private TextField groupNumberField = new TextField();
     private Select<String> admissionYearSelect = new Select<>();
     private TextField recordBookNumberField = new TextField();
     private TextField caseNumberField = new TextField();
@@ -130,7 +146,7 @@ public class CardView extends Div {
     private TextField appendixNumberField = new TextField();
     private TextField thesisTitleUkrField = new TextField();
     private TextField thesisTitleEngField = new TextField();
-
+    private Button groupList = new Button("Список групи");
 
 
     private StudentEntity studentEntity;
@@ -177,10 +193,16 @@ public class CardView extends Div {
         selectGroup.setWidth("300px");
         selectGroup.getStyle().set("padding", "0");
 
+        groupList.setEnabled(false);
+        List<String> studentGroupList = new ArrayList<>();
+
         selectGroup.addValueChangeListener(selectStringComponentValueChangeEvent -> {
             if (selectGroup.getValue() != null) {
-                selectStudent.setItems(studentService.getStudentByGroupId(groupService.getGroupIdByCode(selectGroup.getValue())).stream().map(StudentEntity::getFullName).collect(Collectors.toList()));
+                studentGroupList.addAll(studentService.getStudentByGroupId(groupService.getGroupIdByCode(selectGroup.getValue())).stream().map(StudentEntity::getFullName).toList());
+                selectStudent.setItems(studentGroupList);
+
                 selectStudent.setReadOnly(false);
+                groupList.setEnabled(true);
             }
         });
 
@@ -226,7 +248,7 @@ public class CardView extends Div {
 
         // Button Layout
         HorizontalLayout buttonLayout = new HorizontalLayout();
-        buttonLayout.add(selectGroup, selectStudent, addCardButton, sendToArchiveButton, editButton);
+        buttonLayout.add(selectGroup, selectStudent, addCardButton, sendToArchiveButton, editButton, groupList);
         buttonLayout.setWidth("100%");
         buttonLayout.setSpacing(true);
         buttonLayout.getStyle().set("padding", "0");
@@ -377,6 +399,10 @@ public class CardView extends Div {
                 Notification.show("Неправильний ввід. Введіть тільки цифри від 1 до 9.");
             }
         });
+
+
+
+        groupList.addClickListener(event -> generateAndSend(selectGroup.getValue(), studentGroupList));
 
         admissionYearSelect = new Select<>();
         admissionYearSelect.setLabel("Рік випуску");
@@ -1231,7 +1257,6 @@ public class CardView extends Div {
     }
 
 
-
     private StudentGroupEntity resolveSelectedGroup() {
         if (!isGroupSelectionComplete()) {
             return null;
@@ -1340,7 +1365,7 @@ public class CardView extends Div {
                 "Групу не знайдено",
                 "Групу " + groupCode + " не знайдено. Створити нову?",
                 "Створити", event -> {
-            StudentGroupEntity createdGroup = createGroupForSelection(groupPrefix, course, groupNumber, graduationYear, selectGroup.getValue()  );
+            StudentGroupEntity createdGroup = createGroupForSelection(groupPrefix, course, groupNumber, graduationYear, selectGroup.getValue());
             if (createdGroup != null) {
                 pendingCreatedGroupId = createdGroup.getId();
                 refreshGraduationYearOptions();
@@ -1360,7 +1385,6 @@ public class CardView extends Div {
         studentOrGroupSelect.setReadOnly(true);
         submitDataButton.setEnabled(false);
 //                orderGrid.setEnabled(false);
-
 
 
         //Вимкнення можливості редагування Персональних даних
@@ -1454,14 +1478,11 @@ public class CardView extends Div {
 //                        && studentPassportEntity.equals(passportEntityCheck)
 //                        && studentInfoEntity.equals(infoModelCheck)
 //                        && studentEducationEntity.equals(educationEntityCheck)
-        )
-        {
+        ) {
 
         } else {
             showConfirmationDialog(selectedGroupEntity);
         }
-
-
 
 
         //Вимкнення можливості редагування Паспортних даних
@@ -1695,7 +1716,7 @@ public class CardView extends Div {
 //            educationEntitySave.setStudent(studentEntitySave);
 //            studentEducationService.save(educationEntitySave);
 
-                studentEntity = studentEntitySave;
+            studentEntity = studentEntitySave;
 //                studentPassportEntity = passportEntitySave;
 //                studentInfoEntity = infoEntitySave;
 //                studentEducationEntity = educationEntitySave;
@@ -1703,14 +1724,14 @@ public class CardView extends Div {
             selectGroup.setValue(selectedGroupEntity.getGroupCode());
             selectStudent.setValue(studentEntitySave.getFullName());
 
-                updateGroupSelectorsItems();
-                refreshGraduationYearOptions();
-                pendingCreatedGroupId = null;
+            updateGroupSelectorsItems();
+            refreshGraduationYearOptions();
+            pendingCreatedGroupId = null;
 
-            },
-            "Ні", (event) -> {
+        },
+                "Ні", (event) -> {
 
-                //Відміна змін
+            //Відміна змін
             setTextFieldValue(lastNameUkrField, studentEntity.getSurname());
             setTextFieldValue(firstNameUkrField, studentEntity.getName());
             setTextFieldValue(middleNameUkrField, studentEntity.getPatronymic());
@@ -1759,16 +1780,16 @@ public class CardView extends Div {
             setTextFieldValue(thesisTitleUkrField, studentEducationEntity.getThemeOfWork());
             setTextFieldValue(thesisTitleEngField, studentEducationEntity.getThemeOfWorkEng());
 
-                if (pendingCreatedGroupId != null) {
-                            groupService.deleteById(pendingCreatedGroupId);
-                            pendingCreatedGroupId = null;
-                            updateGroupSelectorsItems();
-                            refreshGraduationYearOptions();
-                        }
-
-                    });
-                dialog.open();
+            if (pendingCreatedGroupId != null) {
+                groupService.deleteById(pendingCreatedGroupId);
+                pendingCreatedGroupId = null;
+                updateGroupSelectorsItems();
+                refreshGraduationYearOptions();
             }
+
+        });
+        dialog.open();
+    }
 
 
     private String resolveTextFieldValue(TextField field, String fallback) {
@@ -1909,5 +1930,127 @@ public class CardView extends Div {
                 .map(MainLayout.class::cast)
                 .findFirst()
                 .orElse(null);
+    }
+
+    public static void generateAndSend(String title, List<String> students) {
+        System.out.println("syaty");
+        UI ui = UI.getCurrent();
+        if (ui == null) {
+            throw new IllegalStateException(
+                    "UI.getCurrent() == null. Викликати generateAndSend треба з UI-потоку Vaadin (наприклад у кнопці)."
+            );
+        }
+
+        try {
+            // 1. Почистити та відсортувати студентів
+            List<String> sortedStudents = prepareStudents(students);
+
+            // 2. Згенерувати PDF як byte[]
+            byte[] pdfBytes = buildPdfBytes(title, sortedStudents);
+
+            // 3. Створити ресурс на льоту
+            String fileName = sanitizeFilename(title) + "-list.pdf";
+            StreamResource resource = new StreamResource(
+                    fileName,
+                    () -> new ByteArrayInputStream(pdfBytes)
+            );
+            resource.setContentType("application/pdf");
+            resource.setCacheTime(0); // без кешу, завжди свіже
+
+            // 4. Створити приховану <a> з цим ресурсом
+            Anchor hiddenOpener = new Anchor(resource, "");
+            hiddenOpener.setTarget("_blank"); // відкриваємо у новій вкладці
+            hiddenOpener.getStyle().set("display", "none");
+
+            // 5. Приєднати <a> тимчасово в DOM, викликати click(), потім прибрати
+            ui.getElement().appendChild(hiddenOpener.getElement());
+            hiddenOpener.getElement().callJsFunction("click");
+            hiddenOpener.getElement().removeFromParent();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Не вдалося згенерувати або відкрити PDF", e);
+        }
+    }
+
+    // ------------------ ВНУТРІШНІ ХЕЛПЕРИ ------------------ //
+
+    /**
+     * Чистить список від null/порожніх і сортує за українською абеткою.
+     */
+    private static List<String> prepareStudents(List<String> students) {
+        List<String> cleaned = new ArrayList<>();
+        for (String s : students) {
+            if (s != null && !s.isBlank()) {
+                cleaned.add(s.trim());
+            }
+        }
+
+        Collator uaCollator = Collator.getInstance(new Locale("uk", "UA"));
+        cleaned.sort(uaCollator);
+
+        return cleaned;
+    }
+
+    /**
+     * Створює PDF в оперативній пам'яті і повертає як масив байтів.
+     * Нічого не зберігає на диск.
+     */
+    private static byte[] buildPdfBytes(String groupName, List<String> sortedStudents) throws Exception {
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfWriter writer = new PdfWriter(baos);
+        PdfDocument pdfDoc = new PdfDocument(writer);
+        pdfDoc.setDefaultPageSize(PageSize.A4);
+
+        Document doc = new Document(pdfDoc);
+        doc.setMargins(36, 36, 36, 36); // приблизно 1 см поля
+
+        // 1. Підвантажити шрифт з classpath, щоб кирилиця не поламалась
+        //    /fonts/DejaVuSans.ttf повинен бути у resources всередині твого jar
+        PdfFont font;
+        try (InputStream fontStream = CardView.class
+                .getResourceAsStream("/fonts/times.ttf")) {
+
+            if (fontStream == null) {
+                throw new IllegalStateException("Не знайдено /fonts/DejaVuSans.ttf у resources.");
+            }
+
+            byte[] fontBytes = fontStream.readAllBytes();
+            font = PdfFontFactory.createFont(fontBytes, PdfEncodings.IDENTITY_H);
+        }
+        doc.setFont(font);
+
+        // 2. Назва групи по центру, жирним, трішки більшим
+        Paragraph titleP = new Paragraph(groupName)
+                .setFontSize(14)
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginBottom(4f);
+        doc.add(titleP);
+
+        // 3. Горизонтальна лінія під назвою
+        LineSeparator line = new LineSeparator(new SolidLine(1f));
+        line.setMarginBottom(16f);
+        doc.add(line);
+
+        // 4. Пронумерований список студентів
+        int idx = 1;
+        for (String student : sortedStudents) {
+            Paragraph row = new Paragraph(idx + ". " + student)
+                    .setFontSize(12)
+                    .setMarginBottom(4f);
+            doc.add(row);
+            idx++;
+        }
+
+        doc.close(); // флашить усе у baos
+        return baos.toByteArray();
+    }
+
+    /**
+     * Робимо чисте ім'я файлу. Дозволяємо кирилицю, цифри, дефіс, підкреслення і крапку.
+     */
+    private static String sanitizeFilename(String in) {
+        if (in == null || in.isBlank()) return "group";
+        return in.replaceAll("[^a-zA-Z0-9\\u0400-\\u04FF\\-_.]", "_");
     }
 }

@@ -5,14 +5,24 @@ import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
-import com.esvar.dekanat.generate.summary.FirstModuleSummaryPdfGenerator;
-import com.esvar.dekanat.generate.summary.FirstModuleSummaryRequest;
+
 import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.user.UserModel;
 import com.esvar.dekanat.user.UserRepository;
 import com.esvar.dekanat.view.MainLayout;
+import com.itextpdf.io.font.PdfEncodings;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
+import com.itextpdf.kernel.geom.PageSize;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.LineSeparator;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.properties.TextAlignment;
 import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
@@ -43,6 +53,7 @@ import com.vaadin.flow.dom.ElementFactory;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.StreamResource;
+import com.vaadin.flow.server.StreamResourceRegistry;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.VaadinServlet;
 import jakarta.annotation.security.PermitAll;
@@ -54,9 +65,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Path;
 import java.sql.Timestamp;
 import java.text.Collator;
@@ -1172,20 +1181,20 @@ public class EnterMarksView extends Div {
         }
 
         int semester = computeFirstModuleSemester(selectedGroup.getCourse());
-        FirstModuleSummaryRequest request = new FirstModuleSummaryRequest(group.getId(), semester, CONTROL_TYPE_FIRST_MODULE);
-        try {
-            Path reportPath = documentGenerationService.generate(FirstModuleSummaryPdfGenerator.NAME, request);
-            if (reportPath == null) {
-                Notification.show("Файл звіту не знайдено");
-                return;
-            }
-            showReport(reportPath.toString());
-            Notification notification = Notification.show("Звіт сформовано");
-            notification.setDuration(3000);
-        } catch (RuntimeException ex) {
-            log.error("Не вдалося згенерувати зведений звіт", ex);
-            Notification.show("Не вдалося згенерувати звіт");
-        }
+//        FirstModuleSummaryRequest request = new FirstModuleSummaryRequest(group.getId(), semester, CONTROL_TYPE_FIRST_MODULE);
+//        try {
+//            Path reportPath = documentGenerationService.generate(FirstModuleSummaryPdfGenerator.NAME, request);
+//            if (reportPath == null) {
+//                Notification.show("Файл звіту не знайдено");
+//                return;
+//            }
+//            showReport(reportPath.toString());
+//            Notification notification = Notification.show("Звіт сформовано");
+//            notification.setDuration(3000);
+//        } catch (RuntimeException ex) {
+//            log.error("Не вдалося згенерувати зведений звіт", ex);
+//            Notification.show("Не вдалося згенерувати звіт");
+//        }
     }
 
     private void notifyFeatureInDevelopment() {
@@ -1381,4 +1390,6 @@ public class EnterMarksView extends Div {
                 .sorted(Comparator.comparing(StudentEntity::getFullName, ukrainianCollator))
                 .collect(Collectors.toList());
     }
+
+
 }
