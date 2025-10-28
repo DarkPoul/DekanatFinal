@@ -194,16 +194,31 @@ public class CardView extends Div {
         selectGroup.getStyle().set("padding", "0");
 
         groupList.setEnabled(false);
-        List<String> studentGroupList = new ArrayList<>();
+        selectGroup.addValueChangeListener(event -> {
+            String selectedGroup = event.getValue();
 
-        selectGroup.addValueChangeListener(selectStringComponentValueChangeEvent -> {
-            if (selectGroup.getValue() != null) {
-                studentGroupList.addAll(studentService.getStudentByGroupId(groupService.getGroupIdByCode(selectGroup.getValue())).stream().map(StudentEntity::getFullName).toList());
-                selectStudent.setItems(studentGroupList);
-
-                selectStudent.setReadOnly(false);
-                groupList.setEnabled(true);
+            if (selectedGroup == null) {
+                selectStudent.clear();
+                selectStudent.setItems(Collections.emptyList());
+                selectStudent.setReadOnly(true);
+                groupList.setEnabled(false);
+                return;
             }
+
+            List<String> students = fetchStudentNames(selectedGroup);
+            if (students.isEmpty()) {
+                selectStudent.clear();
+                selectStudent.setItems(Collections.emptyList());
+                selectStudent.setReadOnly(true);
+                groupList.setEnabled(false);
+                Notification.show("У вибраній групі немає студентів.");
+                return;
+            }
+
+            selectStudent.setItems(students);
+            selectStudent.clear();
+            selectStudent.setReadOnly(false);
+            groupList.setEnabled(true);
         });
 
         selectors.add(selectGroup, selectStudent);
@@ -265,12 +280,12 @@ public class CardView extends Div {
                     reportService
             );
             dialog.addDialogCloseActionListener(e -> {
-                if (selectGroup.getValue() != null) {
-                    selectStudent.setItems(studentService
-                            .getStudentByGroupId(groupService.getGroupIdByCode(selectGroup.getValue()))
-                            .stream()
-                            .map(StudentEntity::getFullName)
-                            .collect(Collectors.toList()));
+                String selectedGroup = selectGroup.getValue();
+                if (selectedGroup != null) {
+                    List<String> students = fetchStudentNames(selectedGroup);
+                    selectStudent.setItems(students);
+                    selectStudent.setReadOnly(students.isEmpty());
+                    groupList.setEnabled(!students.isEmpty());
                 }
             });
             dialog.open();
@@ -402,7 +417,24 @@ public class CardView extends Div {
 
 
 
-        groupList.addClickListener(event -> generateAndSend(selectGroup.getValue(), studentGroupList));
+        groupList.addClickListener(event -> {
+            String selectedGroup = selectGroup.getValue();
+            if (selectedGroup == null) {
+                Notification.show("Оберіть групу для генерації списку.");
+                return;
+            }
+
+            List<String> students = fetchStudentNames(selectedGroup);
+            if (students.isEmpty()) {
+                Notification.show("У вибраній групі немає студентів для генерації списку.");
+                groupList.setEnabled(false);
+                return;
+            }
+
+            generateAndSend(selectedGroup, students);
+        });
+
+
 
         admissionYearSelect = new Select<>();
         admissionYearSelect.setLabel("Рік випуску");
@@ -2052,5 +2084,21 @@ public class CardView extends Div {
     private static String sanitizeFilename(String in) {
         if (in == null || in.isBlank()) return "group";
         return in.replaceAll("[^a-zA-Z0-9\\u0400-\\u04FF\\-_.]", "_");
+    }
+
+    private List<String> fetchStudentNames(String groupCode) {
+        if (groupCode == null || groupCode.isBlank()) {
+            return Collections.emptyList();
+        }
+
+        Long groupId = groupService.getGroupIdByCode(groupCode);
+        if (groupId == null) {
+            return Collections.emptyList();
+        }
+
+        return studentService.getStudentByGroupId(groupId)
+                .stream()
+                .map(StudentEntity::getFullName)
+                .toList();
     }
 }
