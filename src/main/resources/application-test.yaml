@@ -19,7 +19,9 @@ spring:
         generate_statistics: true
 
 vaadin:
-  launch-browser: false       # у контейнері нам не треба відкривати браузер
+  launch-browser: false
+  frontend:
+    hotdeploy: false
 
 logging:
   level:

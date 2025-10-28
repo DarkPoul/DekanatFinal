@@ -167,29 +167,37 @@
                     <groupId>com.vaadin</groupId>
                     <artifactId>vaadin-core</artifactId>
                     <exclusions>
+                        <!-- вирізаємо dev-режим з рантайму -->
                         <exclusion>
                             <groupId>com.vaadin</groupId>
                             <artifactId>vaadin-dev</artifactId>
                         </exclusion>
                     </exclusions>
                 </dependency>
-
             </dependencies>
+
             <build>
                 <plugins>
                     <plugin>
                         <groupId>com.vaadin</groupId>
                         <artifactId>vaadin-maven-plugin</artifactId>
                         <version>${vaadin.version}</version>
+
                         <executions>
                             <execution>
                                 <goals>
+                                    <!-- готує frontend (генерує stuff типу flow-build-info.json і т.д.) -->
                                     <goal>prepare-frontend</goal>
+                                    <!-- збирає продакшн-бандл JS/CSS -->
+                                    <goal>build-frontend</goal>
                                 </goals>
                             </execution>
                         </executions>
+
                         <configuration>
                             <nodeAutoUpdate>true</nodeAutoUpdate>
+                            <!-- явно кажемо, що збираємо продакшн -->
+                            <productionMode>true</productionMode>
                         </configuration>
                     </plugin>
                 </plugins>
