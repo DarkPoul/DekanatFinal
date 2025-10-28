@@ -39,12 +39,12 @@ import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamRegistration;
 import com.vaadin.flow.server.StreamResource;
+import com.vaadin.flow.server.StreamResourceWriter;
 import jakarta.annotation.security.PermitAll;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
+import java.io.*;
 import java.sql.Date;
 import java.text.Collator;
 import java.time.LocalDate;
@@ -1965,7 +1965,6 @@ public class CardView extends Div {
     }
 
     public static void generateAndSend(String title, List<String> students) {
-        System.out.println("syaty");
         UI ui = UI.getCurrent();
         if (ui == null) {
             throw new IllegalStateException(
@@ -1977,32 +1976,40 @@ public class CardView extends Div {
             // 1. Почистити та відсортувати студентів
             List<String> sortedStudents = prepareStudents(students);
 
-            // 2. Згенерувати PDF як byte[]
+            // 2. Генеруємо PDF як масив байтів
             byte[] pdfBytes = buildPdfBytes(title, sortedStudents);
 
-            // 3. Створити ресурс на льоту
+            // 3. Формуємо ім'я файла
             String fileName = sanitizeFilename(title) + "-list.pdf";
+
+            // 4. Створюємо StreamResource
             StreamResource resource = new StreamResource(
                     fileName,
-                    () -> new ByteArrayInputStream(pdfBytes)
+                    (StreamResourceWriter) (outputStream, session) -> {
+                        try (InputStream in = new ByteArrayInputStream(pdfBytes)) {
+                            in.transferTo(outputStream);
+                        } catch (IOException ioException) {
+                            throw new UncheckedIOException(ioException);
+                        }
+                    }
             );
+
             resource.setContentType("application/pdf");
-            resource.setCacheTime(0); // без кешу, завжди свіже
+            resource.setCacheTime(0); // щоб завжди було свіже
 
-            // 4. Створити приховану <a> з цим ресурсом
-            Anchor hiddenOpener = new Anchor(resource, "");
-            hiddenOpener.setTarget("_blank"); // відкриваємо у новій вкладці
-            hiddenOpener.getStyle().set("display", "none");
+            // 5. Реєструємо і відкриваємо у новій вкладці
+            StreamRegistration registration = ui.getSession()
+                    .getResourceRegistry()
+                    .registerResource(resource);
 
-            // 5. Приєднати <a> тимчасово в DOM, викликати click(), потім прибрати
-            ui.getElement().appendChild(hiddenOpener.getElement());
-            hiddenOpener.getElement().callJsFunction("click");
-            hiddenOpener.getElement().removeFromParent();
+            String resourceUrl = registration.getResourceUri().toString();
+            ui.getPage().open(resourceUrl, "_blank");
 
         } catch (Exception e) {
             throw new RuntimeException("Не вдалося згенерувати або відкрити PDF", e);
         }
     }
+
 
     // ------------------ ВНУТРІШНІ ХЕЛПЕРИ ------------------ //
 
