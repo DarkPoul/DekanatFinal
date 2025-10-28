@@ -2,6 +2,12 @@ server:
   port: 8080          # всередині контейнера
   servlet:
     context-path: /test
+    session:
+      cookie:
+        # нижче ми ще страхуємося від майбутнього "Cookies disabled"
+        http-only: true
+        secure: false
+        same-site: lax
 
 spring:
   datasource:
