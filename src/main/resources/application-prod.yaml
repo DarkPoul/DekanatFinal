@@ -1,0 +1,36 @@
+server:
+  forward-headers-strategy: framework
+  port: 8080
+  servlet:
+    context-path: /
+    session:
+      cookie:
+        http-only: true
+        secure: true
+        same-site: lax
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update        # ти зараз все одно ганяєш копію, ок
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        generate_statistics: true
+
+vaadin:
+  launch-browser: false
+  frontend:
+    hotdeploy: false
+
+logging:
+  level:
+    root: INFO
+    com.esvar.dekanat: INFO
