@@ -29,7 +29,7 @@ TEST_DB_ROOT_PASS="${FETCH_DB_PASS}"
 #############################################
 
 TEST_MYSQL_IMAGE="mysql:8.0.36"
-TEST_APP_PORT=18080   # порт, на якому ти дивишся тест (назовні хоста)
+TEST_APP_PORT=8081   # порт, на якому ти дивишся тест (назовні хоста)
 
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 TEST_ID="test-${TIMESTAMP}"
