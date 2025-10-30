@@ -1299,10 +1299,22 @@ public class CardView extends Div {
         String groupNumber = groupNumberField.getValue();
         String graduationYear = admissionYearSelect.getValue();
 
-        String groupCode = buildGroupCode(groupPrefix, course, groupNumber, graduationYear);
-        StudentGroupEntity group = groupService.getGroupByTitle(groupCode);
-        if (group != null) {
-            return group;
+        SpecialtyEntity specialty = specialtyService.getSpecialtyByAbbreviation(groupPrefix);
+
+        String eduProgramCode = buildGroupCodeWithEduProgram(groupPrefix, course, groupNumber, graduationYear, specialty);
+        if (eduProgramCode != null) {
+            StudentGroupEntity group = groupService.getGroupByTitle(eduProgramCode);
+            if (group != null) {
+                return group;
+            }
+        }
+
+        String specialtyCode = buildGroupCodeWithSpecialtySuffix(groupPrefix, course, groupNumber, graduationYear, specialty);
+        if (specialtyCode != null) {
+            StudentGroupEntity group = groupService.getGroupByTitle(specialtyCode);
+            if (group != null) {
+                return group;
+            }
         }
 
         String legacyGroupCode = buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
@@ -1371,14 +1383,41 @@ public class CardView extends Div {
 
     private String buildGroupCode(String groupPrefix, String course, String groupNumber, String graduationYear) {
         SpecialtyEntity specialty = specialtyService.getSpecialtyByAbbreviation(groupPrefix);
-        return buildGroupCode(groupPrefix, course, groupNumber, graduationYear, specialty);
+        String eduProgramCode = buildGroupCodeWithEduProgram(groupPrefix, course, groupNumber, graduationYear, specialty);
+        if (eduProgramCode != null) {
+            return eduProgramCode;
+        }
+        String specialtyCode = buildGroupCodeWithSpecialtySuffix(groupPrefix, course, groupNumber, graduationYear, specialty);
+        if (specialtyCode != null) {
+            return specialtyCode;
+        }
+        return buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
     }
 
     private String buildGroupCode(String groupPrefix, String course, String groupNumber, String graduationYear, SpecialtyEntity specialty) {
+        String eduProgramCode = buildGroupCodeWithEduProgram(groupPrefix, course, groupNumber, graduationYear, specialty);
+        if (eduProgramCode != null) {
+            return eduProgramCode;
+        }
+        String specialtyCode = buildGroupCodeWithSpecialtySuffix(groupPrefix, course, groupNumber, graduationYear, specialty);
+        if (specialtyCode != null) {
+            return specialtyCode;
+        }
+        return buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
+    }
+
+    private String buildGroupCodeWithEduProgram(String groupPrefix, String course, String groupNumber, String graduationYear, SpecialtyEntity specialty) {
+        if (specialty != null && specialty.getEduProgram() != null && specialty.getEduProgram().getId() != null) {
+            return String.format("%s-%s-%s-%s(%d)", groupPrefix, course, groupNumber, graduationYear, specialty.getEduProgram().getId());
+        }
+        return null;
+    }
+
+    private String buildGroupCodeWithSpecialtySuffix(String groupPrefix, String course, String groupNumber, String graduationYear, SpecialtyEntity specialty) {
         if (specialty != null && specialty.getId() != null) {
             return String.format("%s-%s-%s-%s(%d)", groupPrefix, course, groupNumber, graduationYear, specialty.getId());
         }
-        return buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
+        return null;
     }
 
     private String buildLegacyGroupCode(String groupPrefix, String course, String groupNumber, String graduationYear) {
@@ -1432,91 +1471,12 @@ public class CardView extends Div {
         admissionYearSelect.setReadOnly(true);
         recordBookNumberField.setReadOnly(true);
 
-        //Порівняння моделей на відповідність
-//        StudentEntity studentEntityCheck = new StudentEntity(
-//                studentEntity.getId(),
-//                lastNameUkrField.getValue(),
-//                firstNameUkrField.getValue(),
-//                middleNameUkrField.getValue(),
-//                selectedGroupEntity.getSpecialty().getFaculty(),
-//                selectedGroupEntity,
-//                recordBookNumberField.getValue()
-//        );
-
-//        StudentPassportEntity passportEntityCheck = new StudentPassportEntity
-//                (
-//                        studentPassportEntity.getId(),
-//                        studentEntity,
-//                        firstNameEngField.getValue(),
-//                        lastNameEngField.getValue(),
-//                        nationalityField.getValue(),
-//                        Gender.valueOf(genderSelect.getValue()),
-//                        passportIssueDatePicker.getValue().toString(),
-//                        passportIssuedByField.getValue(),
-//                        passportExpiryDatePicker.getValue().toString(),
-//                        passportSeriesField.getValue(),
-//                        passportNumberField.getValue(),
-//                        idCodeField.getValue(),
-//                        unzrField.getValue(),
-//                        birthDatePicker.getValue().toString(),
-//                        personNumberEDEBOField.getValue(),
-//                        studentCardNumberEDEBOField.getValue()
-//
-//
-//                );
-
-
-//        StudentInfoEntity infoModelCheck = new StudentInfoEntity(
-//                studentInfoEntity.getId(),
-//                studentEntity,
-//                fullAddressField.getValue(),
-//                phoneNumberField.getValue(),
-//                emailField.getValue(),
-//                caseNumberField.getValue(),
-//                educationFormSelect.getValue(),
-//                degreeSelect.getValue(),
-//                admissionConditionSelect.getValue(),
-//                paymentSourceSelect.getValue(),
-//                contractNumberField.getValue(),
-//                amountField.getValue(),
-//                String.join(", ", benefitsSelect.getValue()),
-//                regionSelect.getValue(),
-//                indexField.getValue()
-//
-//        );
-
-//        StudentEducationEntity educationEntityCheck = new StudentEducationEntity
-//                (
-//                        studentEducationEntity.getId(),
-//                        studentEntity,
-//                        documentTypeSelect.getValue(),
-//                        distinctionCheckbox.getValue() ? 1 : 0,
-//                        documentSeriesField.getValue(),
-//                        documentNumberField.getValue(),
-//                        Date.valueOf(documentIssueDatePicker.getValue()),
-//                        institutionNameField.getValue(),
-//                        institutionNameEngField.getValue(),
-//
-//                        diplomaSeriesField.getValue(),
-//                        diplomaNumberField.getValue(),
-//                        Date.valueOf(graduationDatePicker.getValue()),
-//                        appendixNumberField.getValue(),
-//                        thesisTitleUkrField.getValue(),
-//                        thesisTitleEngField.getValue()
-//                );
-
-//        if (
-////                studentEntity.equals(studentEntityCheck)
-////                        && studentPassportEntity.equals(passportEntityCheck)
-////                        && studentInfoEntity.equals(infoModelCheck)
-////                        && studentEducationEntity.equals(educationEntityCheck)
-//        )
-        {
-
+        boolean academicDataChanged = hasAcademicDataChanges(selectedGroupEntity);
+        if (academicDataChanged) {
+            applyAcademicDataChanges(selectedGroupEntity);
+        } else {
+            Notification.show("Зміни академічних даних відсутні.");
         }
-//        else {
-//            showConfirmationDialog(selectedGroupEntity);
-//        }
 
 
         //Вимкнення можливості редагування Паспортних даних
@@ -1578,6 +1538,79 @@ public class CardView extends Div {
         editButton.setText("Редагувати");
         //Встановлення кольору тексту кнопки на стандартний
         editButton.getStyle().set("color", "#0056b3");
+    }
+
+    private boolean hasAcademicDataChanges(StudentGroupEntity selectedGroupEntity) {
+        if (selectedGroupEntity == null) {
+            return false;
+        }
+        if (studentEntity == null) {
+            return true;
+        }
+        StudentGroupEntity currentGroup = studentEntity.getGroup();
+        if (currentGroup == null) {
+            return true;
+        }
+
+        SpecialtyEntity currentSpecialty = currentGroup.getSpecialty();
+        SpecialtyEntity targetSpecialty = selectedGroupEntity.getSpecialty();
+        String currentAbbreviation = currentSpecialty != null ? currentSpecialty.getAbbreviation() : null;
+        String targetAbbreviation = targetSpecialty != null ? targetSpecialty.getAbbreviation() : null;
+
+        if (!Objects.equals(currentAbbreviation, targetAbbreviation)) {
+            return true;
+        }
+        if (currentGroup.getCourse() != selectedGroupEntity.getCourse()) {
+            return true;
+        }
+        if (currentGroup.getGroupNumber() != selectedGroupEntity.getGroupNumber()) {
+            return true;
+        }
+        return normalizeYearValue(currentGroup.getYear()) != normalizeYearValue(selectedGroupEntity.getYear());
+    }
+
+    private void applyAcademicDataChanges(StudentGroupEntity selectedGroupEntity) {
+        studentEntity.setGroup(selectedGroupEntity);
+        studentEntity.setFaculty(selectedGroupEntity.getSpecialty().getFaculty());
+        studentService.save(studentEntity);
+
+        ratingRepository.findById(studentEntity.getId()).ifPresent(ratingEntity -> {
+            ratingEntity.setStudent(studentEntity);
+            ratingEntity.setFaculty(selectedGroupEntity.getSpecialty().getFaculty());
+            ratingEntity.setSpecialty(selectedGroupEntity.getSpecialty());
+            ratingEntity.setCourse(selectedGroupEntity.getCourse());
+            ratingEntity.setGroup(selectedGroupEntity);
+            ratingRepository.save(ratingEntity);
+        });
+
+        selectGroup.setValue(selectedGroupEntity.getGroupCode());
+        setSelectValue(groupSelect, selectedGroupEntity.getSpecialty().getAbbreviation());
+        setSelectValue(courseSelect, String.valueOf(selectedGroupEntity.getCourse()));
+        setTextFieldValue(groupNumberField, String.valueOf(selectedGroupEntity.getGroupNumber()));
+        setSelectValue(admissionYearSelect, formatGraduationYearValue(selectedGroupEntity.getYear()));
+
+        updateGroupSelectorsItems();
+        refreshGraduationYearOptions();
+        pendingCreatedGroupId = null;
+
+        Notification.show("Академічні дані оновлено.");
+    }
+
+    private String formatGraduationYearValue(int year) {
+        String yearValue = String.valueOf(year);
+        if (yearValue.length() > 2) {
+            yearValue = yearValue.substring(yearValue.length() - 2);
+        }
+        return yearValue;
+    }
+
+    private int normalizeYearValue(int year) {
+        String formatted = formatGraduationYearValue(year);
+        try {
+            return Integer.parseInt(formatted);
+        } catch (NumberFormatException ignored) {
+            return year;
+        }
     }
 
     private StudentGroupEntity createGroupForSelection(String groupPrefix, String course, String groupNumber, String graduationYear, String group) {
