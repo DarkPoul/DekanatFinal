@@ -6,6 +6,7 @@ import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
 
+import com.esvar.dekanat.generate.pdf.FirstModulePdfGenerator;
 import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
@@ -1111,7 +1112,8 @@ public class EnterMarksView extends Div {
         switch (controlType) {
             case "Перший модульний контроль" -> {
                 DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
-                return updater.generateForMC1(data);
+                Path path = documentGenerationService.generate(FirstModulePdfGenerator.NAME, data);
+                return path.toString();
             }
             case "Другий модульний контроль" -> {
                 DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
