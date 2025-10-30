@@ -12,6 +12,7 @@ import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.user.UserModel;
 import com.esvar.dekanat.user.UserRepository;
 import com.esvar.dekanat.view.MainLayout;
+import com.esvar.dekanat.generate.pdf.FirstModulePdfGenerator;
 import com.itextpdf.io.font.PdfEncodings;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
@@ -1111,7 +1112,8 @@ public class EnterMarksView extends Div {
         switch (controlType) {
             case "Перший модульний контроль" -> {
                 DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
-                return updater.generateForMC1(data);
+                Path path = documentGenerationService.generate(FirstModulePdfGenerator.NAME, data);
+                return path.toString();
             }
             case "Другий модульний контроль" -> {
                 DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
