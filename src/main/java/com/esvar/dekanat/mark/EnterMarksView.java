@@ -1358,7 +1358,8 @@ public class EnterMarksView extends Div {
         }
 
         for (PlansEntity plan : plans) {
-            List<MarksEntity> marks = marksService.findMarksByPlanAndTypeControl(plan, CONTROL_TYPE_FIRST_MODULE);
+            ControlMethodEntity firstControl = plan.getFirstControl();
+            List<MarksEntity> marks = marksService.findMarksByPlanAndControlMethod(plan, firstControl);
             if (marks == null) {
                 marks = Collections.emptyList();
             }

@@ -109,7 +109,29 @@ public class MarksService {
     }
 
     public List<MarksEntity> findMarksByPlanAndTypeControl(PlansEntity plansEntity, String typeControl) {
-        return marksRepository.findByPlanAndControlMethod(plansEntity, controlMethodRepository.findByName(typeControl));
+        if (plansEntity == null || typeControl == null) {
+            return List.of();
+        }
+
+        String trimmedTypeControl = typeControl.trim();
+        if (trimmedTypeControl.isEmpty()) {
+            return List.of();
+        }
+
+        ControlMethodEntity controlMethod = controlMethodRepository.findByName(trimmedTypeControl);
+        if (controlMethod == null) {
+            return List.of();
+        }
+
+        return marksRepository.findByPlanAndControlMethod(plansEntity, controlMethod);
+    }
+
+    public List<MarksEntity> findMarksByPlanAndControlMethod(PlansEntity plan, ControlMethodEntity controlMethod) {
+        if (plan == null || controlMethod == null) {
+            return List.of();
+        }
+
+        return marksRepository.findByPlanAndControlMethod(plan, controlMethod);
     }
 
     public String getMarkForFirstModalControl(StudentEntity studentEntity, PlansEntity plansEntity, String typeControl) {
