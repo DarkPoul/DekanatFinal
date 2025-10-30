@@ -1301,13 +1301,11 @@ public class EnterMarksView extends Div {
             return;
         }
         int semester = computeFirstModuleSemester(selectedGroup.getCourse());
-        List<PlansEntity> plans = planService.getAllPlansForGroupAndSemester(group, semester);
+        List<PlansEntity> plans = collectPlansForSummaryReport(group, semester, students);
         if (plans == null || plans.isEmpty()) {
             Notification.show("Не знайдено дисциплін для першого модульного контролю");
             return;
         }
-
-        plans.sort(Comparator.comparing(plan -> plan.getDiscipline().getTitle(), ukrainianCollator));
 
         List<String> disciplineNames = plans.stream()
                 .map(plan -> plan.getDiscipline().getTitle())
@@ -1381,6 +1379,42 @@ public class EnterMarksView extends Div {
         }
 
         return marksByStudent;
+    }
+
+    private List<PlansEntity> collectPlansForSummaryReport(StudentGroupEntity group,
+                                                           int semester,
+                                                           List<StudentEntity> students) {
+        Map<Long, PlansEntity> uniquePlans = new LinkedHashMap<>();
+
+        List<PlansEntity> groupPlans = planService.getAllPlansForGroupAndSemester(group, semester);
+        if (groupPlans != null) {
+            for (PlansEntity plan : groupPlans) {
+                if (isFirstModulePlan(plan)) {
+                    uniquePlans.putIfAbsent(plan.getId(), plan);
+                }
+            }
+        }
+
+        for (StudentEntity student : students) {
+            studentPlansService.getPlansForStudent(student).stream()
+                    .map(StudentPlansEntity::getPlan)
+                    .filter(Objects::nonNull)
+                    .filter(plan -> plan.getSemester() == semester)
+                    .filter(this::isFirstModulePlan)
+                    .forEach(plan -> uniquePlans.putIfAbsent(plan.getId(), plan));
+        }
+
+        List<PlansEntity> result = new ArrayList<>(uniquePlans.values());
+        result.sort(Comparator.comparing(plan -> plan.getDiscipline().getTitle(), ukrainianCollator));
+        return result;
+    }
+
+    private boolean isFirstModulePlan(PlansEntity plan) {
+        if (plan == null) {
+            return false;
+        }
+        ControlMethodEntity firstControl = plan.getFirstControl();
+        return firstControl != null && CONTROL_TYPE_FIRST_MODULE.equals(firstControl.getName());
     }
 
     private void openPdfReport(String fileName, byte[] pdfBytes) {

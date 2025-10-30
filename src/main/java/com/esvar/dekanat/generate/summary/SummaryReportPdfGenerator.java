@@ -1,5 +1,9 @@
 package com.esvar.dekanat.generate.summary;
 
+import com.esvar.dekanat.document.PdfGenerator;
+import com.itextpdf.io.font.FontProgram;
+import com.itextpdf.io.font.FontProgramFactory;
+import com.itextpdf.io.font.PdfEncodings;
 import com.itextpdf.io.font.constants.StandardFonts;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
@@ -18,6 +22,7 @@ import com.itextpdf.layout.properties.VerticalAlignment;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +35,7 @@ public class SummaryReportPdfGenerator {
 
     private static final float FIRST_COLUMN_WIDTH = 150f;
     private static final float OTHER_COLUMN_WIDTH = 35f;
-    private static final float HEADER_ROW_HEIGHT = 90f;
+    private static final float HEADER_ROW_HEIGHT = 110f;
 
     public byte[] generateSummaryReport(
             String groupName,
@@ -61,7 +66,7 @@ public class SummaryReportPdfGenerator {
             addStudentRows(table, studentFullNames, disciplineNames, marksByStudent);
 
             if (addAverageRow) {
-                addAverageRow(table, studentFullNames, disciplineNames, marksByStudent);
+                addZeroSummaryRow(table, studentFullNames, disciplineNames, marksByStudent);
             }
 
             document.add(table);
@@ -73,6 +78,14 @@ public class SummaryReportPdfGenerator {
     }
 
     private PdfFont createFont() throws IOException {
+        try (InputStream fontStream = PdfGenerator.class.getResourceAsStream("/fonts/times.ttf")) {
+            if (fontStream != null) {
+                FontProgram fontProgram = FontProgramFactory.createFont(fontStream.readAllBytes());
+                return PdfFontFactory.createFont(fontProgram, PdfEncodings.IDENTITY_H, true);
+            }
+        } catch (IOException ex) {
+            // fall back to default font below
+        }
         return PdfFontFactory.createFont(StandardFonts.TIMES_ROMAN);
     }
 
@@ -87,6 +100,7 @@ public class SummaryReportPdfGenerator {
 
         Table table = new Table(columnWidths);
         table.setWidth(UnitValue.createPercentValue(100));
+        table.setFixedLayout();
         return table;
     }
 
@@ -116,9 +130,10 @@ public class SummaryReportPdfGenerator {
         table.addHeaderCell(nameHeader);
 
         for (String discipline : disciplineNames) {
-            Paragraph rotated = new Paragraph(discipline + " (0)")
+            Paragraph rotated = new Paragraph(discipline)
                     .setRotationAngle(Math.toRadians(90))
-                    .setTextAlignment(TextAlignment.CENTER);
+                    .setTextAlignment(TextAlignment.CENTER)
+                    .setFontSize(10f);
 
             Cell disciplineHeaderCell = new Cell()
                     .add(rotated)
@@ -129,9 +144,10 @@ public class SummaryReportPdfGenerator {
             table.addHeaderCell(disciplineHeaderCell);
         }
 
-        Paragraph zeroColumnText = new Paragraph("Кількість 0")
+        Paragraph zeroColumnText = new Paragraph("К-сть 0 у студента")
                 .setRotationAngle(Math.toRadians(90))
-                .setTextAlignment(TextAlignment.CENTER);
+                .setTextAlignment(TextAlignment.CENTER)
+                .setFontSize(10f);
 
         Cell zeroHeaderCell = new Cell()
                 .add(zeroColumnText)
@@ -170,12 +186,12 @@ public class SummaryReportPdfGenerator {
         }
     }
 
-    private void addAverageRow(Table table,
-                               List<String> studentFullNames,
-                               List<String> disciplineNames,
-                               Map<String, List<Integer>> marksByStudent) {
+    private void addZeroSummaryRow(Table table,
+                                   List<String> studentFullNames,
+                                   List<String> disciplineNames,
+                                   Map<String, List<Integer>> marksByStudent) {
         Cell labelCell = new Cell()
-                .add(new Paragraph("Середній"))
+                .add(new Paragraph("Кількість 0 по дисциплінах"))
                 .setTextAlignment(TextAlignment.LEFT)
                 .setVerticalAlignment(VerticalAlignment.MIDDLE)
                 .setBorder(new SolidBorder(1));
