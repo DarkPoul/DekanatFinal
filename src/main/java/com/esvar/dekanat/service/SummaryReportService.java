@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 public class SummaryReportService {
 
     private static final String CONTROL_TYPE_FIRST_MODULE = "Перший модульний контроль";
+    private static final String FIRST_MODULE_KEYWORD = "перший модуль";
 
     private final GroupService groupService;
     private final StudentService studentService;
@@ -140,8 +141,25 @@ public class SummaryReportService {
         if (plan == null) {
             return false;
         }
-        ControlMethodEntity firstControl = plan.getFirstControl();
-        return firstControl != null && CONTROL_TYPE_FIRST_MODULE.equals(firstControl.getName());
+        return isFirstModuleControl(plan.getFirstControl());
+    }
+
+    private boolean isFirstModuleControl(ControlMethodEntity controlMethod) {
+        if (controlMethod == null) {
+            return false;
+        }
+        String controlName = controlMethod.getName();
+        if (controlName == null) {
+            return false;
+        }
+
+        String normalizedName = controlName.trim();
+        if (normalizedName.equalsIgnoreCase(CONTROL_TYPE_FIRST_MODULE)) {
+            return true;
+        }
+
+        String normalizedLowerCase = normalizedName.toLowerCase(Locale.ROOT);
+        return normalizedLowerCase.contains(FIRST_MODULE_KEYWORD);
     }
 
     private Map<String, List<Integer>> buildMarksForSummaryReport(List<StudentEntity> students, List<PlansEntity> plans) {
