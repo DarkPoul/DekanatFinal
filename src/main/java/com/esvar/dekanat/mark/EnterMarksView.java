@@ -912,7 +912,7 @@ public class EnterMarksView extends Div {
 
         // Формуємо список студентів для друку
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
-        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(plansEntity.getGroup().getId()));
+        List<StudentEntity> studentEntities = getSortedStudentsForPlan(plansEntity.getGroup());
         int index = 1;
         for (StudentEntity student : studentEntities) {
             // Припустимо, student.getRecordBookNumber() використовується як studentNumber
