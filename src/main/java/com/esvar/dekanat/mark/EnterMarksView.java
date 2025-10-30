@@ -7,6 +7,7 @@ import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
 
 import com.esvar.dekanat.generate.pdf.FirstModulePdfGenerator;
+import com.esvar.dekanat.generate.summary.SummaryReportPdfGenerator;
 import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
@@ -108,6 +109,7 @@ public class EnterMarksView extends Div {
     private HorizontalLayout buttonLayout = new HorizontalLayout();
 
     private final Div loadingOverlay = new Div();
+    private final SummaryReportPdfGenerator summaryReportPdfGenerator;
 
     private Select<String> selectFaculty = new Select<>();
     private Select<String> selectDepartment = new Select<>();
@@ -135,7 +137,7 @@ public class EnterMarksView extends Div {
     public EnterMarksView(FacultyService facultyService, DepartmentService departmentService, PlanService planService,
                           StudentService studentService, StudentPlansService studentPlansService, SecurityService securityService,
                           UserRepository userRepository, MarksService marksService, ControlMethodService controlMethodService,
-                          MarksPartsService marksPartsService, ControlPartsService controlPartsService, DocumentGenerationService documentGenerationService, GroupService groupService) {
+                          MarksPartsService marksPartsService, ControlPartsService controlPartsService, DocumentGenerationService documentGenerationService, GroupService groupService, SummaryReportPdfGenerator summaryReportPdfGenerator) {
         this.facultyService = facultyService;
         this.departmentService = departmentService;
         this.planService = planService;
@@ -149,6 +151,7 @@ public class EnterMarksView extends Div {
         this.controlPartsService = controlPartsService;
         this.documentGenerationService = documentGenerationService;
         this.groupService = groupService;
+        this.summaryReportPdfGenerator = summaryReportPdfGenerator;
 
         // Налаштування форми вибору параметрів
         selectFaculty.setLabel("Факультет");
@@ -912,7 +915,7 @@ public class EnterMarksView extends Div {
 
         // Формуємо список студентів для друку
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
-        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(plansEntity.getGroup().getId()));
+        List<StudentEntity> studentEntities = getSortedStudentsForPlan(plansEntity.getGroup());
         int index = 1;
         for (StudentEntity student : studentEntities) {
             // Припустимо, student.getRecordBookNumber() використовується як studentNumber
@@ -1182,21 +1185,106 @@ public class EnterMarksView extends Div {
             return;
         }
 
+        List<StudentEntity> students = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
+        if (students.isEmpty()) {
+            Notification.show("У групі немає студентів");
+            return;
+        }
         int semester = computeFirstModuleSemester(selectedGroup.getCourse());
-//        FirstModuleSummaryRequest request = new FirstModuleSummaryRequest(group.getId(), semester, CONTROL_TYPE_FIRST_MODULE);
-//        try {
-//            Path reportPath = documentGenerationService.generate(FirstModuleSummaryPdfGenerator.NAME, request);
-//            if (reportPath == null) {
-//                Notification.show("Файл звіту не знайдено");
-//                return;
-//            }
-//            showReport(reportPath.toString());
-//            Notification notification = Notification.show("Звіт сформовано");
-//            notification.setDuration(3000);
-//        } catch (RuntimeException ex) {
-//            log.error("Не вдалося згенерувати зведений звіт", ex);
-//            Notification.show("Не вдалося згенерувати звіт");
-//        }
+        List<PlansEntity> plans = planService.getAllPlansForGroupAndSemester(group, semester);
+        if (plans == null || plans.isEmpty()) {
+            Notification.show("Не знайдено дисциплін для першого модульного контролю");
+            return;
+        }
+
+        plans.sort(Comparator.comparing(plan -> plan.getDiscipline().getTitle(), ukrainianCollator));
+
+        List<String> disciplineNames = plans.stream()
+                .map(plan -> plan.getDiscipline().getTitle())
+                .collect(Collectors.toList());
+
+        if (disciplineNames.isEmpty()) {
+            Notification.show("Список дисциплін порожній");
+            return;
+        }
+
+        List<String> studentFullNames = students.stream()
+                .map(StudentEntity::getFullName)
+                .collect(Collectors.toList());
+
+        Map<String, List<Integer>> marksByStudent = buildMarksForSummaryReport(students, plans);
+
+        try {
+            byte[] pdfBytes = summaryReportPdfGenerator.generateSummaryReport(
+                    group.getGroupCode(),
+                    studentFullNames,
+                    disciplineNames,
+                    marksByStudent,
+                    true
+            );
+
+            if (pdfBytes == null || pdfBytes.length == 0) {
+                Notification.show("Не вдалося сформувати звіт");
+                return;
+            }
+
+            String fileName = String.format("summary-first-module-%s.pdf", group.getGroupCode());
+            openPdfReport(fileName, pdfBytes);
+
+            Notification notification = Notification.show("Звіт сформовано");
+            notification.setDuration(3000);
+        } catch (RuntimeException ex) {
+            log.error("Не вдалося згенерувати зведений звіт", ex);
+            Notification.show("Не вдалося згенерувати звіт");
+        }
+    }
+
+    private Map<String, List<Integer>> buildMarksForSummaryReport(List<StudentEntity> students, List<PlansEntity> plans) {
+        List<String> studentNames = students.stream()
+                .map(StudentEntity::getFullName)
+                .collect(Collectors.toList());
+
+        Map<String, List<Integer>> marksByStudent = new LinkedHashMap<>();
+        for (String studentName : studentNames) {
+            marksByStudent.put(studentName, new ArrayList<>());
+        }
+
+        for (PlansEntity plan : plans) {
+            List<MarksEntity> marks = marksService.findMarksByPlanAndTypeControl(plan, CONTROL_TYPE_FIRST_MODULE);
+            if (marks == null) {
+                marks = Collections.emptyList();
+            }
+
+            Map<Long, Integer> marksByStudentId = marks.stream()
+                    .collect(Collectors.toMap(
+                            mark -> mark.getStudent().getId(),
+                            MarksEntity::getFinalGrade,
+                            (existing, replacement) -> replacement
+                    ));
+
+            for (int i = 0; i < students.size(); i++) {
+                StudentEntity student = students.get(i);
+                String studentName = studentNames.get(i);
+                int markValue = marksByStudentId.getOrDefault(student.getId(), 0);
+                marksByStudent.get(studentName).add(markValue);
+            }
+        }
+
+        return marksByStudent;
+    }
+
+    private void openPdfReport(String fileName, byte[] pdfBytes) {
+        StreamResource resource = new StreamResource(fileName, () -> new ByteArrayInputStream(pdfBytes));
+        resource.setContentType("application/pdf");
+
+        Anchor downloadLink = new Anchor(resource, "");
+        downloadLink.getElement().setAttribute("download", true);
+        downloadLink.getElement().setAttribute("target", "_blank");
+        downloadLink.getElement().getStyle().set("display", "none");
+
+        add(downloadLink);
+        downloadLink.getElement().callJsFunction("click");
+        remove(downloadLink);
     }
 
     private void notifyFeatureInDevelopment() {
