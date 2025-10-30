@@ -18,12 +18,16 @@ WHERE p.group_id IS NOT NULL;
 -- Крок 3. Робимо plans.group_id необов'язковим (legacy-поле, залишаємо для зворотної сумісності).
 ALTER TABLE plans MODIFY COLUMN group_id BIGINT NULL;
 
--- Крок 4. Синхронізуємо студентів із їхніми фактичними планами.
-INSERT IGNORE INTO student_plans (plan_id, student_id)
+-- Крок 4 (оновлений). Додати студентам плани групи, але тільки якщо пари ще нема.
+INSERT INTO student_plans (plan_id, student_id)
 SELECT gp.plan_id, s.id
 FROM student s
          JOIN group_plans gp ON gp.group_id = s.group_id
-WHERE s.group_id IS NOT NULL;
+         LEFT JOIN student_plans sp
+                   ON sp.plan_id = gp.plan_id
+                       AND sp.student_id = s.id
+WHERE s.group_id IS NOT NULL
+  AND sp.plan_id IS NULL;
 
 -- Нова бізнес-логіка перенесення студента між групами:
 --   крок 1: update student set group_id = :new_group_id where id = :student_id;
