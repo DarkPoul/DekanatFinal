@@ -126,6 +126,14 @@ public class MarksService {
         return marksRepository.findByPlanAndControlMethod(plansEntity, controlMethod);
     }
 
+    public List<MarksEntity> findMarksByPlanAndControlMethod(PlansEntity plan, ControlMethodEntity controlMethod) {
+        if (plan == null || controlMethod == null) {
+            return List.of();
+        }
+
+        return marksRepository.findByPlanAndControlMethod(plan, controlMethod);
+    }
+
     public String getMarkForFirstModalControl(StudentEntity studentEntity, PlansEntity plansEntity, String typeControl) {
         ControlMethodEntity method = controlMethodRepository.findByName(typeControl);
         if (method == null) {
