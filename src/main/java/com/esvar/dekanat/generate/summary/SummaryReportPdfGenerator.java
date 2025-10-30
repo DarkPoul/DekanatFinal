@@ -81,7 +81,7 @@ public class SummaryReportPdfGenerator {
         try (InputStream fontStream = PdfGenerator.class.getResourceAsStream("/fonts/times.ttf")) {
             if (fontStream != null) {
                 FontProgram fontProgram = FontProgramFactory.createFont(fontStream.readAllBytes());
-                return PdfFontFactory.createFont(fontProgram, PdfEncodings.IDENTITY_H, true);
+                return PdfFontFactory.createFont(fontProgram, PdfEncodings.IDENTITY_H);
             }
         } catch (IOException ex) {
             // fall back to default font below

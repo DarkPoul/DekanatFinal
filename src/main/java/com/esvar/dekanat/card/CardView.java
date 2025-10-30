@@ -1407,7 +1407,7 @@ public class CardView extends Div {
     }
 
     private String buildGroupCodeWithEduProgram(String groupPrefix, String course, String groupNumber, String graduationYear, SpecialtyEntity specialty) {
-        if (specialty != null && specialty.getEduProgram() != null && specialty.getEduProgram().getId() != null) {
+        if (specialty != null && specialty.getEduProgram() != null && specialty.getEduProgram().getId() > 0) {
             return String.format("%s-%s-%s-%s(%d)", groupPrefix, course, groupNumber, graduationYear, specialty.getEduProgram().getId());
         }
         return null;
