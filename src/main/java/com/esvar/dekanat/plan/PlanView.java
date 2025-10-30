@@ -215,7 +215,8 @@ public class PlanView extends Div {
                 || selectedGroup.getSpecialty().getFaculty() == null) {
             return;
         }
-        newPlan.setGroup(selectedGroup);
+        newPlan.setGroup(selectedGroup); // legacy support
+        newPlan.addGroup(selectedGroup);
         newPlan.setSpecialty(selectedGroup.getSpecialty());
         newPlan.setSemester(getSelectedSemester());
         newPlan.setParts(Integer.parseInt(parts));
@@ -225,17 +226,15 @@ public class PlanView extends Div {
         if (isElective && students != null && !students.isEmpty()) {
             targetStudents = new ArrayList<>();
             for (String studentName : students) {
-                StudentEntity student = studentService.getStudentByFullName(studentName);
-                StudentPlansEntity studentPlan = new StudentPlansEntity();
-                studentPlan.setStudent(student);
-                studentPlan.setPlan(newPlan);
-                studentPlansService.saveStudentPlan(studentPlan);
-                targetStudents.add(student);
+                targetStudents.add(studentService.getStudentByFullName(studentName));
             }
         } else {
-            targetStudents = studentService.getStudentByGroupId(newPlan.getGroup().getId());
+            targetStudents = selectedGroup == null
+                    ? Collections.emptyList()
+                    : studentService.getStudentByGroupId(selectedGroup.getId());
         }
 
+        studentPlansService.synchronizePlanAssignments(newPlan, targetStudents);
         marksInitializerService.initializeMarksForPlan(newPlan, targetStudents);
 
 
@@ -267,13 +266,18 @@ public class PlanView extends Div {
 
         List<StudentEntity> targetStudents;
         if (isElective) {
-            targetStudents = studentPlansService.updateStudentPlans(updatedPlan, students);
+            List<StudentEntity> mapped = students == null
+                    ? Collections.emptyList()
+                    : students.stream()
+                    .map(studentService::getStudentByFullName)
+                    .collect(Collectors.toList());
+            targetStudents = studentPlansService.synchronizePlanAssignments(updatedPlan, mapped);
         } else {
-            List<String> all = studentService.getStudentByGroupId(updatedPlan.getGroup().getId())
-                    .stream()
-                    .map(StudentEntity::getFullName)
-                    .toList();
-            targetStudents = studentPlansService.updateStudentPlans(updatedPlan, all);
+            StudentGroupEntity selectedGroup = getSelectedGroup();
+            List<StudentEntity> groupStudents = selectedGroup == null
+                    ? Collections.emptyList()
+                    : studentService.getStudentByGroupId(selectedGroup.getId());
+            targetStudents = studentPlansService.synchronizePlanAssignments(updatedPlan, groupStudents);
         }
 
         List<Long> beforeIds = beforeStudents.stream().map(StudentEntity::getId).toList();

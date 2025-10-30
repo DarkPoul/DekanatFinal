@@ -4,8 +4,11 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.util.Objects;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Data
@@ -32,6 +35,10 @@ public class StudentGroupEntity {
 
     @Column(unique = true, updatable = false)
     private String groupCode;
+
+    @ManyToMany(mappedBy = "groups")
+    @ToString.Exclude
+    private Set<PlansEntity> plans = new HashSet<>();
 
     @PrePersist
     protected void generateGroupCode() {

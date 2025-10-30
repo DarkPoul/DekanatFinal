@@ -6,6 +6,7 @@ import com.esvar.dekanat.entity.ControlPartsEntity;
 import com.esvar.dekanat.entity.MarksEntity;
 import com.esvar.dekanat.entity.MarksPartsEntity;
 import com.esvar.dekanat.entity.PlansEntity;
+import com.esvar.dekanat.entity.StudentGroupEntity;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.user.UserRepository;
 import com.esvar.dekanat.security.SecurityService;
@@ -38,9 +39,13 @@ public class CalculationMarkProcessor implements MarkProcessor {
     }
 
     @Override
-    public MarksEntity processMark(MarkDTO markDTO, PlansEntity plan, String controlType) {
+    public MarksEntity processMark(MarkDTO markDTO, PlansEntity plan, StudentGroupEntity group, String controlType) {
         MarksEntity marksEntity = new MarksEntity();
-        marksEntity.setStudent(studentService.getStudentByStudentPIB_AndGroup(markDTO.getStudentPIB(), plan.getGroup()));
+        StudentGroupEntity targetGroup = group != null ? group : plan.getGroup();
+        if (targetGroup == null) {
+            throw new IllegalArgumentException("Не вдалося визначити групу для студента.");
+        }
+        marksEntity.setStudent(studentService.getStudentByStudentPIB_AndGroup(markDTO.getStudentPIB(), targetGroup));
         marksEntity.setPlan(plan);
         // Встановіть метод контролю – адаптуйте за потребою, наприклад:
         marksEntity.setControlMethod(controlMethodService.getControlMethodByName(controlType));

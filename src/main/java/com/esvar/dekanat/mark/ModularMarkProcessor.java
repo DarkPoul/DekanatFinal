@@ -3,6 +3,7 @@ package com.esvar.dekanat.mark;
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.MarksEntity;
 import com.esvar.dekanat.entity.PlansEntity;
+import com.esvar.dekanat.entity.StudentGroupEntity;
 import com.esvar.dekanat.service.ControlMethodService;
 import com.esvar.dekanat.service.MarksService;
 import com.esvar.dekanat.service.StudentService;
@@ -28,10 +29,14 @@ public class ModularMarkProcessor implements MarkProcessor {
     }
 
     @Override
-    public MarksEntity processMark(MarkDTO markDTO, PlansEntity plan, String controlType) {
+    public MarksEntity processMark(MarkDTO markDTO, PlansEntity plan, StudentGroupEntity group, String controlType) {
         MarksEntity marksEntity = new MarksEntity();
         // Отримання студента за ПІБ та групою
-        marksEntity.setStudent(studentService.getStudentByStudentPIB_AndGroup(markDTO.getStudentPIB(), plan.getGroup()));
+        StudentGroupEntity targetGroup = group != null ? group : plan.getGroup();
+        if (targetGroup == null) {
+            throw new IllegalArgumentException("Не вдалося визначити групу для студента.");
+        }
+        marksEntity.setStudent(studentService.getStudentByStudentPIB_AndGroup(markDTO.getStudentPIB(), targetGroup));
         marksEntity.setPlan(plan);
         marksEntity.setControlMethod(controlMethodService.getControlMethodByName(controlType));
         // Для спрощення цей рядок залишаємо як коментар.

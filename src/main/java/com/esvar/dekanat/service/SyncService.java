@@ -2,6 +2,7 @@ package com.esvar.dekanat.service;
 
 import com.esvar.dekanat.entity.PlansEntity;
 import com.esvar.dekanat.entity.StudentEntity;
+import com.esvar.dekanat.entity.StudentGroupEntity;
 import com.esvar.dekanat.entity.StudentPlansEntity;
 import org.springframework.stereotype.Service;
 
@@ -47,7 +48,9 @@ public class SyncService {
             newPlan.setFirstControl(srcPlan.getFirstControl());
             newPlan.setSecondControl(srcPlan.getSecondControl());
             newPlan.setFaculty(srcPlan.getFaculty());
-            newPlan.setGroup(target.getGroup());
+            StudentGroupEntity targetGroup = target.getGroup();
+            newPlan.setGroup(targetGroup);
+            newPlan.addGroup(targetGroup);
             planService.savePlan(newPlan);
 
             StudentPlansEntity mapping = new StudentPlansEntity();
