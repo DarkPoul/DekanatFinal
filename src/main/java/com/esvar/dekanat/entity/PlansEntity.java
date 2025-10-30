@@ -3,7 +3,12 @@ package com.esvar.dekanat.entity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Data
@@ -51,13 +56,43 @@ public class PlansEntity {
     @JoinColumn(name = "faculty_id", nullable = false)
     private FacultyEntity faculty;
 
-    //Приєднання групи до плана
+    // Поле зберігається як legacy, проте не використовується у новій логіці
+    @Deprecated
     @ManyToOne
-    @JoinColumn(name = "group_id", nullable = false)
+    @JoinColumn(name = "group_id", nullable = true)
     private StudentGroupEntity group;
+
+    @ManyToMany
+    @JoinTable(
+            name = "group_plans",
+            joinColumns = @JoinColumn(name = "plan_id"),
+            inverseJoinColumns = @JoinColumn(name = "group_id")
+    )
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Set<StudentGroupEntity> groups = new HashSet<>();
 
     @Column(name = "statement_number", nullable = false, length = 3)
     private String statementNumber;
 
+    public void addGroup(StudentGroupEntity group) {
+        if (group != null) {
+            groups.add(group);
+        }
+    }
+
+    public void removeGroup(StudentGroupEntity group) {
+        if (group != null) {
+            groups.remove(group);
+        }
+    }
+
+    public void setGroups(Set<StudentGroupEntity> groups) {
+        this.groups = groups == null ? new HashSet<>() : new HashSet<>(groups);
+    }
+
+    public Set<StudentGroupEntity> getGroups() {
+        return groups;
+    }
 }
 

@@ -118,6 +118,7 @@ public class EnterMarksView extends Div {
     private Select<String> selectDiscipline = new Select<>();
     private Select<String> selectControlType = new Select<>();
     private PlansEntity plansEntity = new PlansEntity();
+    private StudentGroupEntity currentGroup;
     private Grid<MarkDTO> studentGrid = new Grid<>(MarkDTO.class, false);
 
     private final Button printReportButton =
@@ -326,6 +327,7 @@ public class EnterMarksView extends Div {
 
         selectCourse.addValueChangeListener(event -> {
             clearGrid();
+            currentGroup = null;
             if (selectCourse.getValue() != null) {
                 selectGroup.setReadOnly(false);
                 selectDiscipline.setReadOnly(true);
@@ -346,6 +348,7 @@ public class EnterMarksView extends Div {
         selectGroup.addValueChangeListener(event -> {
             clearGrid();
             GroupDTO selectedGroup = selectGroup.getValue();
+            currentGroup = selectedGroup == null ? null : groupService.getGroupByTitle(selectedGroup.getGroupCode());
             updateReportButtonState();
             if (selectedGroup != null) {
                 selectDiscipline.setReadOnly(false);
@@ -405,7 +408,7 @@ public class EnterMarksView extends Div {
                 if (markDTO.isLocked()) {
                     continue;
                 }
-                MarksEntity marksEntity = processor.processMark(markDTO, plansEntity, controlType);
+                MarksEntity marksEntity = processor.processMark(markDTO, plansEntity, requireCurrentGroup(), controlType);
                 if (!processor.isPersistedAfterProcessing()) {
                     toSave.add(marksEntity);
                 }
@@ -427,7 +430,7 @@ public class EnterMarksView extends Div {
                 if (markDTO.isLocked()) {
                     continue;
                 }
-                MarksEntity marksEntity = processor.processMark(markDTO, plansEntity, controlType);
+                MarksEntity marksEntity = processor.processMark(markDTO, plansEntity, requireCurrentGroup(), controlType);
                 marksEntity.setLastUpdated(new Timestamp(System.currentTimeMillis()));
                 marksEntity.setLastUpdatedBy(userRepository.findByEmail(securityService.getAuthenticatedUser().getUsername()).orElseThrow());
                 marksEntity.setLocked(true);
@@ -776,7 +779,7 @@ public class EnterMarksView extends Div {
         }
         // Якщо немає жодного MarksEntity, завантажуємо студентів із групи та намагаємося підвантажити модульні оцінки
         else {
-            StudentGroupEntity studentGroupEntity = plansEntity.getGroup();
+            StudentGroupEntity studentGroupEntity = getPlanContextGroup();
             List<StudentEntity> studentEntities = getSortedStudentsForPlan(studentGroupEntity);
             List<MarkDTO> fallbackList = new ArrayList<>();
             long id = 1;
@@ -844,7 +847,7 @@ public class EnterMarksView extends Div {
 
 
     private void ensureAllStudentsPresent(List<MarkDTO> markDTOList) {
-        StudentGroupEntity studentGroupEntity = plansEntity.getGroup();
+        StudentGroupEntity studentGroupEntity = getPlanContextGroup();
         List<StudentEntity> studentEntities = getSortedStudentsForPlan(studentGroupEntity);
         Set<String> existingStudents = markDTOList.stream()
                 .map(MarkDTO::getStudentPIB)
@@ -858,6 +861,27 @@ public class EnterMarksView extends Div {
         }
 
         markDTOList.sort(Comparator.comparing(MarkDTO::getStudentPIB, ukrainianCollator));
+    }
+
+    private StudentGroupEntity getPlanContextGroup() {
+        if (currentGroup != null) {
+            return currentGroup;
+        }
+        if (plansEntity == null) {
+            return null;
+        }
+        if (plansEntity.getGroups() != null && !plansEntity.getGroups().isEmpty()) {
+            return plansEntity.getGroups().iterator().next();
+        }
+        return plansEntity.getGroup();
+    }
+
+    private StudentGroupEntity requireCurrentGroup() {
+        StudentGroupEntity group = getPlanContextGroup();
+        if (group == null) {
+            throw new IllegalStateException("Групу для поточного плану не обрано.");
+        }
+        return group;
     }
 
     private MarkDTO createPlaceholderMarkDTO(StudentEntity student) {
@@ -957,13 +981,14 @@ public class EnterMarksView extends Div {
     }
 
     private List<StudentEntity> getSortedStudentsForPlan(StudentGroupEntity studentGroupEntity) {
-        List<StudentEntity> studentEntities;
         if (plansEntity.isElective()) {
-            studentEntities = sortStudentsByFullName(studentPlansService.getStudentByPlan(plansEntity));
-        } else {
-            studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(studentGroupEntity.getId()));
+            return sortStudentsByFullName(studentPlansService.getStudentByPlan(plansEntity));
         }
-        return studentEntities;
+        StudentGroupEntity group = studentGroupEntity != null ? studentGroupEntity : getPlanContextGroup();
+        if (group == null) {
+            return Collections.emptyList();
+        }
+        return sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
     }
 
 
@@ -980,9 +1005,10 @@ public class EnterMarksView extends Div {
         String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
                 .map(EduProgramEntity::getTitle)
                 .orElse("Освітня програма не знайдена");
-        String courseNumber = String.valueOf(plansEntity.getGroup().getCourse());
-        String groupName = plansEntity.getGroup().getGroupCode();
-        String studyYear = String.valueOf(plansEntity.getGroup().getYear());
+        StudentGroupEntity group = requireCurrentGroup();
+        String courseNumber = String.valueOf(group.getCourse());
+        String groupName = group.getGroupCode();
+        String studyYear = String.valueOf(group.getYear());
         // Використовуємо поточну дату
         LocalDate today = LocalDate.now();
         String day = today.format(DateTimeFormatter.ofPattern("dd"));
@@ -998,7 +1024,7 @@ public class EnterMarksView extends Div {
 
         // Формуємо список студентів для друку
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
-        List<StudentEntity> studentEntities = getSortedStudentsForPlan(plansEntity.getGroup());
+        List<StudentEntity> studentEntities = getSortedStudentsForPlan(group);
         int index = 1;
         for (StudentEntity student : studentEntities) {
             // Припустимо, student.getRecordBookNumber() використовується як studentNumber
@@ -1025,9 +1051,10 @@ public class EnterMarksView extends Div {
         String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
                 .map(EduProgramEntity::getTitle)
                 .orElse("");
-        String courseNumber = String.valueOf(plansEntity.getGroup().getCourse());
-        String groupName = plansEntity.getGroup().getGroupCode();
-        String studyYear = String.valueOf(plansEntity.getGroup().getYear());
+        StudentGroupEntity group = requireCurrentGroup();
+        String courseNumber = String.valueOf(group.getCourse());
+        String groupName = group.getGroupCode();
+        String studyYear = String.valueOf(group.getYear());
         LocalDate today = LocalDate.now();
         String day = today.format(DateTimeFormatter.ofPattern("dd"));
         String month = today.format(DateTimeFormatter.ofPattern("MM"));
@@ -1042,7 +1069,7 @@ public class EnterMarksView extends Div {
         String qualityFalse = "Якість2";
 
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
-        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(plansEntity.getGroup().getId()));
+        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
         int index = 1;
         for (StudentEntity student : studentEntities) {
             String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
@@ -1465,9 +1492,10 @@ public class EnterMarksView extends Div {
         String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
                 .map(EduProgramEntity::getTitle)
                 .orElse("");
-        String courseNumber = String.valueOf(plansEntity.getGroup().getCourse());
-        String groupName = plansEntity.getGroup().getGroupCode();
-        String studyYear = String.valueOf(plansEntity.getGroup().getYear());
+        StudentGroupEntity group = requireCurrentGroup();
+        String courseNumber = String.valueOf(group.getCourse());
+        String groupName = group.getGroupCode();
+        String studyYear = String.valueOf(group.getYear());
         String order = plansEntity.getStatementNumber();
         LocalDate today = LocalDate.now();
         String day = today.format(DateTimeFormatter.ofPattern("dd"));
@@ -1496,7 +1524,7 @@ public class EnterMarksView extends Div {
         String fx = String.valueOf(gradeMap.getOrDefault("FX", 0L));
         String f = String.valueOf(gradeMap.getOrDefault("F", 0L));
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
-        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(plansEntity.getGroup().getId()));
+        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
         int index = 1;
         for (StudentEntity student : studentEntities) {
             String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);

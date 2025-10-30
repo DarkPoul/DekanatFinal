@@ -68,38 +68,14 @@ public class StudentPlansService{
             throw new IllegalArgumentException("План для оновлення повинен бути заданий.");
         }
 
-        List<StudentPlansEntity> existingLinks = studentPlansRepository.findByPlan(updatedPlan);
-        List<StudentEntity> existingStudents = existingLinks.stream()
-                .map(StudentPlansEntity::getStudent)
-                .toList();
-
-        List<StudentEntity> newStudents = new ArrayList<>();
+        List<StudentEntity> mappedStudents = new ArrayList<>();
         if (students != null) {
             for (String studentName : students) {
-                StudentEntity student = findStudentByFullName(studentName);
-                newStudents.add(student);
-                boolean exists = existingStudents.stream()
-                        .anyMatch(s -> s.getId().equals(student.getId()));
-                if (!exists) {
-                    StudentPlansEntity studentPlan = new StudentPlansEntity();
-                    studentPlan.setStudent(student);
-                    studentPlan.setPlan(updatedPlan);
-                    studentPlan.setId(new StudentPlansPK(student.getId(), updatedPlan.getId()));
-                    studentPlansRepository.save(studentPlan);
-                }
+                mappedStudents.add(findStudentByFullName(studentName));
             }
         }
 
-        List<Long> newIds = newStudents.stream().map(StudentEntity::getId).toList();
-        List<StudentEntity> toRemove = existingStudents.stream()
-                .filter(s -> !newIds.contains(s.getId()))
-                .toList();
-        if (!toRemove.isEmpty()) {
-            List<Long> removeIds = toRemove.stream().map(StudentEntity::getId).toList();
-            studentPlansRepository.deleteByPlanIdAndStudentIds(updatedPlan.getId(), removeIds);
-        }
-
-        return newStudents;
+        return synchronizePlanAssignments(updatedPlan, mappedStudents);
     }
 
 
@@ -130,6 +106,50 @@ public class StudentPlansService{
             return new ArrayList<>();
         }
         return studentPlansRepository.findByStudent(student);
+    }
+
+    @Transactional
+    public List<StudentEntity> synchronizePlanAssignments(PlansEntity plan, List<StudentEntity> students) {
+        if (plan == null || plan.getId() == null) {
+            throw new IllegalArgumentException("План повинен бути заданий.");
+        }
+
+        List<StudentEntity> targetStudents = students == null ? List.of() : students;
+        return synchronizeInternal(plan, targetStudents);
+    }
+
+    private List<StudentEntity> synchronizeInternal(PlansEntity plan, List<StudentEntity> targetStudents) {
+        List<StudentPlansEntity> existingLinks = studentPlansRepository.findByPlan(plan);
+        List<StudentEntity> existingStudents = existingLinks.stream()
+                .map(StudentPlansEntity::getStudent)
+                .toList();
+
+        for (StudentEntity student : targetStudents) {
+            boolean exists = existingStudents.stream()
+                    .anyMatch(s -> s.getId().equals(student.getId()));
+            if (!exists) {
+                StudentPlansEntity studentPlan = new StudentPlansEntity();
+                studentPlan.setStudent(student);
+                studentPlan.setPlan(plan);
+                studentPlan.setId(new StudentPlansPK(student.getId(), plan.getId()));
+                studentPlansRepository.save(studentPlan);
+            }
+        }
+
+        List<Long> desiredIds = targetStudents.stream()
+                .map(StudentEntity::getId)
+                .toList();
+
+        List<StudentEntity> toRemove = existingStudents.stream()
+                .filter(s -> !desiredIds.contains(s.getId()))
+                .toList();
+
+        if (!toRemove.isEmpty()) {
+            List<Long> removeIds = toRemove.stream().map(StudentEntity::getId).toList();
+            studentPlansRepository.deleteByPlanIdAndStudentIds(plan.getId(), removeIds);
+        }
+
+        return targetStudents;
     }
 
     private StudentEntity findStudentByFullName(String fullName) {

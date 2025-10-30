@@ -42,6 +42,7 @@ public class PlanService {
     public void savePlan(PlansEntity plan) {
         planStatementNumberService.assignNumber(plan);
         planRepository.save(plan);
+        synchronizeGroupAssignments(plan);
         planStatementNumberService.createRecordsForPlan(plan);
     }
 
@@ -53,7 +54,9 @@ public class PlanService {
 
 
     public List<PlansEntity> getAllPlansForGroupAndSemester(StudentGroupEntity group, int semester) {
-
+        if (group == null) {
+            return Collections.emptyList();
+        }
         return planRepository.findByGroupAndSemester(group, semester);
     }
 
@@ -94,6 +97,7 @@ public class PlanService {
         }
 
         planRepository.save(updatedPlan);
+        synchronizeGroupAssignments(updatedPlan);
         if (students != null && !students.isEmpty()) {
             marksInitializerService.initializeMarksForPlan(updatedPlan, students);
         }
@@ -135,19 +139,21 @@ public class PlanService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<String> getCourseByFacultyAndDepartmentAndSpecialty(String faculty, String department, String specialty) {
         return planRepository.findByFacultyAndDepartmentAndSpecialty_Abbreviation(
                         facultyRepository.findByTitle(faculty),
                         departmentRepository.findByTitle(department),
                         specialty
                 ).stream()
-                .map(PlansEntity::getGroup)
+                .flatMap(plan -> plan.getGroups().stream())
                 .map(StudentGroupEntity::getCourse)
                 .map(String::valueOf)
                 .distinct()
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<GroupDTO> getGroupsByFacultyAndDepartmentAndSpecialtyAndCourse(String faculty, String department, String specialty, int course) {
         Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
 
@@ -157,7 +163,7 @@ public class PlanService {
                         specialty,
                         course
                 ).stream()
-                .map(PlansEntity::getGroup)
+                .flatMap(plan -> plan.getGroups().stream())
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new))
                 .stream()
@@ -235,6 +241,38 @@ public class PlanService {
             return (Integer.parseInt(course) * 2 - 1);
         } else {
             return Integer.parseInt(course) * 2;
+        }
+    }
+
+    private void synchronizeGroupAssignments(PlansEntity plan) {
+        if (plan == null || plan.getId() == null) {
+            return;
+        }
+        if (plan.isElective()) {
+            return;
+        }
+        Set<StudentGroupEntity> planGroups = plan.getGroups();
+        if (planGroups == null || planGroups.isEmpty()) {
+            return;
+        }
+
+        for (StudentGroupEntity group : planGroups) {
+            if (group == null) {
+                continue;
+            }
+            List<StudentEntity> students = studentRepository.findByGroup(group);
+            for (StudentEntity student : students) {
+                if (student == null) {
+                    continue;
+                }
+                if (!studentPlansRepository.existsByStudentIdAndPlanId(student.getId(), plan.getId())) {
+                    StudentPlansEntity mapping = new StudentPlansEntity();
+                    mapping.setStudent(student);
+                    mapping.setPlan(plan);
+                    mapping.setId(new StudentPlansPK(student.getId(), plan.getId()));
+                    studentPlansRepository.save(mapping);
+                }
+            }
         }
     }
 }
