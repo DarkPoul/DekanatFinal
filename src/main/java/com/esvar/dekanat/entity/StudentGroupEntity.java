@@ -43,10 +43,15 @@ public class StudentGroupEntity {
     @PrePersist
     protected void generateGroupCode() {
         if (this.specialty != null) {
-            Long specialtyId = this.specialty.getId();
-            if (specialtyId != null) {
+            Long eduProgramId = this.specialty.getEduProgram() != null
+                    ? this.specialty.getEduProgram().getId()
+                    : null;
+            if (eduProgramId != null) {
                 this.groupCode = String.format("%s-%d-%d-%d(%d)",
-                        this.specialty.getAbbreviation(), this.course, this.groupNumber, this.year, specialtyId);
+                        this.specialty.getAbbreviation(), this.course, this.groupNumber, this.year, eduProgramId);
+            } else if (this.specialty.getId() != null) {
+                this.groupCode = String.format("%s-%d-%d-%d(%d)",
+                        this.specialty.getAbbreviation(), this.course, this.groupNumber, this.year, this.specialty.getId());
             } else {
                 this.groupCode = String.format("%s-%d-%d-%d",
                         this.specialty.getAbbreviation(), this.course, this.groupNumber, this.year);
