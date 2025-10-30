@@ -38,6 +38,9 @@ public class StudentEntity {
     @Column(unique = true, length = 50)
     private String recordBookNumber;
 
+    @Column(name = "is_full_time", nullable = false)
+    private boolean fullTime;
+
     public String getFullName() {
         return surname + " " + name + " " + patronymic;
     }
@@ -51,7 +54,8 @@ public class StudentEntity {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         StudentEntity that = (StudentEntity) o;
-        return Objects.equals(id, that.id) &&
+        return fullTime == that.fullTime &&
+                Objects.equals(id, that.id) &&
                 Objects.equals(name, that.name) &&
                 Objects.equals(surname, that.surname) &&
                 Objects.equals(patronymic, that.patronymic) &&
@@ -62,7 +66,7 @@ public class StudentEntity {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, surname, patronymic, faculty, group, recordBookNumber);
+        return Objects.hash(id, name, surname, patronymic, faculty, group, recordBookNumber, fullTime);
     }
 }
 

@@ -113,10 +113,14 @@ public class MarksService {
     }
 
     public String getMarkForFirstModalControl(StudentEntity studentEntity, PlansEntity plansEntity, String typeControl) {
+        ControlMethodEntity method = controlMethodRepository.findByName(typeControl);
+        if (method == null) {
+            return "0";
+        }
         Optional<MarksEntity> opt = marksRepository.findByStudentIdAndPlanIdAndControlMethodId(
                 studentEntity.getId(),
                 plansEntity.getId(),
-                controlMethodRepository.findByName(typeControl).getId()
+                method.getId()
         );
         if (opt.isPresent() && opt.get().getFinalGrade() != 0) {
             return String.valueOf(opt.get().getFinalGrade());

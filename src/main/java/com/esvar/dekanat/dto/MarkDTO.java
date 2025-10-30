@@ -44,6 +44,8 @@ public class MarkDTO {
 
     private String totalGrade; //Сумарна оцінка для РР або РГР
 
+    private String controlWorkAdmission; //Відмітка про зарахування контрольної роботи
+
     private boolean isLocked;
     private String lastUpdated;
     private String lastUpdatedBy;
@@ -61,6 +63,7 @@ public class MarkDTO {
                 ", partMarks=[" + partMark1 + ", " + partMark2 + ", " + partMark3 + ", " + partMark4 +
                 ", " + partMark5 + ", " + partMark6 + ", " + partMark7 + ", " + partMark8 + "]" +
                 ", totalGrade='" + totalGrade + '\'' +
+                ", controlWorkAdmission='" + controlWorkAdmission + '\'' +
                 ", isLocked=" + isLocked +
                 ", lastUpdated='" + lastUpdated + '\'' +
                 ", lastUpdatedBy='" + lastUpdatedBy + '\'' +

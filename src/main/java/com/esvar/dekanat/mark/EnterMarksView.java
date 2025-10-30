@@ -86,6 +86,8 @@ public class EnterMarksView extends Div {
 
     private static final Logger log = LoggerFactory.getLogger(EnterMarksView.class);
     private static final String CONTROL_TYPE_FIRST_MODULE = "Перший модульний контроль";
+    private static final String CONTROL_TYPE_SECOND_MODULE = "Другий модульний контроль";
+    private static final String CONTROL_TYPE_CONTROL_WORK = "Контрольна робота";
 
     private final FacultyService facultyService;
     private final DepartmentService departmentService;
@@ -469,13 +471,17 @@ public class EnterMarksView extends Div {
                 .setHeader("ПІБ студента")
                 .setFlexGrow(3).setWidth("250px");
 
-        if (typeControl.equals("Перший модульний контроль")) {
-            setEnterMarkColumn();
+        if (CONTROL_TYPE_FIRST_MODULE.equals(typeControl)) {
+            setEnterMarkColumn(false);
         }
-        if (typeControl.equals("Другий модульний контроль")) {
+        if (CONTROL_TYPE_CONTROL_WORK.equals(typeControl)) {
+            setEnterMarkColumn(true);
+            addControlWorkAdmissionColumn();
+        }
+        if (CONTROL_TYPE_SECOND_MODULE.equals(typeControl)) {
             studentGrid.addColumn(MarkDTO::getMarkByFirstModule)
                     .setHeader("Перший модуль").setAutoWidth(true);
-            setEnterMarkColumn();
+            setEnterMarkColumn(false);
             studentGrid.addColumn(MarkDTO::getTotalMarkByFirstAndSecondModule)
                     .setHeader(new Html("<div style='white-space:normal; word-break:break-word; text-align:center; line-height:1.2; max-width:50px;'>Cума<br>за<br>модулі</div>")).setAutoWidth(false);
         }
@@ -484,7 +490,7 @@ public class EnterMarksView extends Div {
                 typeControl.equals("Курсова робота") ||
                 typeControl.equals("Курсовий проєкт") ||
                 typeControl.equals("Диференційний залік")) {
-            setEnterMarkColumn();
+            setEnterMarkColumn(false);
             studentGrid.addColumn(MarkDTO::getTotalMarkByFirstAndSecondModule)
                     .setHeader(new Html("<div style='white-space:normal; word-break:break-word; text-align:center; line-height:1.2; max-width:50px;'>Cума<br>за<br>модулі</div>")).setAutoWidth(false);
             studentGrid.addColumn(MarkDTO::getNationalGrade)
@@ -527,7 +533,7 @@ public class EnterMarksView extends Div {
         studentGrid.setWidth("100%");
     }
 
-    private void setEnterMarkColumn() {
+    private void setEnterMarkColumn(boolean controlWorkMode) {
         studentGrid.addComponentColumn(markDTO -> {
             IntegerField integerField = new IntegerField();
             integerField.setMaxWidth("44px");
@@ -546,10 +552,26 @@ public class EnterMarksView extends Div {
                     } else {
                         markDTO.setEnterMark("");
                     }
+                    if (controlWorkMode) {
+                        markDTO.setControlWorkAdmission(calculateControlWorkAdmission(markDTO.getEnterMark()));
+                        try {
+                            studentGrid.getListDataView().refreshItem(markDTO);
+                        } catch (IllegalStateException ignored) {
+                        }
+                    }
                 }
             });
             return integerField;
         }).setHeader("Оцінка").setFlexGrow(1).setWidth("80px");
+    }
+
+    private void addControlWorkAdmissionColumn() {
+        studentGrid.addColumn(markDTO -> {
+                    String status = markDTO.getControlWorkAdmission();
+                    return status == null ? "" : status;
+                })
+                .setHeader(new Html("<div style='white-space:normal; word-break:break-word; text-align:center; line-height:1.2; max-width:120px;'>Відмітка<br>про зарахування<br>контрольної роботи</div>"))
+                .setAutoWidth(false);
     }
 
     private void setPart1() {
@@ -679,13 +701,30 @@ public class EnterMarksView extends Div {
                     markDTOList.add(dto);
                 }
             }
+
+            else if (CONTROL_TYPE_CONTROL_WORK.equals(selectControlType.getValue())) {
+                for (MarksEntity mark : sortedMarks) {
+                    MarkDTO dto = new MarkDTO();
+                    dto.setId(mark.getId());
+                    dto.setStudentPIB(mark.getStudent().getFullName());
+
+                    int finalGrade = mark.getFinalGrade();
+                    dto.setEnterMark(String.valueOf(finalGrade));
+                    dto.setControlWorkAdmission(calculateControlWorkAdmission(dto.getEnterMark()));
+                    dto.setLocked(mark.isLocked());
+                    SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
+                    dto.setLastUpdated(formatter.format(mark.getLastUpdated()));
+                    dto.setLastUpdatedBy(formatUserName());
+                    markDTOList.add(dto);
+                }
+            }
             // Гілка для типів "Залік", "Екзамен", "Курсова робота", "Курсовий проєкт", "Другий модульний контроль"
             else if (selectControlType.getValue().equals("Залік") ||
                     selectControlType.getValue().equals("Екзамен") ||
                     selectControlType.getValue().equals("Курсова робота") ||
                     selectControlType.getValue().equals("Курсовий проєкт") ||
-                    selectControlType.getValue().equals("Диференційний залік") ||
-                    selectControlType.getValue().equals("Другий модульний контроль")) {
+                    selectControlType.getValue().equals("Диференційний залік")  ||
+                    CONTROL_TYPE_SECOND_MODULE.equals(selectControlType.getValue())) {
 
                 for (MarksEntity mark : sortedMarks) {
                     MarkDTO dto = new MarkDTO();
@@ -832,6 +871,7 @@ public class EnterMarksView extends Div {
         dto.setLastUpdated("");
         dto.setLastUpdatedBy("");
         populateModuleAggregatesIfNeeded(dto, student);
+        dto.setControlWorkAdmission(calculateControlWorkAdmission(dto.getEnterMark()));
         return dto;
     }
 
@@ -845,25 +885,18 @@ public class EnterMarksView extends Div {
                 controlType.equals("Курсова робота") ||
                 controlType.equals("Курсовий проєкт") ||
                 controlType.equals("Диференційний залік") ||
-                controlType.equals("Другий модульний контроль");
+                controlType.equals("Другий модульний контроль") ||
+                CONTROL_TYPE_SECOND_MODULE.equals(controlType);
         if (!useModuleData) {
             return;
         }
         try {
             StudentEntity stud = studentService.findStudentById(student.getId());
-            String firstModule = marksService.getMarkForFirstModalControl(stud, plansEntity, "Перший модульний контроль");
-            if (firstModule == null || firstModule.isEmpty()) {
-                firstModule = "0";
-            }
-            String secondModule = marksService.getMarkForFirstModalControl(stud, plansEntity, "Другий модульний контроль");
-            if (secondModule == null || secondModule.isEmpty()) {
-                secondModule = "0";
-            }
-            dto.setMarkByFirstModule(firstModule);
-            int sumModules = Integer.parseInt(firstModule) + Integer.parseInt(secondModule);
-            dto.setTotalMarkByFirstAndSecondModule(String.valueOf(sumModules));
-            dto.setNationalGrade(convertMarkToNationalGrade(sumModules));
-            dto.setECTSGrade(convertMarkToECTSGrade(sumModules));
+            ModuleData moduleData = resolveModuleDataForStudent(stud);
+            dto.setMarkByFirstModule(moduleData.firstModule());
+            dto.setTotalMarkByFirstAndSecondModule(String.valueOf(moduleData.total()));
+            dto.setNationalGrade(convertMarkToNationalGrade(moduleData.total()));
+            dto.setECTSGrade(convertMarkToECTSGrade(moduleData.total()));
         } catch (Exception e) {
             dto.setMarkByFirstModule("0");
             dto.setTotalMarkByFirstAndSecondModule("0");
@@ -871,6 +904,59 @@ public class EnterMarksView extends Div {
             dto.setNationalGrade(convertMarkToNationalGrade(0));
             dto.setECTSGrade(convertMarkToECTSGrade(0));
         }
+    }
+
+    private ModuleData resolveModuleDataForStudent(StudentEntity student) {
+        if (student == null) {
+            return new ModuleData("0", "0", 0);
+        }
+        String firstModule = normalizeModuleValue(
+                marksService.getMarkForFirstModalControl(student, plansEntity, CONTROL_TYPE_FIRST_MODULE));
+        String secondModule = normalizeModuleValue(
+                marksService.getMarkForFirstModalControl(student, plansEntity, CONTROL_TYPE_SECOND_MODULE));
+        if (!student.isFullTime()) {
+            String controlWork = normalizeModuleValue(
+                    marksService.getMarkForFirstModalControl(student, plansEntity, CONTROL_TYPE_CONTROL_WORK));
+            firstModule = controlWork;
+            secondModule = "0";
+        }
+        int total = parseToInt(firstModule) + parseToInt(secondModule);
+        return new ModuleData(firstModule, secondModule, total);
+    }
+
+    private String normalizeModuleValue(String value) {
+        if (value == null || value.isBlank()) {
+            return "0";
+        }
+        try {
+            Integer.parseInt(value);
+            return value;
+        } catch (NumberFormatException e) {
+            return "0";
+        }
+    }
+
+    private int parseToInt(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private String calculateControlWorkAdmission(String markValue) {
+        if (markValue == null || markValue.isBlank()) {
+            return "";
+        }
+        try {
+            int grade = Integer.parseInt(markValue);
+            return grade >= 20 ? "Зараховано" : "Не зараховано";
+        } catch (NumberFormatException e) {
+            return "";
+        }
+    }
+
+    private record ModuleData(String firstModule, String secondModule, int total) {
     }
 
     private List<StudentEntity> getSortedStudentsForPlan(StudentGroupEntity studentGroupEntity) {

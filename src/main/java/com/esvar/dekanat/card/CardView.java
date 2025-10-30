@@ -1433,15 +1433,15 @@ public class CardView extends Div {
         recordBookNumberField.setReadOnly(true);
 
         //Порівняння моделей на відповідність
-        StudentEntity studentEntityCheck = new StudentEntity(
-                studentEntity.getId(),
-                lastNameUkrField.getValue(),
-                firstNameUkrField.getValue(),
-                middleNameUkrField.getValue(),
-                selectedGroupEntity.getSpecialty().getFaculty(),
-                selectedGroupEntity,
-                recordBookNumberField.getValue()
-        );
+//        StudentEntity studentEntityCheck = new StudentEntity(
+//                studentEntity.getId(),
+//                lastNameUkrField.getValue(),
+//                firstNameUkrField.getValue(),
+//                middleNameUkrField.getValue(),
+//                selectedGroupEntity.getSpecialty().getFaculty(),
+//                selectedGroupEntity,
+//                recordBookNumberField.getValue()
+//        );
 
 //        StudentPassportEntity passportEntityCheck = new StudentPassportEntity
 //                (
@@ -1505,16 +1505,18 @@ public class CardView extends Div {
 //                        thesisTitleEngField.getValue()
 //                );
 
-        if (
-                studentEntity.equals(studentEntityCheck)
-//                        && studentPassportEntity.equals(passportEntityCheck)
-//                        && studentInfoEntity.equals(infoModelCheck)
-//                        && studentEducationEntity.equals(educationEntityCheck)
-        ) {
+//        if (
+////                studentEntity.equals(studentEntityCheck)
+////                        && studentPassportEntity.equals(passportEntityCheck)
+////                        && studentInfoEntity.equals(infoModelCheck)
+////                        && studentEducationEntity.equals(educationEntityCheck)
+//        )
+        {
 
-        } else {
-            showConfirmationDialog(selectedGroupEntity);
         }
+//        else {
+//            showConfirmationDialog(selectedGroupEntity);
+//        }
 
 
         //Вимкнення можливості редагування Паспортних даних
