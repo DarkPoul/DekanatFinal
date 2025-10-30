@@ -54,8 +54,8 @@ import com.vaadin.flow.dom.Element;
 import com.vaadin.flow.dom.ElementFactory;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamRegistration;
 import com.vaadin.flow.server.StreamResource;
-import com.vaadin.flow.server.StreamResourceRegistry;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.VaadinServlet;
 import jakarta.annotation.security.PermitAll;
@@ -1274,17 +1274,21 @@ public class EnterMarksView extends Div {
     }
 
     private void openPdfReport(String fileName, byte[] pdfBytes) {
+        UI ui = UI.getCurrent();
+        if (ui == null) {
+            throw new IllegalStateException("UI is not available for opening the PDF report");
+        }
+
         StreamResource resource = new StreamResource(fileName, () -> new ByteArrayInputStream(pdfBytes));
         resource.setContentType("application/pdf");
+        resource.setCacheTime(0);
 
-        Anchor downloadLink = new Anchor(resource, "");
-        downloadLink.getElement().setAttribute("download", true);
-        downloadLink.getElement().setAttribute("target", "_blank");
-        downloadLink.getElement().getStyle().set("display", "none");
+        StreamRegistration registration = ui.getSession()
+                .getResourceRegistry()
+                .registerResource(resource);
 
-        add(downloadLink);
-        downloadLink.getElement().callJsFunction("click");
-        remove(downloadLink);
+        String resourceUrl = registration.getResourceUri().toString();
+        ui.getPage().open(resourceUrl, "_blank");
     }
 
     private void notifyFeatureInDevelopment() {
