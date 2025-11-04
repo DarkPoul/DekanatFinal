@@ -104,18 +104,16 @@ public class SummaryReportPdfGenerator {
             document.add(table);
             System.out.println("[SummaryReportPdfGenerator] Таблицю додано до документу");
 
-            // === НОВЕ: додаємо футер, якщо задано екзаменатора ===
-            if (examiner != null && !examiner.isBlank()) {
-                // Створюємо службову нижню таблицю з такою ж сіткою,
-                // щоб NumericHeader вирівнявся по основній таблиці
-                Table lastRowTable = createTableStructure(disciplineColumns.size());
-                lastRowTable.setWidth(UnitValue.createPercentValue(100));
-                lastRowTable.setFixedLayout();
+            // === НОВЕ: додаємо футер з блоком підпису незалежно від наявності ПІБ екзаменатора ===
+            Table lastRowTable = createTableStructure(disciplineColumns.size());
+            lastRowTable.setWidth(UnitValue.createPercentValue(100));
+            lastRowTable.setFixedLayout();
 
-                Div footer = generate(examiner, lastRowTable, numericHeader);
-                document.add(footer);
-                System.out.println("[SummaryReportPdfGenerator] Додано футер (numericHeader=" + numericHeader + ")");
-            }
+            Div footer = generate(examiner, lastRowTable, numericHeader);
+            document.add(footer);
+            boolean examinerProvided = examiner != null && !examiner.isBlank();
+            System.out.println("[SummaryReportPdfGenerator] Додано футер (numericHeader=" + numericHeader
+                    + ", examinerProvided=" + examinerProvided + ")");
 
         } catch (IOException e) {
             System.out.println("[SummaryReportPdfGenerator] Помилка генерації PDF: " + e.getMessage());
@@ -402,7 +400,7 @@ public class SummaryReportPdfGenerator {
         public static Div generateSignature(String examiner) {
             List<String> teachers = parseTeachers(examiner);
             if (teachers.isEmpty()) {
-                return new Div();
+                teachers = Collections.singletonList("");
             }
 
             Table table = new Table(UnitValue.createPercentArray(SIGNATURE_TABLE_COLUMNS))
