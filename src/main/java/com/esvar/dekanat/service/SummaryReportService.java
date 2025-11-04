@@ -107,6 +107,7 @@ public class SummaryReportService {
                 marksByStudent,
                 true,
                 examiner,
+                false,
                 false
         );
 

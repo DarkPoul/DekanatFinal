@@ -57,7 +57,8 @@ public class SummaryReportPdfGenerator {
                 marksByStudent,
                 addAverageRow,
                 null,        // examiner
-                false        // numericHeader
+                false,       // numericHeader
+                false        // includeSignature
         );
     }
 
@@ -70,6 +71,29 @@ public class SummaryReportPdfGenerator {
             boolean addAverageRow,
             String examiner,
             boolean numericHeader
+    ) {
+        boolean includeSignature = examiner != null && !examiner.isBlank();
+        return generateSummaryReport(
+                groupName,
+                studentFullNames,
+                disciplineColumns,
+                marksByStudent,
+                addAverageRow,
+                examiner,
+                numericHeader,
+                includeSignature
+        );
+    }
+
+    public byte[] generateSummaryReport(
+            String groupName,
+            List<String> studentFullNames,
+            List<DisciplineColumn> disciplineColumns,
+            Map<String, List<Integer>> marksByStudent,
+            boolean addAverageRow,
+            String examiner,
+            boolean numericHeader,
+            boolean includeSignature
     ) {
         System.out.println("[SummaryReportPdfGenerator] Старт генерації PDF для групи: " + groupName);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -104,16 +128,18 @@ public class SummaryReportPdfGenerator {
             document.add(table);
             System.out.println("[SummaryReportPdfGenerator] Таблицю додано до документу");
 
-            // === НОВЕ: додаємо футер з блоком підпису незалежно від наявності ПІБ екзаменатора ===
-            Table lastRowTable = createTableStructure(disciplineColumns.size());
-            lastRowTable.setWidth(UnitValue.createPercentValue(100));
-            lastRowTable.setFixedLayout();
+            if (includeSignature) {
+                Table lastRowTable = createTableStructure(disciplineColumns.size());
+                lastRowTable.setWidth(UnitValue.createPercentValue(100));
+                lastRowTable.setFixedLayout();
 
-            Div footer = generate(examiner, lastRowTable, numericHeader);
-            document.add(footer);
-            boolean examinerProvided = examiner != null && !examiner.isBlank();
-            System.out.println("[SummaryReportPdfGenerator] Додано футер (numericHeader=" + numericHeader
-                    + ", examinerProvided=" + examinerProvided + ")");
+                Div footer = generate(examiner, lastRowTable, numericHeader);
+                document.add(footer);
+                System.out.println("[SummaryReportPdfGenerator] Додано футер (numericHeader=" + numericHeader
+                        + ", includeSignature=true)");
+            } else {
+                System.out.println("[SummaryReportPdfGenerator] Футер з підписом пропущено");
+            }
 
         } catch (IOException e) {
             System.out.println("[SummaryReportPdfGenerator] Помилка генерації PDF: " + e.getMessage());
