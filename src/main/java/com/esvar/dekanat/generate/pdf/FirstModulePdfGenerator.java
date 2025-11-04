@@ -71,6 +71,7 @@ public class FirstModulePdfGenerator implements PdfGenerator {
 
                 addHeader(document, regular, bold, moduleData);
                 addStudentsTable(document, regular, moduleData.students());
+                addSignatureSection(document, regular, bold, moduleData);
 
                 log.info("Generated first module control PDF at {}", outputPath);
             }
@@ -330,6 +331,94 @@ public class FirstModulePdfGenerator implements PdfGenerator {
         }
 
         document.add(table);
+    }
+
+    private void addSignatureSection(Document document, PdfFont regular, PdfFont bold, DataModelForMC1 data) {
+        document.add(new Paragraph("")
+                .setFont(regular)
+                .setFontSize(11)
+                .setMarginTop(12)
+                .setTextAlignment(TextAlignment.CENTER));
+
+        Table signatureTable = new Table(UnitValue.createPercentArray(new float[]{20, 5, 20, 5, 20}))
+                .useAllAvailableWidth();
+
+        signatureTable.addCell(createSignatureLabelCell(bold));
+        signatureTable.addCell(createSignatureSpacerCell());
+        signatureTable.addCell(createSignatureLineCell(bold));
+        signatureTable.addCell(createSignatureSpacerCell());
+        signatureTable.addCell(createSignatureNameCell(resolveSignatureName(data), bold));
+
+        signatureTable.addCell(createSignatureSpacerCell());
+        signatureTable.addCell(createSignatureSpacerCell());
+        signatureTable.addCell(createSignatureHintCell("(підпис)", regular));
+        signatureTable.addCell(createSignatureSpacerCell());
+        signatureTable.addCell(createSignatureHintCell("(прізвище,ініціали)", regular));
+
+        document.add(signatureTable);
+    }
+
+    private Cell createSignatureLabelCell(PdfFont bold) {
+        return new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("Екзаменатор (Викладач)")
+                        .setFont(bold)
+                        .setFontSize(10));
+    }
+
+    private Cell createSignatureLineCell(PdfFont bold) {
+        return new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph("")
+                        .setFont(bold)
+                        .setFontSize(10));
+    }
+
+    private Cell createSignatureNameCell(String examiner, PdfFont bold) {
+        return new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph(Objects.toString(examiner, ""))
+                        .setFont(bold)
+                        .setFontSize(10)
+                        .setTextAlignment(TextAlignment.CENTER));
+    }
+
+    private Cell createSignatureHintCell(String text, PdfFont font) {
+        return new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph(text)
+                        .setFont(font)
+                        .setFontSize(8)
+                        .setTextAlignment(TextAlignment.CENTER));
+    }
+
+    private Cell createSignatureSpacerCell() {
+        return new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph(""));
+    }
+
+    private String resolveSignatureName(DataModelForMC1 data) {
+        if (!isBlank(data.secondTeacher())) {
+            return data.secondTeacher();
+        }
+        if (!isBlank(data.gradeTeacher())) {
+            return data.gradeTeacher();
+        }
+        if (!isBlank(data.firstTeacher())) {
+            return data.firstTeacher();
+        }
+        return "";
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private Cell createHeaderCell(String text, PdfFont font) {
