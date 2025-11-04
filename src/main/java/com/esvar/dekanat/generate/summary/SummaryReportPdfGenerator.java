@@ -57,7 +57,8 @@ public class SummaryReportPdfGenerator {
                 marksByStudent,
                 addAverageRow,
                 null,        // examiner
-                false        // numericHeader
+                false,       // numericHeader
+                false        // includeSignature
         );
     }
 
@@ -70,6 +71,29 @@ public class SummaryReportPdfGenerator {
             boolean addAverageRow,
             String examiner,
             boolean numericHeader
+    ) {
+        boolean includeSignature = examiner != null && !examiner.isBlank();
+        return generateSummaryReport(
+                groupName,
+                studentFullNames,
+                disciplineColumns,
+                marksByStudent,
+                addAverageRow,
+                examiner,
+                numericHeader,
+                includeSignature
+        );
+    }
+
+    public byte[] generateSummaryReport(
+            String groupName,
+            List<String> studentFullNames,
+            List<DisciplineColumn> disciplineColumns,
+            Map<String, List<Integer>> marksByStudent,
+            boolean addAverageRow,
+            String examiner,
+            boolean numericHeader,
+            boolean includeSignature
     ) {
         System.out.println("[SummaryReportPdfGenerator] Старт генерації PDF для групи: " + groupName);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -104,17 +128,17 @@ public class SummaryReportPdfGenerator {
             document.add(table);
             System.out.println("[SummaryReportPdfGenerator] Таблицю додано до документу");
 
-            // === НОВЕ: додаємо футер, якщо задано екзаменатора ===
-            if (examiner != null && !examiner.isBlank()) {
-                // Створюємо службову нижню таблицю з такою ж сіткою,
-                // щоб NumericHeader вирівнявся по основній таблиці
+            if (includeSignature) {
                 Table lastRowTable = createTableStructure(disciplineColumns.size());
                 lastRowTable.setWidth(UnitValue.createPercentValue(100));
                 lastRowTable.setFixedLayout();
 
                 Div footer = generate(examiner, lastRowTable, numericHeader);
                 document.add(footer);
-                System.out.println("[SummaryReportPdfGenerator] Додано футер (numericHeader=" + numericHeader + ")");
+                System.out.println("[SummaryReportPdfGenerator] Додано футер (numericHeader=" + numericHeader
+                        + ", includeSignature=true)");
+            } else {
+                System.out.println("[SummaryReportPdfGenerator] Футер з підписом пропущено");
             }
 
         } catch (IOException e) {
@@ -402,7 +426,7 @@ public class SummaryReportPdfGenerator {
         public static Div generateSignature(String examiner) {
             List<String> teachers = parseTeachers(examiner);
             if (teachers.isEmpty()) {
-                return new Div();
+                teachers = Collections.singletonList("");
             }
 
             Table table = new Table(UnitValue.createPercentArray(SIGNATURE_TABLE_COLUMNS))

@@ -71,6 +71,7 @@ public class FirstModulePdfGenerator implements PdfGenerator {
 
                 addHeader(document, regular, bold, moduleData);
                 addStudentsTable(document, regular, moduleData.students());
+                addSignatureSection(document, regular, moduleData);
 
                 log.info("Generated first module control PDF at {}", outputPath);
             }
@@ -330,6 +331,66 @@ public class FirstModulePdfGenerator implements PdfGenerator {
         }
 
         document.add(table);
+    }
+
+    private void addSignatureSection(Document document, PdfFont font, DataModelForMC1 data) {
+        document.add(new Paragraph("")
+                .setFont(font)
+                .setFontSize(11)
+                .setMarginTop(12)
+                .setTextAlignment(TextAlignment.CENTER));
+
+        Table signatureTable = new Table(UnitValue.createPercentArray(new float[]{20, 50, 30}))
+                .useAllAvailableWidth();
+
+        signatureTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("Викладач")
+                        .setFont(font)
+                        .setFontSize(11)));
+
+        signatureTable.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph(resolveSignatureName(data))
+                        .setFont(font)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)));
+
+        signatureTable.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph("")
+                        .setFont(font)
+                        .setFontSize(11)));
+
+        document.add(signatureTable);
+
+        document.add(new Paragraph("(прізвище, ім’я та по батькові викладача, який виставляє підсумкову оцінку)            (підпис)")
+                .setFont(font)
+                .setFontSize(8)
+                .setTextAlignment(TextAlignment.CENTER));
+    }
+
+    private String resolveSignatureName(DataModelForMC1 data) {
+        if (!isBlank(data.secondTeacher())) {
+            return data.secondTeacher();
+        }
+        if (!isBlank(data.gradeTeacher())) {
+            return data.gradeTeacher();
+        }
+        if (!isBlank(data.firstTeacher())) {
+            return data.firstTeacher();
+        }
+        return "";
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private Cell createHeaderCell(String text, PdfFont font) {
