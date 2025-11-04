@@ -59,30 +59,29 @@ public class SummaryReportService {
         }
 
         int semester = computeFirstModuleSemester(selectedGroup.getCourse());
-        List<PlansEntity> plans = collectPlansForSummaryReport(group, semester, students);
-        if (plans.isEmpty()) {
+        Map<Long, PlanAssignment> planAssignments = collectPlanAssignments(group, semester, students);
+        if (planAssignments.isEmpty()) {
             throw new SummaryReportGenerationException("Не знайдено дисциплін для першого модульного контролю");
-        }
-
-        List<String> disciplineNames = plans.stream()
-                .map(PlansEntity::getDiscipline)
-                .filter(Objects::nonNull)
-                .map(discipline -> discipline.getTitle() == null ? "" : discipline.getTitle())
-                .filter(title -> !title.isBlank())
-                .collect(Collectors.toList());
-        if (disciplineNames.isEmpty()) {
-            throw new SummaryReportGenerationException("Список дисциплін порожній");
         }
 
         List<String> studentFullNames = students.stream()
                 .map(StudentEntity::getFullName)
                 .collect(Collectors.toList());
 
-        Map<String, List<Integer>> marksByStudent = buildMarksForSummaryReport(students, plans);
+        List<DisciplineSummary> disciplineSummaries = buildDisciplineSummaries(planAssignments.values(), students);
+        if (disciplineSummaries.isEmpty()) {
+            throw new SummaryReportGenerationException("Список дисциплін порожній");
+        }
+
+        List<SummaryReportPdfGenerator.DisciplineColumn> disciplineColumns = disciplineSummaries.stream()
+                .map(summary -> new SummaryReportPdfGenerator.DisciplineColumn(summary.title(), summary.elective()))
+                .collect(Collectors.toList());
+
+        Map<String, List<Integer>> marksByStudent = buildMarksForSummaryReport(students, disciplineSummaries);
         byte[] pdfBytes = summaryReportPdfGenerator.generateSummaryReport(
                 group.getGroupCode(),
                 studentFullNames,
-                disciplineNames,
+                disciplineColumns,
                 marksByStudent,
                 true
         );
@@ -107,34 +106,36 @@ public class SummaryReportService {
         return course * 2 - 1;
     }
 
-    private List<PlansEntity> collectPlansForSummaryReport(StudentGroupEntity group,
-                                                           int semester,
-                                                           List<StudentEntity> students) {
-        Map<Long, PlansEntity> uniquePlans = new LinkedHashMap<>();
+    private Map<Long, PlanAssignment> collectPlanAssignments(StudentGroupEntity group,
+                                                             int semester,
+                                                             List<StudentEntity> students) {
+        Map<Long, PlanAssignment> assignments = new LinkedHashMap<>();
 
         List<PlansEntity> groupPlans = planService.getAllPlansForGroupAndSemester(group, semester);
         if (groupPlans != null) {
             groupPlans.stream()
                     .filter(this::isFirstModulePlan)
-                    .forEach(plan -> uniquePlans.putIfAbsent(plan.getId(), plan));
+                    .forEach(plan -> assignments.computeIfAbsent(plan.getId(), id -> new PlanAssignment(plan)));
         }
 
         for (StudentEntity student : students) {
-            studentPlansService.getPlansForStudent(student).stream()
-                    .map(StudentPlansEntity::getPlan)
-                    .filter(Objects::nonNull)
-                    .filter(plan -> plan.getSemester() == semester)
-                    .filter(this::isFirstModulePlan)
-                    .forEach(plan -> uniquePlans.putIfAbsent(plan.getId(), plan));
+            List<StudentPlansEntity> studentPlans = studentPlansService.getPlansForStudent(student);
+            if (studentPlans == null || studentPlans.isEmpty()) {
+                continue;
+            }
+
+            for (StudentPlansEntity studentPlan : studentPlans) {
+                PlansEntity plan = studentPlan.getPlan();
+                if (plan == null || plan.getSemester() != semester || !isFirstModulePlan(plan)) {
+                    continue;
+                }
+
+                assignments.computeIfAbsent(plan.getId(), id -> new PlanAssignment(plan))
+                        .assignedStudentIds.add(student.getId());
+            }
         }
 
-        return uniquePlans.values().stream()
-                .sorted(Comparator.comparing(
-                        plan -> Optional.ofNullable(plan.getDiscipline())
-                                .map(DisciplineEntity::getTitle)
-                                .orElse("")
-                        , ukrainianCollator))
-                .collect(Collectors.toList());
+        return assignments;
     }
 
     private boolean isFirstModulePlan(PlansEntity plan) {
@@ -162,7 +163,8 @@ public class SummaryReportService {
         return normalizedLowerCase.contains(FIRST_MODULE_KEYWORD);
     }
 
-    private Map<String, List<Integer>> buildMarksForSummaryReport(List<StudentEntity> students, List<PlansEntity> plans) {
+    private Map<String, List<Integer>> buildMarksForSummaryReport(List<StudentEntity> students,
+                                                                 List<DisciplineSummary> disciplineSummaries) {
         List<String> studentNames = students.stream()
                 .map(StudentEntity::getFullName)
                 .collect(Collectors.toList());
@@ -172,7 +174,8 @@ public class SummaryReportService {
             marksByStudent.put(studentName, new ArrayList<>());
         }
 
-        for (PlansEntity plan : plans) {
+        for (DisciplineSummary disciplineSummary : disciplineSummaries) {
+            PlansEntity plan = disciplineSummary.plan();
             ControlMethodEntity firstControl = plan.getFirstControl();
             List<MarksEntity> marks = marksService.findMarksByPlanAndControlMethod(plan, firstControl);
             if (marks == null) {
@@ -189,6 +192,12 @@ public class SummaryReportService {
             for (int i = 0; i < students.size(); i++) {
                 StudentEntity student = students.get(i);
                 String studentName = studentNames.get(i);
+
+                if (!disciplineSummary.assignedStudentIds().contains(student.getId())) {
+                    marksByStudent.get(studentName).add(null);
+                    continue;
+                }
+
                 int markValue = marksByStudentId.getOrDefault(student.getId(), 0);
                 marksByStudent.get(studentName).add(markValue);
             }
@@ -197,7 +206,70 @@ public class SummaryReportService {
         return marksByStudent;
     }
 
+    private List<DisciplineSummary> buildDisciplineSummaries(Collection<PlanAssignment> assignments,
+                                                             List<StudentEntity> students) {
+        if (assignments == null || assignments.isEmpty()) {
+            return List.of();
+        }
+
+        Set<Long> groupStudentIds = students.stream()
+                .map(StudentEntity::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        List<DisciplineSummary> summaries = new ArrayList<>();
+        for (PlanAssignment assignment : assignments) {
+            PlansEntity plan = assignment.plan;
+            DisciplineEntity discipline = plan.getDiscipline();
+            if (discipline == null) {
+                continue;
+            }
+
+            String title = discipline.getTitle();
+            if (title == null) {
+                continue;
+            }
+
+            title = title.trim();
+            if (title.isBlank()) {
+                continue;
+            }
+
+            Set<Long> assignedStudentIds = new LinkedHashSet<>(assignment.assignedStudentIds);
+            if (assignedStudentIds.isEmpty() && !plan.isElective()) {
+                assignedStudentIds.addAll(groupStudentIds);
+            } else if (!assignedStudentIds.isEmpty()) {
+                assignedStudentIds.retainAll(groupStudentIds);
+            }
+
+            if (assignedStudentIds.isEmpty()) {
+                continue;
+            }
+
+            boolean matchesGroup = assignedStudentIds.containsAll(groupStudentIds)
+                    && groupStudentIds.containsAll(assignedStudentIds);
+            boolean elective = plan.isElective() || !matchesGroup;
+
+            summaries.add(new DisciplineSummary(plan, title, elective, assignedStudentIds));
+        }
+
+        return summaries.stream()
+                .sorted(Comparator.comparing(DisciplineSummary::title, ukrainianCollator))
+                .collect(Collectors.toList());
+    }
+
     public record SummaryReportResult(String groupCode, byte[] pdfBytes) {
+    }
+
+    private record DisciplineSummary(PlansEntity plan, String title, boolean elective, Set<Long> assignedStudentIds) {
+    }
+
+    private static class PlanAssignment {
+        private final PlansEntity plan;
+        private final Set<Long> assignedStudentIds = new LinkedHashSet<>();
+
+        private PlanAssignment(PlansEntity plan) {
+            this.plan = plan;
+        }
     }
 
     public static class SummaryReportGenerationException extends RuntimeException {
