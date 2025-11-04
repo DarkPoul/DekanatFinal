@@ -12,6 +12,7 @@ import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
 
+import com.itextpdf.layout.borders.Border;
 import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.Div;
@@ -24,9 +25,11 @@ import com.itextpdf.layout.properties.VerticalAlignment;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 
 import org.springframework.stereotype.Component;
@@ -310,23 +313,147 @@ public class SummaryReportPdfGenerator {
     public record DisciplineColumn(String title, boolean elective) {
     }
 
-    // ДОДАЙ У КІНЕЦЬ КЛАСУ (перед закриваючою дужкою SummaryReportPdfGenerator):
     public static Div generate(String examiner, Table lastRowTable, boolean numericHeader) throws IOException {
+        Div container = new Div();
         if (numericHeader) {
-            return new Div()
-                    .add(NumericHeader.addNumericHeader(lastRowTable, 5))
-                    .add(new Paragraph(""))
-                    .add(Signature.generateSignature(examiner))
-                    .setKeepTogether(true);
+            container.add(NumericHeader.addNumericHeader(lastRowTable, 5));
         } else {
-            return new Div()
-                    .add(lastRowTable)
-                    .add(new Paragraph(""))
-                    .add(Signature.generateSignature(examiner))
-                    .setKeepTogether(true);
+            container.add(lastRowTable);
+        }
+
+        container.add(new Paragraph("")
+                .setMarginTop(5f)
+                .setMarginBottom(5f));
+        container.add(Signature.generateSignature(examiner));
+        container.setKeepTogether(true);
+        return container;
+    }
+
+    private static class NumericHeader {
+
+        private static final float NUMERIC_FONT_SIZE = 9f;
+
+        private NumericHeader() {
+        }
+
+        private static Div addNumericHeader(Table baseTable, float marginTop) {
+            Table numericRow = new Table(baseTable.getNumberOfColumns());
+            numericRow.setWidth(UnitValue.createPercentValue(100));
+            numericRow.setFixedLayout();
+
+            numericRow.addCell(createBlankCell());
+
+            int totalColumns = baseTable.getNumberOfColumns();
+            for (int column = 1; column < totalColumns - 1; column++) {
+                numericRow.addCell(createNumberCell(column));
+            }
+
+            numericRow.addCell(createBlankCell());
+
+            Div wrapper = new Div();
+            wrapper.setMarginTop(marginTop);
+            wrapper.setKeepTogether(true);
+            wrapper.add(numericRow);
+            wrapper.add(baseTable);
+            return wrapper;
+        }
+
+        private static Cell createBlankCell() {
+            return new Cell()
+                    .setBorder(Border.NO_BORDER)
+                    .setPadding(0);
+        }
+
+        private static Cell createNumberCell(int value) {
+            return new Cell()
+                    .setBorder(Border.NO_BORDER)
+                    .setPadding(0)
+                    .add(new Paragraph(String.valueOf(value))
+                            .setTextAlignment(TextAlignment.CENTER)
+                            .setFontSize(NUMERIC_FONT_SIZE));
         }
     }
 
+    private static class Signature {
 
+        private static final float[] SIGNATURE_TABLE_COLUMNS = {20f, 45f, 35f};
+        private static final String SIGNATURE_LABEL = "Викладач";
+        private static final String SIGNATURE_HINT = "(прізвище, ім’я та по батькові викладача, який виставляє підсумкову оцінку)";
+        private static final float SIGNATURE_LINE_HEIGHT = 18f;
+        private static final float SIGNATURE_MARGIN_TOP = 10f;
 
+        private Signature() {
+        }
+
+        private static Div generateSignature(String examiner) {
+            List<String> teachers = parseTeachers(examiner);
+            if (teachers.isEmpty()) {
+                return new Div();
+            }
+
+            Table table = new Table(UnitValue.createPercentArray(SIGNATURE_TABLE_COLUMNS))
+                    .useAllAvailableWidth();
+
+            boolean firstRow = true;
+            for (String teacher : teachers) {
+                table.addCell(createLabelCell(firstRow ? SIGNATURE_LABEL : ""));
+                table.addCell(createSignatureLineCell());
+                table.addCell(createTeacherCell(teacher));
+                firstRow = false;
+            }
+
+            table.addCell(createHintCell());
+
+            Div signatureBlock = new Div();
+            signatureBlock.setMarginTop(SIGNATURE_MARGIN_TOP);
+            signatureBlock.setKeepTogether(true);
+            signatureBlock.add(table);
+            return signatureBlock;
+        }
+
+        private static List<String> parseTeachers(String examiner) {
+            if (examiner == null) {
+                return Collections.emptyList();
+            }
+
+            return Arrays.stream(examiner.split("[\\n;,]+"))
+                    .map(String::trim)
+                    .filter(value -> !value.isEmpty())
+                    .collect(Collectors.toList());
+        }
+
+        private static Cell createLabelCell(String text) {
+            return new Cell()
+                    .setBorder(Border.NO_BORDER)
+                    .setPadding(0)
+                    .add(new Paragraph(text)
+                            .setFontSize(11));
+        }
+
+        private static Cell createSignatureLineCell() {
+            return new Cell()
+                    .setBorder(Border.NO_BORDER)
+                    .setBorderBottom(new SolidBorder(0.5f))
+                    .setPadding(0)
+                    .setMinHeight(SIGNATURE_LINE_HEIGHT);
+        }
+
+        private static Cell createTeacherCell(String teacher) {
+            return new Cell()
+                    .setBorder(Border.NO_BORDER)
+                    .setPadding(0)
+                    .add(new Paragraph(teacher)
+                            .setTextAlignment(TextAlignment.CENTER)
+                            .setFontSize(11));
+        }
+
+        private static Cell createHintCell() {
+            return new Cell(1, 3)
+                    .setBorder(Border.NO_BORDER)
+                    .setPadding(0)
+                    .add(new Paragraph(SIGNATURE_HINT)
+                            .setFontSize(8)
+                            .setTextAlignment(TextAlignment.CENTER));
+        }
+    }
 }
