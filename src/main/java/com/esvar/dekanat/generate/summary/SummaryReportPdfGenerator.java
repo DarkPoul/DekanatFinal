@@ -14,6 +14,7 @@ import com.itextpdf.layout.Document;
 
 import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.Div;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
@@ -37,12 +38,35 @@ public class SummaryReportPdfGenerator {
     private static final float OTHER_COLUMN_WIDTH = 35f;
     private static final float HEADER_ROW_HEIGHT = 110f;
 
+    // ЗАЛИШАЄМО твою існуючу сигнатуру як-є для зворотної сумісності:
     public byte[] generateSummaryReport(
             String groupName,
             List<String> studentFullNames,
             List<DisciplineColumn> disciplineColumns,
             Map<String, List<Integer>> marksByStudent,
             boolean addAverageRow
+    ) {
+        // делегуємо в новий оверлоад без футера
+        return generateSummaryReport(
+                groupName,
+                studentFullNames,
+                disciplineColumns,
+                marksByStudent,
+                addAverageRow,
+                null,        // examiner
+                false        // numericHeader
+        );
+    }
+
+    // НОВИЙ ОВЕРЛОАД: з екзаменатором та прапорцем numericHeader
+    public byte[] generateSummaryReport(
+            String groupName,
+            List<String> studentFullNames,
+            List<DisciplineColumn> disciplineColumns,
+            Map<String, List<Integer>> marksByStudent,
+            boolean addAverageRow,
+            String examiner,
+            boolean numericHeader
     ) {
         System.out.println("[SummaryReportPdfGenerator] Старт генерації PDF для групи: " + groupName);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -76,6 +100,20 @@ public class SummaryReportPdfGenerator {
 
             document.add(table);
             System.out.println("[SummaryReportPdfGenerator] Таблицю додано до документу");
+
+            // === НОВЕ: додаємо футер, якщо задано екзаменатора ===
+            if (examiner != null && !examiner.isBlank()) {
+                // Створюємо службову нижню таблицю з такою ж сіткою,
+                // щоб NumericHeader вирівнявся по основній таблиці
+                Table lastRowTable = createTableStructure(disciplineColumns.size());
+                lastRowTable.setWidth(UnitValue.createPercentValue(100));
+                lastRowTable.setFixedLayout();
+
+                Div footer = generate(examiner, lastRowTable, numericHeader);
+                document.add(footer);
+                System.out.println("[SummaryReportPdfGenerator] Додано футер (numericHeader=" + numericHeader + ")");
+            }
+
         } catch (IOException e) {
             System.out.println("[SummaryReportPdfGenerator] Помилка генерації PDF: " + e.getMessage());
             throw new IllegalStateException("Не вдалося згенерувати PDF звіт", e);
@@ -271,4 +309,24 @@ public class SummaryReportPdfGenerator {
 
     public record DisciplineColumn(String title, boolean elective) {
     }
+
+    // ДОДАЙ У КІНЕЦЬ КЛАСУ (перед закриваючою дужкою SummaryReportPdfGenerator):
+    public static Div generate(String examiner, Table lastRowTable, boolean numericHeader) throws IOException {
+        if (numericHeader) {
+            return new Div()
+                    .add(NumericHeader.addNumericHeader(lastRowTable, 5))
+                    .add(new Paragraph(""))
+                    .add(Signature.generateSignature(examiner))
+                    .setKeepTogether(true);
+        } else {
+            return new Div()
+                    .add(lastRowTable)
+                    .add(new Paragraph(""))
+                    .add(Signature.generateSignature(examiner))
+                    .setKeepTogether(true);
+        }
+    }
+
+
+
 }
