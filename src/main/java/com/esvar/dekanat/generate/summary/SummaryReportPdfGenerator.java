@@ -336,18 +336,30 @@ public class SummaryReportPdfGenerator {
         private NumericHeader() {
         }
 
-        private static Div addNumericHeader(Table baseTable, float marginTop) {
-            Table numericRow = new Table(baseTable.getNumberOfColumns());
+        // ЗМІНА: public static, + вирівнювання ширин під базову таблицю
+        public static Div addNumericHeader(Table baseTable, float marginTop) {
+            int totalColumns = baseTable.getNumberOfColumns();
+
+            // Відтворюємо ті самі ширини, що й у createTableStructure(...)
+            float[] widths = new float[totalColumns];
+            widths[0] = FIRST_COLUMN_WIDTH;
+            for (int i = 1; i < totalColumns; i++) {
+                widths[i] = OTHER_COLUMN_WIDTH;
+            }
+
+            Table numericRow = new Table(widths);
             numericRow.setWidth(UnitValue.createPercentValue(100));
             numericRow.setFixedLayout();
 
+            // перша (ПІБ) — пуста
             numericRow.addCell(createBlankCell());
 
-            int totalColumns = baseTable.getNumberOfColumns();
+            // середні — пронумеровані (тільки дисципліни)
             for (int column = 1; column < totalColumns - 1; column++) {
                 numericRow.addCell(createNumberCell(column));
             }
 
+            // остання (К-сть 0) — пуста
             numericRow.addCell(createBlankCell());
 
             Div wrapper = new Div();
@@ -374,6 +386,7 @@ public class SummaryReportPdfGenerator {
         }
     }
 
+
     private static class Signature {
 
         private static final float[] SIGNATURE_TABLE_COLUMNS = {20f, 45f, 35f};
@@ -385,7 +398,8 @@ public class SummaryReportPdfGenerator {
         private Signature() {
         }
 
-        private static Div generateSignature(String examiner) {
+        // ЗМІНА: public static, щоб викликати з зовнішнього класу
+        public static Div generateSignature(String examiner) {
             List<String> teachers = parseTeachers(examiner);
             if (teachers.isEmpty()) {
                 return new Div();
@@ -415,7 +429,6 @@ public class SummaryReportPdfGenerator {
             if (examiner == null) {
                 return Collections.emptyList();
             }
-
             return Arrays.stream(examiner.split("[\\n;,]+"))
                     .map(String::trim)
                     .filter(value -> !value.isEmpty())
@@ -456,4 +469,5 @@ public class SummaryReportPdfGenerator {
                             .setTextAlignment(TextAlignment.CENTER));
         }
     }
+
 }
