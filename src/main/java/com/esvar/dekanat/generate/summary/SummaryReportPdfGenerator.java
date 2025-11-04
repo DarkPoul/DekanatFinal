@@ -25,11 +25,8 @@ import com.itextpdf.layout.properties.VerticalAlignment;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 
 import org.springframework.stereotype.Component;
@@ -413,34 +410,32 @@ public class SummaryReportPdfGenerator {
 
     private static class Signature {
 
-        private static final float[] SIGNATURE_TABLE_COLUMNS = {20f, 45f, 35f};
-        private static final String SIGNATURE_LABEL = "Викладач";
-        private static final String SIGNATURE_HINT = "(прізвище, ім’я та по батькові викладача, який виставляє підсумкову оцінку)";
-        private static final float SIGNATURE_LINE_HEIGHT = 18f;
+        private static final float[] SIGNATURE_TABLE_COLUMNS = {20f, 5f, 20f, 5f, 20f};
+        private static final String SIGNATURE_LABEL = "Екзаменатор (Викладач)";
+        private static final String SIGNATURE_LINE_HINT = "(підпис)";
+        private static final String SIGNATURE_NAME_HINT = "(прізвище,ініціали)";
+        private static final float SIGNATURE_FONT_SIZE = 10f;
+        private static final float SIGNATURE_HINT_FONT_SIZE = 8f;
         private static final float SIGNATURE_MARGIN_TOP = 10f;
 
         private Signature() {
         }
 
-        // ЗМІНА: public static, щоб викликати з зовнішнього класу
         public static Div generateSignature(String examiner) {
-            List<String> teachers = parseTeachers(examiner);
-            if (teachers.isEmpty()) {
-                teachers = Collections.singletonList("");
-            }
-
             Table table = new Table(UnitValue.createPercentArray(SIGNATURE_TABLE_COLUMNS))
                     .useAllAvailableWidth();
 
-            boolean firstRow = true;
-            for (String teacher : teachers) {
-                table.addCell(createLabelCell(firstRow ? SIGNATURE_LABEL : ""));
-                table.addCell(createSignatureLineCell());
-                table.addCell(createTeacherCell(teacher));
-                firstRow = false;
-            }
+            table.addCell(createLabelCell());
+            table.addCell(createSpacerCell());
+            table.addCell(createSignatureLineCell());
+            table.addCell(createSpacerCell());
+            table.addCell(createExaminerCell(examiner));
 
-            table.addCell(createHintCell());
+            table.addCell(createSpacerCell());
+            table.addCell(createSpacerCell());
+            table.addCell(createHintCell(SIGNATURE_LINE_HINT));
+            table.addCell(createSpacerCell());
+            table.addCell(createHintCell(SIGNATURE_NAME_HINT));
 
             Div signatureBlock = new Div();
             signatureBlock.setMarginTop(SIGNATURE_MARGIN_TOP);
@@ -449,48 +444,52 @@ public class SummaryReportPdfGenerator {
             return signatureBlock;
         }
 
-        private static List<String> parseTeachers(String examiner) {
-            if (examiner == null) {
-                return Collections.emptyList();
-            }
-            return Arrays.stream(examiner.split("[\\n;,]+"))
-                    .map(String::trim)
-                    .filter(value -> !value.isEmpty())
-                    .collect(Collectors.toList());
-        }
-
-        private static Cell createLabelCell(String text) {
+        private static Cell createLabelCell() {
             return new Cell()
                     .setBorder(Border.NO_BORDER)
                     .setPadding(0)
-                    .add(new Paragraph(text)
-                            .setFontSize(11));
+                    .add(new Paragraph(SIGNATURE_LABEL)
+                            .setFontSize(SIGNATURE_FONT_SIZE));
         }
 
         private static Cell createSignatureLineCell() {
             return new Cell()
-                    .setBorder(Border.NO_BORDER)
+                    .setBorderTop(Border.NO_BORDER)
+                    .setBorderLeft(Border.NO_BORDER)
+                    .setBorderRight(Border.NO_BORDER)
                     .setBorderBottom(new SolidBorder(0.5f))
                     .setPadding(0)
-                    .setMinHeight(SIGNATURE_LINE_HEIGHT);
+                    .add(new Paragraph("")
+                            .setFontSize(SIGNATURE_FONT_SIZE));
         }
 
-        private static Cell createTeacherCell(String teacher) {
+        private static Cell createExaminerCell(String examiner) {
+            String value = examiner == null ? "" : examiner.trim();
+            return new Cell()
+                    .setBorderTop(Border.NO_BORDER)
+                    .setBorderLeft(Border.NO_BORDER)
+                    .setBorderRight(Border.NO_BORDER)
+                    .setBorderBottom(new SolidBorder(0.5f))
+                    .setPadding(0)
+                    .add(new Paragraph(value)
+                            .setTextAlignment(TextAlignment.CENTER)
+                            .setFontSize(SIGNATURE_FONT_SIZE));
+        }
+
+        private static Cell createHintCell(String text) {
             return new Cell()
                     .setBorder(Border.NO_BORDER)
                     .setPadding(0)
-                    .add(new Paragraph(teacher)
-                            .setTextAlignment(TextAlignment.CENTER)
-                            .setFontSize(11));
+                    .add(new Paragraph(text)
+                            .setFontSize(SIGNATURE_HINT_FONT_SIZE)
+                            .setTextAlignment(TextAlignment.CENTER));
         }
 
-        private static Cell createHintCell() {
-            return new Cell(1, 3)
+        private static Cell createSpacerCell() {
+            return new Cell()
                     .setBorder(Border.NO_BORDER)
                     .setPadding(0)
-                    .add(new Paragraph(SIGNATURE_HINT)
-                            .setFontSize(8)
-                            .setTextAlignment(TextAlignment.CENTER));
+                    .add(new Paragraph(""));
         }
     }
 
