@@ -64,25 +64,24 @@ public class SummaryReportService {
             throw new SummaryReportGenerationException("Не знайдено дисциплін для першого модульного контролю");
         }
 
-        List<String> disciplineNames = plans.stream()
-                .map(PlansEntity::getDiscipline)
-                .filter(Objects::nonNull)
-                .map(discipline -> discipline.getTitle() == null ? "" : discipline.getTitle())
-                .filter(title -> !title.isBlank())
-                .collect(Collectors.toList());
-        if (disciplineNames.isEmpty()) {
-            throw new SummaryReportGenerationException("Список дисциплін порожній");
-        }
-
         List<String> studentFullNames = students.stream()
                 .map(StudentEntity::getFullName)
                 .collect(Collectors.toList());
 
-        Map<String, List<Integer>> marksByStudent = buildMarksForSummaryReport(students, plans);
+        List<DisciplineSummary> disciplineSummaries = buildDisciplineSummaries(plans, students);
+        if (disciplineSummaries.isEmpty()) {
+            throw new SummaryReportGenerationException("Список дисциплін порожній");
+        }
+
+        List<SummaryReportPdfGenerator.DisciplineColumn> disciplineColumns = disciplineSummaries.stream()
+                .map(summary -> new SummaryReportPdfGenerator.DisciplineColumn(summary.title(), summary.elective()))
+                .collect(Collectors.toList());
+
+        Map<String, List<Integer>> marksByStudent = buildMarksForSummaryReport(students, disciplineSummaries);
         byte[] pdfBytes = summaryReportPdfGenerator.generateSummaryReport(
                 group.getGroupCode(),
                 studentFullNames,
-                disciplineNames,
+                disciplineColumns,
                 marksByStudent,
                 true
         );
@@ -162,7 +161,8 @@ public class SummaryReportService {
         return normalizedLowerCase.contains(FIRST_MODULE_KEYWORD);
     }
 
-    private Map<String, List<Integer>> buildMarksForSummaryReport(List<StudentEntity> students, List<PlansEntity> plans) {
+    private Map<String, List<Integer>> buildMarksForSummaryReport(List<StudentEntity> students,
+                                                                 List<DisciplineSummary> disciplineSummaries) {
         List<String> studentNames = students.stream()
                 .map(StudentEntity::getFullName)
                 .collect(Collectors.toList());
@@ -172,7 +172,8 @@ public class SummaryReportService {
             marksByStudent.put(studentName, new ArrayList<>());
         }
 
-        for (PlansEntity plan : plans) {
+        for (DisciplineSummary disciplineSummary : disciplineSummaries) {
+            PlansEntity plan = disciplineSummary.plan();
             ControlMethodEntity firstControl = plan.getFirstControl();
             List<MarksEntity> marks = marksService.findMarksByPlanAndControlMethod(plan, firstControl);
             if (marks == null) {
@@ -189,6 +190,12 @@ public class SummaryReportService {
             for (int i = 0; i < students.size(); i++) {
                 StudentEntity student = students.get(i);
                 String studentName = studentNames.get(i);
+
+                if (!disciplineSummary.assignedStudentIds().contains(student.getId())) {
+                    marksByStudent.get(studentName).add(null);
+                    continue;
+                }
+
                 int markValue = marksByStudentId.getOrDefault(student.getId(), 0);
                 marksByStudent.get(studentName).add(markValue);
             }
@@ -197,7 +204,56 @@ public class SummaryReportService {
         return marksByStudent;
     }
 
+    private List<DisciplineSummary> buildDisciplineSummaries(List<PlansEntity> plans, List<StudentEntity> students) {
+        if (plans == null || plans.isEmpty()) {
+            return List.of();
+        }
+
+        Set<Long> groupStudentIds = students.stream()
+                .map(StudentEntity::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        List<DisciplineSummary> summaries = new ArrayList<>();
+        for (PlansEntity plan : plans) {
+            DisciplineEntity discipline = plan.getDiscipline();
+            if (discipline == null) {
+                continue;
+            }
+
+            String title = discipline.getTitle();
+            if (title == null) {
+                continue;
+            }
+
+            title = title.trim();
+            if (title.isBlank()) {
+                continue;
+            }
+
+            Set<Long> assignedStudentIds = studentPlansService.getStudentByPlan(plan).stream()
+                    .map(StudentEntity::getId)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+
+            if (assignedStudentIds.isEmpty() && !plan.isElective()) {
+                assignedStudentIds.addAll(groupStudentIds);
+            }
+
+            boolean matchesGroup = assignedStudentIds.containsAll(groupStudentIds)
+                    && groupStudentIds.containsAll(assignedStudentIds);
+            boolean elective = plan.isElective() || !matchesGroup;
+
+            summaries.add(new DisciplineSummary(plan, title, elective, assignedStudentIds));
+        }
+
+        return summaries.stream()
+                .sorted(Comparator.comparing(DisciplineSummary::title, ukrainianCollator))
+                .collect(Collectors.toList());
+    }
+
     public record SummaryReportResult(String groupCode, byte[] pdfBytes) {
+    }
+
+    private record DisciplineSummary(PlansEntity plan, String title, boolean elective, Set<Long> assignedStudentIds) {
     }
 
     public static class SummaryReportGenerationException extends RuntimeException {

@@ -40,7 +40,7 @@ public class SummaryReportPdfGenerator {
     public byte[] generateSummaryReport(
             String groupName,
             List<String> studentFullNames,
-            List<String> disciplineNames,
+            List<DisciplineColumn> disciplineColumns,
             Map<String, List<Integer>> marksByStudent,
             boolean addAverageRow
     ) {
@@ -61,12 +61,12 @@ public class SummaryReportPdfGenerator {
                     .setMarginBottom(10);
             document.add(title);
 
-            Table table = createTableStructure(disciplineNames.size());
-            addHeaderRows(table, disciplineNames);
-            addStudentRows(table, studentFullNames, disciplineNames, marksByStudent);
+            Table table = createTableStructure(disciplineColumns.size());
+            addHeaderRows(table, disciplineColumns);
+            addStudentRows(table, studentFullNames, disciplineColumns, marksByStudent);
 
             if (addAverageRow) {
-                addZeroSummaryRow(table, studentFullNames, disciplineNames, marksByStudent);
+                addZeroSummaryRow(table, studentFullNames, disciplineColumns, marksByStudent);
             }
 
             document.add(table);
@@ -104,8 +104,8 @@ public class SummaryReportPdfGenerator {
         return table;
     }
 
-    private void addHeaderRows(Table table, List<String> disciplineNames) {
-        int disciplineCount = disciplineNames.size();
+    private void addHeaderRows(Table table, List<DisciplineColumn> disciplineColumns) {
+        int disciplineCount = disciplineColumns.size();
 
         Cell blankForName = new Cell().setBorder(new SolidBorder(1));
         table.addHeaderCell(blankForName);
@@ -129,8 +129,13 @@ public class SummaryReportPdfGenerator {
                 .setBorder(new SolidBorder(1));
         table.addHeaderCell(nameHeader);
 
-        for (String discipline : disciplineNames) {
-            Paragraph rotated = new Paragraph(discipline)
+        for (DisciplineColumn discipline : disciplineColumns) {
+            String headerText = discipline.title();
+            if (discipline.elective()) {
+                headerText = headerText + "\n(вибіркова)";
+            }
+
+            Paragraph rotated = new Paragraph(headerText)
                     .setRotationAngle(Math.toRadians(90))
                     .setTextAlignment(TextAlignment.CENTER)
                     .setFontSize(10f);
@@ -160,7 +165,7 @@ public class SummaryReportPdfGenerator {
 
     private void addStudentRows(Table table,
                                 List<String> studentFullNames,
-                                List<String> disciplineNames,
+                                List<DisciplineColumn> disciplineColumns,
                                 Map<String, List<Integer>> marksByStudent) {
         for (String student : studentFullNames) {
             Cell nameCell = new Cell()
@@ -173,13 +178,13 @@ public class SummaryReportPdfGenerator {
             List<Integer> marks = marksByStudent.getOrDefault(student, Collections.emptyList());
             int zeroCount = 0;
 
-            for (int i = 0; i < disciplineNames.size(); i++) {
-                int mark = getMark(marks, i);
-                if (mark == 0) {
+            for (int i = 0; i < disciplineColumns.size(); i++) {
+                Integer mark = getMark(marks, i);
+                if (mark != null && mark == 0) {
                     zeroCount++;
                 }
 
-                table.addCell(createNumericCell(mark));
+                table.addCell(createMarkCell(mark));
             }
 
             table.addCell(createNumericCell(zeroCount));
@@ -188,7 +193,7 @@ public class SummaryReportPdfGenerator {
 
     private void addZeroSummaryRow(Table table,
                                    List<String> studentFullNames,
-                                   List<String> disciplineNames,
+                                   List<DisciplineColumn> disciplineColumns,
                                    Map<String, List<Integer>> marksByStudent) {
         Cell labelCell = new Cell()
                 .add(new Paragraph("Кількість 0 по дисциплінах"))
@@ -198,12 +203,12 @@ public class SummaryReportPdfGenerator {
         table.addCell(labelCell);
 
         int totalZeros = 0;
-        for (int i = 0; i < disciplineNames.size(); i++) {
+        for (int i = 0; i < disciplineColumns.size(); i++) {
             int zeroPerDiscipline = 0;
             for (String student : studentFullNames) {
                 List<Integer> marks = marksByStudent.getOrDefault(student, Collections.emptyList());
-                int mark = getMark(marks, i);
-                if (mark == 0) {
+                Integer mark = getMark(marks, i);
+                if (mark != null && mark == 0) {
                     zeroPerDiscipline++;
                 }
             }
@@ -223,11 +228,26 @@ public class SummaryReportPdfGenerator {
                 .setBorder(new SolidBorder(1));
     }
 
-    private int getMark(List<Integer> marks, int index) {
-        if (marks == null || index >= marks.size()) {
-            return 0;
+    private Cell createMarkCell(Integer value) {
+        if (value == null) {
+            return createEmptyCell();
         }
-        Integer value = marks.get(index);
-        return value != null ? value : 0;
+        return createNumericCell(value);
+    }
+
+    private Cell createEmptyCell() {
+        return new Cell()
+                .add(new Paragraph(""))
+                .setBorder(new SolidBorder(1));
+    }
+
+    private Integer getMark(List<Integer> marks, int index) {
+        if (marks == null || index >= marks.size()) {
+            return null;
+        }
+        return marks.get(index);
+    }
+
+    public record DisciplineColumn(String title, boolean elective) {
     }
 }
