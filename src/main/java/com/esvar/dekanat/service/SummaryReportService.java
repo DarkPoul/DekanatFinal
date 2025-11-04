@@ -9,6 +9,8 @@ import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.entity.StudentGroupEntity;
 import com.esvar.dekanat.entity.StudentPlansEntity;
 import com.esvar.dekanat.generate.summary.SummaryReportPdfGenerator;
+import com.esvar.dekanat.security.SecurityService;
+import com.esvar.dekanat.user.UserModel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class SummaryReportService {
     private final PlanService planService;
     private final MarksService marksService;
     private final SummaryReportPdfGenerator summaryReportPdfGenerator;
+    private final SecurityService securityService;
     private final Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
 
     public SummaryReportService(GroupService groupService,
@@ -34,13 +37,15 @@ public class SummaryReportService {
                                 StudentPlansService studentPlansService,
                                 PlanService planService,
                                 MarksService marksService,
-                                SummaryReportPdfGenerator summaryReportPdfGenerator) {
+                                SummaryReportPdfGenerator summaryReportPdfGenerator,
+                                SecurityService securityService) {
         this.groupService = groupService;
         this.studentService = studentService;
         this.studentPlansService = studentPlansService;
         this.planService = planService;
         this.marksService = marksService;
         this.summaryReportPdfGenerator = summaryReportPdfGenerator;
+        this.securityService = securityService;
     }
 
     @Transactional(readOnly = true)
@@ -93,12 +98,16 @@ public class SummaryReportService {
         System.out.println("[SummaryReportService] Формуємо оцінки по кожному студенту");
         Map<String, List<Integer>> marksByStudent = buildMarksForSummaryReport(students, disciplineSummaries);
         System.out.println("[SummaryReportService] Отримано записи оцінок: " + marksByStudent.size());
+        String examiner = resolveCurrentTeacherName();
+
         byte[] pdfBytes = summaryReportPdfGenerator.generateSummaryReport(
                 group.getGroupCode(),
                 studentFullNames,
                 disciplineColumns,
                 marksByStudent,
-                true
+                true,
+                examiner,
+                false
         );
 
         System.out.println("[SummaryReportService] Генерація PDF завершена, розмір: " + (pdfBytes == null ? 0 : pdfBytes.length));
@@ -108,6 +117,36 @@ public class SummaryReportService {
         }
 
         return new SummaryReportResult(group.getGroupCode(), pdfBytes);
+    }
+
+    private String resolveCurrentTeacherName() {
+        return securityService.getCurrentUserModel()
+                .map(this::formatTeacherName)
+                .orElse("");
+    }
+
+    private String formatTeacherName(UserModel user) {
+        String lastName = capitalize(user.getLastname());
+        String firstName = capitalize(user.getFirstname());
+        String patronymic = capitalize(user.getPatronymic());
+        return Arrays.stream(new String[]{lastName, firstName, patronymic})
+                .filter(value -> value != null && !value.isBlank())
+                .collect(Collectors.joining(" "));
+    }
+
+    private String capitalize(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+
+        String[] parts = value.split("-");
+        for (int i = 0; i < parts.length; i++) {
+            if (!parts[i].isEmpty()) {
+                parts[i] = parts[i].substring(0, 1).toUpperCase(Locale.ROOT)
+                        + parts[i].substring(1).toLowerCase(Locale.ROOT);
+            }
+        }
+        return String.join("-", parts);
     }
 
     private List<StudentEntity> sortStudentsByFullName(List<StudentEntity> students) {
