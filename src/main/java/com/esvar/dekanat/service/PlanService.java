@@ -43,6 +43,7 @@ public class PlanService {
         planStatementNumberService.assignNumber(plan);
         planRepository.save(plan);
         synchronizeGroupAssignments(plan);
+        initializeMarksForAssignedStudents(plan);
         planStatementNumberService.createRecordsForPlan(plan);
     }
 
@@ -98,6 +99,7 @@ public class PlanService {
 
         planRepository.save(updatedPlan);
         synchronizeGroupAssignments(updatedPlan);
+        initializeMarksForAssignedStudents(updatedPlan);
         if (students != null && !students.isEmpty()) {
             marksInitializerService.initializeMarksForPlan(updatedPlan, students);
         }
@@ -273,6 +275,19 @@ public class PlanService {
                     studentPlansRepository.save(mapping);
                 }
             }
+        }
+    }
+
+    private void initializeMarksForAssignedStudents(PlansEntity plan) {
+        if (plan == null || plan.getId() == null) {
+            return;
+        }
+        List<StudentEntity> assignedStudents = studentPlansRepository.findByPlan(plan).stream()
+                .map(StudentPlansEntity::getStudent)
+                .filter(Objects::nonNull)
+                .toList();
+        if (!assignedStudents.isEmpty()) {
+            marksInitializerService.initializeMarksForPlan(plan, assignedStudents);
         }
     }
 }
