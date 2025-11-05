@@ -93,9 +93,12 @@ echo "[5/8] Піднімаємо тестовий MySQL контейнер ${TES
 docker run -d \
   --name "${TEST_DB_CONTAINER}" \
   --network "${TEST_NET}" \
+  -p "${TEST_DB_PUBLISH_PORT}":3306 \        # або 127.0.0.1:${TEST_DB_PUBLISH_PORT}:3306
+  # shellcheck disable=SC2215
   -e MYSQL_ROOT_PASSWORD="${TEST_DB_ROOT_PASS}" \
   -e MYSQL_DATABASE="${TEST_DB_NAME}" \
   "${TEST_MYSQL_IMAGE}"
+
 
 echo "    Чекаємо, поки MySQL всередині контейнера повністю готовий приймати root + пароль..."
 
