@@ -86,6 +86,8 @@ public class EnterMarksView extends Div {
     private static final String CONTROL_TYPE_FIRST_MODULE = "Перший модульний контроль";
     private static final String CONTROL_TYPE_SECOND_MODULE = "Другий модульний контроль";
     private static final String CONTROL_TYPE_CONTROL_WORK = "Контрольна робота";
+    private static final String SYSTEM_USER_DISPLAY_NAME = "Система";
+    private static final String DATE_TIME_PATTERN = "dd.MM.yyyy HH:mm";
 
     private final FacultyService facultyService;
     private final DepartmentService departmentService;
@@ -696,9 +698,7 @@ public class EnterMarksView extends Div {
                     }
                     dto.setTotalGrade(String.valueOf(mark.getFinalGrade()));
                     dto.setLocked(mark.isLocked());
-                    SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
-                    dto.setLastUpdated(formatter.format(mark.getLastUpdated()));
-                    dto.setLastUpdatedBy(formatUserName());
+                    populateAuditInfo(dto, mark);
                     markDTOList.add(dto);
                 }
             }
@@ -713,9 +713,7 @@ public class EnterMarksView extends Div {
                     dto.setEnterMark(String.valueOf(finalGrade));
                     dto.setControlWorkAdmission(calculateControlWorkAdmission(dto.getEnterMark()));
                     dto.setLocked(mark.isLocked());
-                    SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
-                    dto.setLastUpdated(formatter.format(mark.getLastUpdated()));
-                    dto.setLastUpdatedBy(formatUserName());
+                    populateAuditInfo(dto, mark);
                     markDTOList.add(dto);
                 }
             }
@@ -752,8 +750,7 @@ public class EnterMarksView extends Div {
                     dto.setTotalMarkByFirstAndSecondModule(String.valueOf(sumModules));
 
                     dto.setLocked(mark.isLocked());
-                    SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
-                    dto.setLastUpdatedBy(formatUserName());
+                    populateAuditInfo(dto, mark);
                     markDTOList.add(dto);
                 }
             }
@@ -765,9 +762,7 @@ public class EnterMarksView extends Div {
                     dto.setStudentPIB(mark.getStudent().getFullName());
                     dto.setEnterMark(String.valueOf(mark.getFinalGrade()));
                     dto.setLocked(mark.isLocked());
-                    SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy HH:mm");
-                    dto.setLastUpdated(formatter.format(mark.getLastUpdated()));
-                    dto.setLastUpdatedBy(formatUserName());
+                    populateAuditInfo(dto, mark);
                     markDTOList.add(dto);
 
 
@@ -1386,9 +1381,42 @@ public class EnterMarksView extends Div {
     }
 
 
+    private void populateAuditInfo(MarkDTO dto, MarksEntity mark) {
+        dto.setLastUpdated(formatLastUpdated(mark.getLastUpdated()));
+        dto.setLastUpdatedBy(resolveLastUpdatedBy(mark));
+    }
+
+    private String resolveLastUpdatedBy(MarksEntity mark) {
+        if (mark == null) {
+            return "";
+        }
+        return formatUserName(mark.getLastUpdatedBy());
+    }
+
+    private String formatLastUpdated(Timestamp timestamp) {
+        if (timestamp == null) {
+            return "";
+        }
+        return new SimpleDateFormat(DATE_TIME_PATTERN).format(timestamp);
+    }
+
     private String formatUserName() {
-        UserModel user = securityService.getCurrentUserModel().orElseThrow();
-        return user.getFirstname() + " " + user.getLastname().toUpperCase();
+        UserModel user = securityService.getCurrentUserModel().orElse(null);
+        return formatUserName(user);
+    }
+
+    private String formatUserName(UserModel user) {
+        if (user == null) {
+            return SYSTEM_USER_DISPLAY_NAME;
+        }
+        String firstname = Optional.ofNullable(user.getFirstname()).orElse("").trim();
+        String lastname = Optional.ofNullable(user.getLastname()).orElse("").trim();
+        String formattedLast = lastname.isEmpty() ? "" : lastname.toUpperCase();
+        String display = (firstname + " " + formattedLast).trim();
+        if (!display.isEmpty()) {
+            return display;
+        }
+        return Optional.ofNullable(user.getEmail()).orElse(SYSTEM_USER_DISPLAY_NAME);
     }
 
     private DataModelForZalik buildDataModelForZalik(String secondTeacher) {

@@ -1,6 +1,7 @@
 package com.esvar.dekanat.service;
 
 import com.esvar.dekanat.entity.*;
+import com.esvar.dekanat.repository.ControlMethodRepository;
 import com.esvar.dekanat.repository.MarksPartsRepository;
 import com.esvar.dekanat.repository.MarksRepository;
 import org.springframework.stereotype.Service;
@@ -15,16 +16,22 @@ import java.util.stream.Collectors;
 @Service
 public class MarksInitializerService {
 
+    private static final String CONTROL_TYPE_FIRST_MODULE = "Перший модульний контроль";
+    private static final String CONTROL_TYPE_SECOND_MODULE = "Другий модульний контроль";
+
     private final MarksRepository marksRepository;
     private final MarksPartsRepository marksPartsRepository;
     private final ControlPartsService controlPartsService;
+    private final ControlMethodRepository controlMethodRepository;
 
     public MarksInitializerService(MarksRepository marksRepository,
                                    MarksPartsRepository marksPartsRepository,
-                                   ControlPartsService controlPartsService) {
+                                   ControlPartsService controlPartsService,
+                                   ControlMethodRepository controlMethodRepository) {
         this.marksRepository = marksRepository;
         this.marksPartsRepository = marksPartsRepository;
         this.controlPartsService = controlPartsService;
+        this.controlMethodRepository = controlMethodRepository;
     }
 
     @Transactional
@@ -33,12 +40,16 @@ public class MarksInitializerService {
             return;
         }
         Timestamp now = new Timestamp(System.currentTimeMillis());
+        ControlMethodEntity firstModuleControl = controlMethodRepository.findByName(CONTROL_TYPE_FIRST_MODULE);
+        ControlMethodEntity secondModuleControl = controlMethodRepository.findByName(CONTROL_TYPE_SECOND_MODULE);
         for (StudentEntity student : students) {
             initMarkForControl(plan, student, plan.getFirstControl(), now);
             ControlMethodEntity second = plan.getSecondControl();
             if (second != null && !"Відсутній".equalsIgnoreCase(second.getName())) {
                 initMarkForControl(plan, student, second, now);
             }
+            initMarkForControl(plan, student, firstModuleControl, now);
+            initMarkForControl(plan, student, secondModuleControl, now);
         }
     }
 
