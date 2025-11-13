@@ -1,6 +1,7 @@
 package com.esvar.dekanat.service;
 
 import com.esvar.dekanat.dto.GroupDTO;
+import com.esvar.dekanat.dto.SpecialtyDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.repository.*;
 import org.springframework.stereotype.Service;

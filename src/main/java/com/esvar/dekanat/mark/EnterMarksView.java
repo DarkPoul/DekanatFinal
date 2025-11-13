@@ -3,6 +3,7 @@ package com.esvar.dekanat.mark;
 import com.esvar.dekanat.document.DocumentGenerationService;
 import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.dto.MarkDTO;
+import com.esvar.dekanat.dto.SpecialtyDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
 
@@ -115,7 +116,7 @@ public class EnterMarksView extends Div {
 
     private Select<String> selectFaculty = new Select<>();
     private Select<String> selectDepartment = new Select<>();
-    private Select<String> selectSpecialty = new Select<>();
+    private Select<SpecialtyDTO> selectSpecialty = new Select<>();
     private Select<String> selectCourse = new Select<>();
     private final Select<GroupDTO> selectGroup = new Select<>();
     private Select<String> selectDiscipline = new Select<>();
