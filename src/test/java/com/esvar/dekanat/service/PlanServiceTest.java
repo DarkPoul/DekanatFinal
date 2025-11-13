@@ -149,6 +149,29 @@ class PlanServiceTest {
                 .doesNotContain("Перший модульний контроль", "Другий модульний контроль");
     }
 
+    @Test
+    void shouldReturnPlanControlTypesWhenSemesterDoesNotMatchSession() {
+        plan.setSemester(1); // Не відповідає семестру, обчисленому для літньої сесії
+
+        when(planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumberAndDiscipline_Title(
+                any(), any(), any(), anyInt(), anyInt(), any()))
+                .thenReturn(List.of(plan));
+        when(studentRepository.findByGroup(group))
+                .thenReturn(List.of(createStudent(true)));
+
+        List<String> controlTypes = planService.getControlTypesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
+                "Faculty",
+                "Department",
+                "SP",
+                1,
+                1,
+                "Math"
+        );
+
+        assertThat(controlTypes)
+                .contains("Екзамен", "Залік");
+    }
+
     private StudentEntity createStudent(boolean fullTime) {
         StudentEntity student = new StudentEntity();
         student.setId(fullTime ? 11L : 12L);

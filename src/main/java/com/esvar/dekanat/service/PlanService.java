@@ -215,13 +215,17 @@ public class PlanService {
                 .filter(p -> p.getSemester() == semester)
                 .toList();
 
-        List<String> controlTypes = semesterPlans.stream()
-                .flatMap(plan -> Stream.of(plan.getFirstControl().getName(), plan.getSecondControl().getName()))
+        List<PlansEntity> relevantPlans = semesterPlans.isEmpty() ? plans : semesterPlans;
+
+        List<String> controlTypes = relevantPlans.stream()
+                .flatMap(plan -> Stream.of(plan.getFirstControl(), plan.getSecondControl()))
+                .filter(Objects::nonNull)
+                .map(ControlMethodEntity::getName)
                 .filter(control -> !"Відсутній".equals(control))
                 .distinct()
                 .collect(Collectors.toList());
 
-        if (shouldIncludeModuleControls(semesterPlans, course, groupNumber)) {
+        if (shouldIncludeModuleControls(relevantPlans, course, groupNumber)) {
             controlTypes.add("Перший модульний контроль");
             controlTypes.add("Другий модульний контроль");
         }
