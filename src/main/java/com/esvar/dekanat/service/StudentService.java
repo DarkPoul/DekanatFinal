@@ -92,10 +92,19 @@ public class StudentService {
     }
 
     public Set<Long> getGroupIdsByFaculty(Long facultyId) {
+        return getGroupIdsByFaculty(facultyId, null);
+    }
+
+    public Set<Long> getGroupIdsByFaculty(Long facultyId, Boolean fullTime) {
         if (facultyId == null) {
             return Collections.emptySet();
         }
-        return new HashSet<>(studentRepository.findDistinctGroupIdsByFacultyId(facultyId));
+
+        List<Long> groupIds = (fullTime == null)
+                ? studentRepository.findDistinctGroupIdsByFacultyId(facultyId)
+                : studentRepository.findDistinctGroupIdsByFacultyIdAndStudyForm(facultyId, fullTime);
+
+        return new HashSet<>(groupIds);
     }
 
     public StudentEntity findStudentById(Long id) {
@@ -137,6 +146,29 @@ public class StudentService {
         }
 
         return student;
+    }
+
+    public Optional<Boolean> determineGroupStudyForm(StudentGroupEntity group) {
+        if (group == null) {
+            return Optional.empty();
+        }
+
+        List<StudentEntity> students = studentRepository.findByGroup(group);
+        if (students == null || students.isEmpty()) {
+            return Optional.empty();
+        }
+
+        boolean allFullTime = students.stream().allMatch(StudentEntity::isFullTime);
+        if (allFullTime) {
+            return Optional.of(Boolean.TRUE);
+        }
+
+        boolean allPartTime = students.stream().noneMatch(StudentEntity::isFullTime);
+        if (allPartTime) {
+            return Optional.of(Boolean.FALSE);
+        }
+
+        return Optional.empty();
     }
 
     private static String normalizeFullName(String fullName) {
