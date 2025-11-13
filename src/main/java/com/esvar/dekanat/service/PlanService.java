@@ -202,25 +202,62 @@ public class PlanService {
     public List<String> getControlTypesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
             String faculty, String department, String specialty, int course, int groupNumber, String discipline) {
         int semester = getNumberSemester(String.valueOf(course));
-        List<String> controlTypes = planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumberAndDiscipline_Title(
-                        facultyRepository.findByTitle(faculty),
-                        departmentRepository.findByTitle(department),
-                        specialty,
-                        course,
-                        groupNumber,
-                        discipline
-                ).stream()
+        List<PlansEntity> plans = planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumberAndDiscipline_Title(
+                facultyRepository.findByTitle(faculty),
+                departmentRepository.findByTitle(department),
+                specialty,
+                course,
+                groupNumber,
+                discipline
+        );
+
+        List<PlansEntity> semesterPlans = plans.stream()
                 .filter(p -> p.getSemester() == semester)
-                .flatMap(plan -> Stream.of(plan.getFirstControl().getName(), plan.getSecondControl().getName())) // Отримуємо обидва значення
-                .filter(control -> !"Відсутній".equals(control)) // Фільтруємо "Відсутній"
-                .distinct() // Унікальні значення (якщо потрібно)
+                .toList();
+
+        List<String> controlTypes = semesterPlans.stream()
+                .flatMap(plan -> Stream.of(plan.getFirstControl().getName(), plan.getSecondControl().getName()))
+                .filter(control -> !"Відсутній".equals(control))
+                .distinct()
                 .collect(Collectors.toList());
 
-        // Додаємо "Перший модульний контроль" і "Другий модульний контроль"
-        controlTypes.add("Перший модульний контроль");
-        controlTypes.add("Другий модульний контроль");
+        if (shouldIncludeModuleControls(semesterPlans, course, groupNumber)) {
+            controlTypes.add("Перший модульний контроль");
+            controlTypes.add("Другий модульний контроль");
+        }
 
         return controlTypes;
+    }
+
+    private boolean shouldIncludeModuleControls(List<PlansEntity> plans, int course, int groupNumber) {
+        if (plans == null || plans.isEmpty()) {
+            return false;
+        }
+
+        return findGroupForCourseAndNumber(plans, course, groupNumber)
+                .map(this::isFullTimeGroup)
+                .orElse(false);
+    }
+
+    private Optional<StudentGroupEntity> findGroupForCourseAndNumber(List<PlansEntity> plans, int course, int groupNumber) {
+        return plans.stream()
+                .flatMap(plan -> plan.getGroups().stream())
+                .filter(Objects::nonNull)
+                .filter(group -> group.getCourse() == course && group.getGroupNumber() == groupNumber)
+                .findFirst();
+    }
+
+    private boolean isFullTimeGroup(StudentGroupEntity group) {
+        if (group == null) {
+            return false;
+        }
+
+        List<StudentEntity> students = studentRepository.findByGroup(group);
+        if (students == null || students.isEmpty()) {
+            return false;
+        }
+
+        return students.stream().allMatch(StudentEntity::isFullTime);
     }
 
     public PlansEntity getPlanEntityByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(String faculty, String department, String specialty, int course, int groupNumber, String discipline){
