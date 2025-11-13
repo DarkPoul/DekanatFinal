@@ -3,6 +3,7 @@ package com.esvar.dekanat.mark;
 import com.esvar.dekanat.document.DocumentGenerationService;
 import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.dto.MarkDTO;
+import com.esvar.dekanat.dto.SpecialtyDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
 
@@ -115,7 +116,7 @@ public class EnterMarksView extends Div {
 
     private Select<String> selectFaculty = new Select<>();
     private Select<String> selectDepartment = new Select<>();
-    private Select<String> selectSpecialty = new Select<>();
+    private Select<SpecialtyDTO> selectSpecialty = new Select<>();
     private Select<String> selectCourse = new Select<>();
     private final Select<GroupDTO> selectGroup = new Select<>();
     private Select<String> selectDiscipline = new Select<>();
@@ -185,6 +186,13 @@ public class EnterMarksView extends Div {
         selectSpecialty.setLabel("Спеціальність");
         selectSpecialty.setWidth("100%");
         selectSpecialty.getStyle().set("padding", "0px").set("margin", "0px").set("margin-bottom", "5px");
+        selectSpecialty.setItemLabelGenerator(option -> {
+            if (option == null) {
+                return "";
+            }
+            String title = option.getTitle();
+            return (title != null && !title.isBlank()) ? title : option.getAbbreviation();
+        });
 
         selectCourse.setLabel("Курс");
         selectCourse.setWidth("100%");
@@ -310,7 +318,8 @@ public class EnterMarksView extends Div {
 
         selectSpecialty.addValueChangeListener(event -> {
             clearGrid();
-            if (selectSpecialty.getValue() != null) {
+            SpecialtyDTO selectedSpecialty = selectSpecialty.getValue();
+            if (selectedSpecialty != null) {
                 selectCourse.setReadOnly(false);
                 selectGroup.setReadOnly(true);
                 selectDiscipline.setReadOnly(true);
@@ -323,7 +332,7 @@ public class EnterMarksView extends Div {
                 selectCourse.setItems(planService.getCourseByFacultyAndDepartmentAndSpecialty(
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
-                        selectSpecialty.getValue()
+                        selectedSpecialty.getAbbreviation()
                 ));
             }
         });
@@ -331,7 +340,8 @@ public class EnterMarksView extends Div {
         selectCourse.addValueChangeListener(event -> {
             clearGrid();
             currentGroup = null;
-            if (selectCourse.getValue() != null) {
+            SpecialtyDTO selectedSpecialty = selectSpecialty.getValue();
+            if (selectCourse.getValue() != null && selectedSpecialty != null) {
                 selectGroup.setReadOnly(false);
                 selectDiscipline.setReadOnly(true);
                 selectControlType.setReadOnly(true);
@@ -342,7 +352,7 @@ public class EnterMarksView extends Div {
                 selectGroup.setItems(planService.getGroupsByFacultyAndDepartmentAndSpecialtyAndCourse(
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
-                        selectSpecialty.getValue(),
+                        selectedSpecialty.getAbbreviation(),
                         Integer.parseInt(selectCourse.getValue())
                 ));
             }
@@ -353,7 +363,8 @@ public class EnterMarksView extends Div {
             GroupDTO selectedGroup = selectGroup.getValue();
             currentGroup = selectedGroup == null ? null : groupService.getGroupByTitle(selectedGroup.getGroupCode());
             updateReportButtonState();
-            if (selectedGroup != null) {
+            SpecialtyDTO selectedSpecialty = selectSpecialty.getValue();
+            if (selectedGroup != null && selectedSpecialty != null) {
                 selectDiscipline.setReadOnly(false);
                 selectControlType.setReadOnly(true);
 
@@ -362,7 +373,7 @@ public class EnterMarksView extends Div {
                 selectDiscipline.setItems(planService.getDisciplinesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupGroupNumber(
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
-                        selectSpecialty.getValue(),
+                        selectedSpecialty.getAbbreviation(),
                         selectedGroup.getCourse(),
                         selectedGroup.getGroupNumber()
                 ));
@@ -372,13 +383,14 @@ public class EnterMarksView extends Div {
         selectDiscipline.addValueChangeListener(event -> {
             clearGrid();
             GroupDTO selectedGroup = selectGroup.getValue();
-            if (selectDiscipline.getValue() != null && selectedGroup != null) {
+            SpecialtyDTO selectedSpecialty = selectSpecialty.getValue();
+            if (selectDiscipline.getValue() != null && selectedGroup != null && selectedSpecialty != null) {
                 selectControlType.setReadOnly(false);
 
                 selectControlType.setItems(planService.getControlTypesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
-                        selectSpecialty.getValue(),
+                        selectedSpecialty.getAbbreviation(),
                         selectedGroup.getCourse(),
                         selectedGroup.getGroupNumber(),
                         selectDiscipline.getValue()
@@ -387,7 +399,7 @@ public class EnterMarksView extends Div {
                 plansEntity = planService.getPlanEntityByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
-                        selectSpecialty.getValue(),
+                        selectedSpecialty.getAbbreviation(),
                         selectedGroup.getCourse(),
                         selectedGroup.getGroupNumber(),
                         selectDiscipline.getValue()

@@ -1,6 +1,7 @@
 package com.esvar.dekanat.service;
 
 import com.esvar.dekanat.dto.GroupDTO;
+import com.esvar.dekanat.dto.SpecialtyDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.repository.*;
 import org.springframework.stereotype.Service;
@@ -129,15 +130,27 @@ public class PlanService {
         return planRepository.findById(id).orElse(null);
     }
 
-    public List<String> getSpecialtiesByFacultyAndDepartment(String faculty, String department) {
-        return planRepository.findByFacultyAndDepartment
-                (
+    public List<SpecialtyDTO> getSpecialtiesByFacultyAndDepartment(String faculty, String department) {
+        Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
+
+        return planRepository.findByFacultyAndDepartment(
                         facultyRepository.findByTitle(faculty),
                         departmentRepository.findByTitle(department)
                 ).stream()
                 .map(PlansEntity::getSpecialty)
-                .map(SpecialtyEntity::getAbbreviation)
-                .distinct()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(
+                        SpecialtyEntity::getAbbreviation,
+                        specialty -> new SpecialtyDTO(
+                                specialty.getAbbreviation(),
+                                specialty.getTitle()
+                        ),
+                        (existing, duplicate) -> existing,
+                        LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .sorted(Comparator.comparing(SpecialtyDTO::getTitle, ukrainianCollator))
                 .collect(Collectors.toList());
     }
 
