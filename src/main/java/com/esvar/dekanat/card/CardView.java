@@ -1,22 +1,29 @@
 package com.esvar.dekanat.card;
 
+// Responsibility groups observed in this view:
+// - UI rendering/layout: building tabs, form layouts, and styling for personal, academic, passport, and education sections.
+// - Event handling: reacting to selector changes, button clicks, and enabling/disabling form fields.
+// - Data coordination: loading student/group data from services, validating selections, and persisting academic changes.
+// - Group code management: constructing and interpreting group codes from prefixes, courses, numbers, and graduation years.
+// - PDF export: generating printable group student lists.
+// - Helper utilities: repetitive field value setters and parsing helpers.
+
+/*
+Proposed target structure after refactoring:
+- CardView: orchestration layer that wires UI sections, delegates to helpers, and remains the Vaadin route.
+- CardFieldUtil: shared helper for safely updating field values and parsing user input (extracted).
+- GroupCodeBuilder: encapsulates group code construction logic (extracted).
+- StudentListPdfGenerator: encapsulates PDF creation and streaming for student lists (extracted).
+Future candidates:
+- Dedicated UI section components (personal data, academic data, passport data) to reduce constructor size. // TODO: decouple further
+*/
+
 
 import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.repository.StudentRatingRepository;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.view.MainLayout;
-import com.itextpdf.io.font.PdfEncodings;
-import com.itextpdf.kernel.font.PdfFont;
-import com.itextpdf.kernel.font.PdfFontFactory;
-import com.itextpdf.kernel.geom.PageSize;
-import com.itextpdf.kernel.pdf.PdfDocument;
-import com.itextpdf.kernel.pdf.PdfWriter;
-import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
-import com.itextpdf.layout.Document;
-import com.itextpdf.layout.element.LineSeparator;
-import com.itextpdf.layout.element.Paragraph;
-import com.itextpdf.layout.properties.TextAlignment;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.checkbox.Checkbox;
@@ -39,20 +46,21 @@ import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.server.StreamRegistration;
-import com.vaadin.flow.server.StreamResource;
-import com.vaadin.flow.server.StreamResourceWriter;
 import jakarta.annotation.security.PermitAll;
 
-import java.io.*;
 import java.sql.Date;
 import java.text.Collator;
 import java.time.LocalDate;
 import java.time.Year;
-import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static com.esvar.dekanat.card.CardFieldUtil.setBenefitsValue;
+import static com.esvar.dekanat.card.CardFieldUtil.setDatePickerValue;
+import static com.esvar.dekanat.card.CardFieldUtil.setGenderValue;
+import static com.esvar.dekanat.card.CardFieldUtil.setSelectValue;
+import static com.esvar.dekanat.card.CardFieldUtil.setTextFieldValue;
 
 
 //todo: Додати попередження при виході з сторінки чи оновленні сторінки якщо є незбережені дані
@@ -74,11 +82,10 @@ public class CardView extends Div {
     private final StudentReportService studentReportService;
     private final ReportService reportService;
     private final StudentRatingRepository ratingRepository;
+    private final GroupCodeBuilder groupCodeBuilder;
 
 
     private VerticalLayout mainLayout = new VerticalLayout();
-    private HorizontalLayout leftLayout1Page = new HorizontalLayout();
-    private HorizontalLayout rightLayout1Page = new HorizontalLayout();
     private HorizontalLayout selectors = new HorizontalLayout();
     private Select<String> selectStudent = new Select<>();
     private ComboBox<String> selectGroup = new ComboBox<>();
@@ -169,6 +176,7 @@ public class CardView extends Div {
         this.reportService = reportService;
         this.ratingRepository = ratingRepository;
         this.specialtyService = specialtyService;
+        this.groupCodeBuilder = new GroupCodeBuilder(specialtyService);
         this.ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
         this.pendingCreatedGroupId = null;
 
@@ -431,7 +439,7 @@ public class CardView extends Div {
                 return;
             }
 
-            generateAndSend(selectedGroup, students);
+            StudentListPdfGenerator.generateAndSend(selectedGroup, students);
         });
 
 
@@ -455,54 +463,7 @@ public class CardView extends Div {
             }
         });
 
-        // Add border and title to leftLayout1Page
-        Div leftLayoutWrapper = new Div();
-        leftLayoutWrapper.getStyle().set("border", "1px solid #ddd");
-        leftLayoutWrapper.getStyle().set("border-radius", "8px");
-        leftLayoutWrapper.getStyle().set("box-shadow", "0 2px 4px rgba(0, 0, 0, 0.1)");
-        leftLayoutWrapper.getStyle().set("padding", "20px");
-        leftLayoutWrapper.getStyle().set("position", "relative");
-        leftLayoutWrapper.getStyle().set("background", "white");
-
-        Span leftLayoutTitle = new Span("Персональні дані");
-        leftLayoutTitle.getStyle().set("position", "absolute");
-        leftLayoutTitle.getStyle().set("top", "-10px");
-        leftLayoutTitle.getStyle().set("left", "20px");
-        leftLayoutTitle.getStyle().set("background", "white");
-        leftLayoutTitle.getStyle().set("padding", "0 10px");
-        leftLayoutTitle.getStyle().set("font-weight", "bold");
-
-        leftLayoutWrapper.add(leftLayoutTitle, leftLayout1Page);
-
-        // Add border and title to rightLayout1Page
-        Div rightLayoutWrapper = new Div();
-        rightLayoutWrapper.getStyle().set("border", "1px solid #ddd");
-        rightLayoutWrapper.getStyle().set("border-radius", "8px");
-        rightLayoutWrapper.getStyle().set("box-shadow", "0 2px 4px rgba(0, 0, 0, 0.1)");
-        rightLayoutWrapper.getStyle().set("padding", "20px");
-        rightLayoutWrapper.getStyle().set("position", "relative");
-        rightLayoutWrapper.getStyle().set("background", "white");
-
-        Span rightLayoutTitle = new Span("Академічні дані");
-        rightLayoutTitle.getStyle().set("position", "absolute");
-        rightLayoutTitle.getStyle().set("top", "-10px");
-        rightLayoutTitle.getStyle().set("left", "20px");
-        rightLayoutTitle.getStyle().set("background", "white");
-        rightLayoutTitle.getStyle().set("padding", "0 10px");
-        rightLayoutTitle.getStyle().set("font-weight", "bold");
-
-        rightLayoutWrapper.add(rightLayoutTitle, rightLayout1Page);
-
-        leftLayout1Page.add(lastNameUkrField, firstNameUkrField, middleNameUkrField, lastNameEngField, firstNameEngField);
-        rightLayout1Page.add(groupSelect, courseSelect, groupNumberField, admissionYearSelect, recordBookNumberField);
-
-        // Layout for main info text fields
-        VerticalLayout mainInfoLayout = new VerticalLayout();
-        mainInfoLayout.setWidth("100%");
-        mainInfoLayout.add(leftLayoutWrapper, rightLayoutWrapper);
-        mainInfoLayout.getStyle().set("padding", "0px");
-        leftLayoutWrapper.getStyle().set("width", "97%");
-        rightLayoutWrapper.getStyle().set("width", "97%");
+        CardMainInfoView mainInfoView = new CardMainInfoView(lastNameUkrField, firstNameUkrField, middleNameUkrField, lastNameEngField, firstNameEngField, groupSelect, courseSelect, groupNumberField, admissionYearSelect, recordBookNumberField);
 
 // Additional info text fields
         caseNumberField = new TextField("Номер справи");
@@ -690,272 +651,25 @@ public class CardView extends Div {
         });
 
 
-// Group 2: Address Details
-        Div addressDetailsWrapper = new Div();
-        addressDetailsWrapper.getStyle().set("border", "1px solid #ddd");
-        addressDetailsWrapper.getStyle().set("border-radius", "8px");
-        addressDetailsWrapper.getStyle().set("box-shadow", "0 2px 4px rgba(0, 0, 0, 0.1)");
-        addressDetailsWrapper.getStyle().set("padding", "20px");
-        addressDetailsWrapper.getStyle().set("position", "relative");
-        addressDetailsWrapper.getStyle().set("background", "white");
-        addressDetailsWrapper.getStyle().set("width", "97%"); // Set the width to 97%
 
-        Span addressDetailsTitle = new Span("Адреса");
-        addressDetailsTitle.getStyle().set("position", "absolute");
-        addressDetailsTitle.getStyle().set("top", "-10px");
-        addressDetailsTitle.getStyle().set("left", "20px");
-        addressDetailsTitle.getStyle().set("background", "white");
-        addressDetailsTitle.getStyle().set("padding", "0 10px");
-        addressDetailsTitle.getStyle().set("font-weight", "bold");
+        CardAdditionalInfoView additionalInfoView = new CardAdditionalInfoView(caseNumberField, educationFormSelect, degreeSelect, admissionConditionSelect, paymentSourceSelect, contractNumberField, amountField, benefitsSelect, regionSelect, indexField, fullAddressField, phoneNumberField, emailField);
+        CardPassportInfoView passportInfoView = new CardPassportInfoView(passportSeriesField, passportNumberField, passportIssueDatePicker, passportExpiryDatePicker, passportIssuedByField, idCodeField, unzrField, birthDatePicker, nationalityField, genderSelect, personNumberEDEBOField, studentCardNumberEDEBOField);
+        CardEducationDocumentsView educationDocumentsView = new CardEducationDocumentsView(documentTypeSelect, distinctionCheckbox, documentSeriesField, documentNumberField, documentIssueDatePicker, institutionNameField, institutionNameEngField, diplomaSeriesField, diplomaNumberField, graduationDatePicker, appendixNumberField, thesisTitleUkrField, thesisTitleEngField);
 
-        FormLayout addressDetailsLayout = new FormLayout();
-        addressDetailsLayout.add(regionSelect, indexField, fullAddressField);
-        addressDetailsLayout.setResponsiveSteps(
-                new FormLayout.ResponsiveStep("0", 1), // 1 column for narrow layout
-                new FormLayout.ResponsiveStep("500px", 2) // 2 columns for wider layout
-        );
-        addressDetailsLayout.setColspan(fullAddressField, 2);
-
-        addressDetailsWrapper.add(addressDetailsTitle, addressDetailsLayout);
-
-// Group 3: Passport Details
-        Div passportDetailsWrapper = new Div();
-        passportDetailsWrapper.getStyle().set("border", "1px solid #ddd");
-        passportDetailsWrapper.getStyle().set("border-radius", "8px");
-        passportDetailsWrapper.getStyle().set("box-shadow", "0 2px 4px rgba(0, 0, 0, 0.1)");
-        passportDetailsWrapper.getStyle().set("padding", "20px");
-        passportDetailsWrapper.getStyle().set("position", "relative");
-        passportDetailsWrapper.getStyle().set("background", "white");
-
-        Span passportDetailsTitle = new Span("Паспортні дані");
-        passportDetailsTitle.getStyle().set("position", "absolute");
-        passportDetailsTitle.getStyle().set("top", "-10px");
-        passportDetailsTitle.getStyle().set("left", "20px");
-        passportDetailsTitle.getStyle().set("background", "white");
-        passportDetailsTitle.getStyle().set("padding", "0 10px");
-        passportDetailsTitle.getStyle().set("font-weight", "bold");
-
-        FormLayout passportDetailsLayout = new FormLayout();
-        passportDetailsLayout.add(passportSeriesField, passportNumberField, passportIssueDatePicker, passportExpiryDatePicker, passportIssuedByField, idCodeField, unzrField, birthDatePicker, nationalityField, genderSelect, personNumberEDEBOField, studentCardNumberEDEBOField);
-
-        passportDetailsWrapper.add(passportDetailsTitle, passportDetailsLayout);
-
-// Group 4: Education Details
-        Div educationDetailsWrapper = new Div();
-        educationDetailsWrapper.getStyle().set("border", "1px solid #ddd");
-        educationDetailsWrapper.getStyle().set("border-radius", "8px");
-        educationDetailsWrapper.getStyle().set("box-shadow", "0 2px 4px rgba(0, 0, 0, 0.1)");
-        educationDetailsWrapper.getStyle().set("padding", "20px");
-        educationDetailsWrapper.getStyle().set("position", "relative");
-        educationDetailsWrapper.getStyle().set("background", "white");
-        educationDetailsWrapper.getStyle().set("width", "97%"); // Set the width to 97%
-
-        Span educationDetailsTitle = new Span("Дані про навчання");
-        educationDetailsTitle.getStyle().set("position", "absolute");
-        educationDetailsTitle.getStyle().set("top", "-10px");
-        educationDetailsTitle.getStyle().set("left", "20px");
-        educationDetailsTitle.getStyle().set("background", "white");
-        educationDetailsTitle.getStyle().set("padding", "0 10px");
-        educationDetailsTitle.getStyle().set("font-weight", "bold");
-
-        FormLayout educationDetailsLayout = new FormLayout();
-        educationDetailsLayout.add(caseNumberField, educationFormSelect, degreeSelect, admissionConditionSelect, paymentSourceSelect, contractNumberField, amountField, benefitsSelect);
-
-        educationDetailsWrapper.add(educationDetailsTitle, educationDetailsLayout);
-
-        // Group 4: Education Details
-        Div contactDetailsWrapper = new Div();
-        contactDetailsWrapper.getStyle().set("border", "1px solid #ddd");
-        contactDetailsWrapper.getStyle().set("border-radius", "8px");
-        contactDetailsWrapper.getStyle().set("box-shadow", "0 2px 4px rgba(0, 0, 0, 0.1)");
-        contactDetailsWrapper.getStyle().set("padding", "20px");
-        contactDetailsWrapper.getStyle().set("position", "relative");
-        contactDetailsWrapper.getStyle().set("background", "white");
-        contactDetailsWrapper.getStyle().set("width", "97%"); // Set the width to 97%
-
-        Span contactDetailsTitle = new Span("Контактні дані");
-        contactDetailsTitle.getStyle().set("position", "absolute");
-        contactDetailsTitle.getStyle().set("top", "-10px");
-        contactDetailsTitle.getStyle().set("left", "20px");
-        contactDetailsTitle.getStyle().set("background", "white");
-        contactDetailsTitle.getStyle().set("padding", "0 10px");
-        contactDetailsTitle.getStyle().set("font-weight", "bold");
-
-        FormLayout contactDetailsLayout = new FormLayout();
-        contactDetailsLayout.add(phoneNumberField, emailField);
-
-        contactDetailsWrapper.add(contactDetailsTitle, contactDetailsLayout);
-
-// Layout for additional info text fields
-        VerticalLayout additionalInfoLayout = new VerticalLayout();
-        additionalInfoLayout.setWidth("100%");
-        additionalInfoLayout.add(educationDetailsWrapper, contactDetailsWrapper, addressDetailsWrapper);
-        additionalInfoLayout.getStyle().set("padding", "0px");
-
-        VerticalLayout passportInfoLayout = new VerticalLayout();
-        passportInfoLayout.setWidth("100%");
-        passportInfoLayout.add(passportDetailsWrapper);
-        passportInfoLayout.getStyle().set("padding", "0px");
-
-// Group 1: General Education Documents
-        Div generalEducationDocumentsWrapper = new Div();
-        generalEducationDocumentsWrapper.getStyle().set("border", "1px solid #ddd");
-        generalEducationDocumentsWrapper.getStyle().set("border-radius", "8px");
-        generalEducationDocumentsWrapper.getStyle().set("box-shadow", "0 2px 4px rgba(0, 0, 0, 0.1)");
-        generalEducationDocumentsWrapper.getStyle().set("padding", "20px");
-        generalEducationDocumentsWrapper.getStyle().set("position", "relative");
-        generalEducationDocumentsWrapper.getStyle().set("background", "white");
-        generalEducationDocumentsWrapper.getStyle().set("width", "97%"); // Set the width to 97%
-
-        Span generalEducationDocumentsTitle = new Span("Попередня освіта");
-        generalEducationDocumentsTitle.getStyle().set("position", "absolute");
-        generalEducationDocumentsTitle.getStyle().set("top", "-10px");
-        generalEducationDocumentsTitle.getStyle().set("left", "20px");
-        generalEducationDocumentsTitle.getStyle().set("background", "white");
-        generalEducationDocumentsTitle.getStyle().set("padding", "0 10px");
-        generalEducationDocumentsTitle.getStyle().set("font-weight", "bold");
-
-        documentSeriesField = new TextField("Серія документу");
-        documentNumberField = new TextField("№ документу");
-        documentNumberField.setPattern("[0-9]{1,}");
-        documentNumberField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                documentNumberField.setErrorMessage(null);
-            } else {
-                documentNumberField.setErrorMessage("Введіть тільки цифри");
-                Notification.show("Неправильний ввід. Введіть тільки цифри.");
-            }
-        });
-        documentIssueDatePicker = new DatePicker("Дата видачі");
-        documentIssueDatePicker.setI18n(setLocal());
-        institutionNameField = new TextField("Назва навчального закладу");
-        institutionNameEngField = new TextField("Назва навчального закладу (англ)");
-        distinctionCheckbox = new Checkbox("З відзнакою");
-
-// Create the dropdown (select) field for document type
-        documentTypeSelect = new Select<>();
-        documentTypeSelect.setLabel("Тип документу");
-        documentTypeSelect.setItems("Атестат", "Диплом", "Сертифікат", "Інший");
-        documentTypeSelect.setPlaceholder("Оберіть тип документу");
-
-// Arrange the fields in a FormLayout
-        FormLayout generalEducationDocumentsLayout = new FormLayout();
-
-// Create a horizontal layout for the series, number, and date fields
-        HorizontalLayout seriesNumberDateLayout = new HorizontalLayout();
-        seriesNumberDateLayout.setWidthFull(); // Make the horizontal layout full width
-        seriesNumberDateLayout.setSpacing(true); // Add spacing between the fields
-        seriesNumberDateLayout.add(documentSeriesField, documentNumberField, documentIssueDatePicker);
-        seriesNumberDateLayout.setFlexGrow(1, documentSeriesField, documentNumberField, documentIssueDatePicker); // Make each field take up equal space
-
-// Add components to the FormLayout
-        generalEducationDocumentsLayout.add(
-                documentTypeSelect,
-                distinctionCheckbox,
-                seriesNumberDateLayout,
-                institutionNameField,
-                institutionNameEngField
-        );
-
-// Set responsive steps
-        generalEducationDocumentsLayout.setResponsiveSteps(
-                new FormLayout.ResponsiveStep("0", 1), // 1 column for narrow layout
-                new FormLayout.ResponsiveStep("500px", 1) // 2 columns for wider layout
-        );
-
-// Set colspan for distinctionCheckbox to align it properly
-        generalEducationDocumentsLayout.setColspan(distinctionCheckbox, 1);
-
-        generalEducationDocumentsWrapper.add(generalEducationDocumentsTitle, generalEducationDocumentsLayout);
-
-// Group 2: Diploma-Specific Fields
-        Div diplomaDocumentsWrapper = new Div();
-        diplomaDocumentsWrapper.getStyle().set("border", "1px solid #ddd");
-        diplomaDocumentsWrapper.getStyle().set("border-radius", "8px");
-        diplomaDocumentsWrapper.getStyle().set("box-shadow", "0 2px 4px rgba(0, 0, 0, 0.1)");
-        diplomaDocumentsWrapper.getStyle().set("padding", "20px");
-        diplomaDocumentsWrapper.getStyle().set("position", "relative");
-        diplomaDocumentsWrapper.getStyle().set("background", "white");
-        diplomaDocumentsWrapper.getStyle().set("width", "97%"); // Set the width to 97%
-
-        Span diplomaSectionTitle = new Span("Диплом");
-        diplomaSectionTitle.getStyle().set("position", "absolute");
-        diplomaSectionTitle.getStyle().set("top", "-10px");
-        diplomaSectionTitle.getStyle().set("left", "20px");
-        diplomaSectionTitle.getStyle().set("background", "white");
-        diplomaSectionTitle.getStyle().set("padding", "0 10px");
-        diplomaSectionTitle.getStyle().set("font-weight", "bold");
-
-// Add new fields for the diploma
-        diplomaSeriesField = new TextField("Серія диплому");
-        diplomaNumberField = new TextField("№ диплому");
-        diplomaNumberField.setPattern("[0-9]{1,}");
-        diplomaNumberField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                diplomaNumberField.setErrorMessage(null);
-            } else {
-                diplomaNumberField.setErrorMessage("Введіть тільки цифри");
-                Notification.show("Неправильний ввід. Введіть тільки цифри.");
-            }
-        });
-        graduationDatePicker = new DatePicker("Дата випуску");
-        graduationDatePicker.setI18n(setLocal());
-        appendixNumberField = new TextField("Номер додатку");
-        appendixNumberField.setPattern("[0-9]{1,}");
-        appendixNumberField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                appendixNumberField.setErrorMessage(null);
-            } else {
-                appendixNumberField.setErrorMessage("Введіть тільки цифри");
-                Notification.show("Неправильний ввід. Введіть тільки цифри.");
-            }
-        });
-        thesisTitleUkrField = new TextField("Тема дипломної роботи (укр)");
-        thesisTitleEngField = new TextField("Тема дипломної роботи (англ)");
-
-// Create a horizontal layout for the diploma series, number, and graduation date fields
-        HorizontalLayout diplomaLayout = new HorizontalLayout();
-        diplomaLayout.setWidthFull();
-        diplomaLayout.setSpacing(true);
-        diplomaLayout.add(diplomaSeriesField, diplomaNumberField, graduationDatePicker);
-        diplomaLayout.setFlexGrow(1, diplomaSeriesField, diplomaNumberField, graduationDatePicker); // Equal space for fields
-
-// Arrange diploma-specific fields in a FormLayout
-        FormLayout diplomaDocumentsLayout = new FormLayout();
-        diplomaDocumentsLayout.add(
-                diplomaLayout,
-                appendixNumberField,
-                thesisTitleUkrField,
-                thesisTitleEngField
-        );
-
-// Set responsive steps
-        diplomaDocumentsLayout.setResponsiveSteps(
-                new FormLayout.ResponsiveStep("0", 1),
-                new FormLayout.ResponsiveStep("500px", 1)
-        );
-
-        diplomaDocumentsWrapper.add(diplomaSectionTitle, diplomaDocumentsLayout);
-
-
-        // Update tab selection listener to include the new tab
         tabs.addSelectedChangeListener(event -> {
             mainLayout.removeAll();
             if (tabs.getSelectedTab().equals(mainInfoTab)) {
-                mainLayout.add(buttonLayout, tabs, mainInfoLayout, orderLayout);
+                mainLayout.add(buttonLayout, tabs, mainInfoView, orderLayout);
             } else if (tabs.getSelectedTab().equals(additionalInfoTab)) {
-                mainLayout.add(buttonLayout, tabs, additionalInfoLayout);
+                mainLayout.add(buttonLayout, tabs, additionalInfoView);
             } else if (tabs.getSelectedTab().equals(passportInfoTab)) {
-                mainLayout.add(buttonLayout, tabs, passportInfoLayout);
+                mainLayout.add(buttonLayout, tabs, passportInfoView);
             } else if (tabs.getSelectedTab().equals(educationDocumentsTab)) {
-                mainLayout.add(buttonLayout, tabs, generalEducationDocumentsWrapper, diplomaDocumentsWrapper);
+                mainLayout.add(buttonLayout, tabs, educationDocumentsView.getGeneralEducationDocumentsWrapper(), educationDocumentsView.getDiplomaDocumentsWrapper());
             }
         });
 
-        mainLayout.add(buttonLayout, tabs, mainInfoLayout, orderLayout);
+        mainLayout.add(buttonLayout, tabs, mainInfoView, orderLayout);
         mainLayout.setWidth("100%");
         mainLayout.setHeight("100%");
         mainLayout.setAlignItems(FlexComponent.Alignment.CENTER);
@@ -1382,46 +1096,23 @@ public class CardView extends Div {
     }
 
     private String buildGroupCode(String groupPrefix, String course, String groupNumber, String graduationYear) {
-        SpecialtyEntity specialty = specialtyService.getSpecialtyByAbbreviation(groupPrefix);
-        String eduProgramCode = buildGroupCodeWithEduProgram(groupPrefix, course, groupNumber, graduationYear, specialty);
-        if (eduProgramCode != null) {
-            return eduProgramCode;
-        }
-        String specialtyCode = buildGroupCodeWithSpecialtySuffix(groupPrefix, course, groupNumber, graduationYear, specialty);
-        if (specialtyCode != null) {
-            return specialtyCode;
-        }
-        return buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
+        return groupCodeBuilder.buildGroupCode(groupPrefix, course, groupNumber, graduationYear);
     }
 
     private String buildGroupCode(String groupPrefix, String course, String groupNumber, String graduationYear, SpecialtyEntity specialty) {
-        String eduProgramCode = buildGroupCodeWithEduProgram(groupPrefix, course, groupNumber, graduationYear, specialty);
-        if (eduProgramCode != null) {
-            return eduProgramCode;
-        }
-        String specialtyCode = buildGroupCodeWithSpecialtySuffix(groupPrefix, course, groupNumber, graduationYear, specialty);
-        if (specialtyCode != null) {
-            return specialtyCode;
-        }
-        return buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
+        return groupCodeBuilder.buildGroupCode(groupPrefix, course, groupNumber, graduationYear, specialty);
     }
 
     private String buildGroupCodeWithEduProgram(String groupPrefix, String course, String groupNumber, String graduationYear, SpecialtyEntity specialty) {
-        if (specialty != null && specialty.getEduProgram() != null && specialty.getEduProgram().getId() > 0) {
-            return String.format("%s-%s-%s-%s(%d)", groupPrefix, course, groupNumber, graduationYear, specialty.getEduProgram().getId());
-        }
-        return null;
+        return groupCodeBuilder.buildGroupCodeWithEduProgram(groupPrefix, course, groupNumber, graduationYear, specialty);
     }
 
     private String buildGroupCodeWithSpecialtySuffix(String groupPrefix, String course, String groupNumber, String graduationYear, SpecialtyEntity specialty) {
-        if (specialty != null && specialty.getId() != null) {
-            return String.format("%s-%s-%s-%s(%d)", groupPrefix, course, groupNumber, graduationYear, specialty.getId());
-        }
-        return null;
+        return groupCodeBuilder.buildGroupCodeWithSpecialtySuffix(groupPrefix, course, groupNumber, graduationYear, specialty);
     }
 
     private String buildLegacyGroupCode(String groupPrefix, String course, String groupNumber, String graduationYear) {
-        return String.format("%s-%s-%s-%s", groupPrefix, course, groupNumber, graduationYear);
+        return groupCodeBuilder.buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
     }
 
     private void promptGroupCreation() {
@@ -1898,80 +1589,6 @@ public class CardView extends Div {
         return fallback;
     }
 
-    private Gender resolveGenderValue(Select<String> select, Gender fallback) {
-        String value = select.getValue();
-        if (value != null) {
-            value = value.trim();
-            if (!value.isEmpty()) {
-                try {
-                    return Gender.valueOf(value);
-                } catch (IllegalArgumentException ignored) {
-                }
-            }
-        }
-        return fallback;
-    }
-
-    private void setTextFieldValue(TextField field, String value) {
-        if (value != null) {
-            field.setValue(value);
-        } else {
-            field.clear();
-        }
-    }
-
-    private void setSelectValue(Select<String> select, String value) {
-        if (value != null) {
-            select.setValue(value);
-        } else {
-            select.clear();
-        }
-    }
-
-    private void setDatePickerValue(DatePicker picker, String value) {
-        if (value != null && !value.isBlank()) {
-            try {
-                picker.setValue(LocalDate.parse(value));
-            } catch (DateTimeParseException ignored) {
-                picker.clear();
-            }
-        } else {
-            picker.clear();
-        }
-    }
-
-    private void setDatePickerValue(DatePicker picker, Date value) {
-        if (value != null) {
-            picker.setValue(value.toLocalDate());
-        } else {
-            picker.clear();
-        }
-    }
-
-    private void setGenderValue(Gender gender) {
-        if (gender != null) {
-            genderSelect.setValue(gender.name());
-        } else {
-            genderSelect.clear();
-        }
-    }
-
-    private void setBenefitsValue(String benefits) {
-        if (benefits != null && !benefits.isBlank()) {
-            Set<String> values = Arrays.stream(benefits.split(","))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-            if (values.isEmpty()) {
-                benefitsSelect.clear();
-            } else {
-                benefitsSelect.setValue(values);
-            }
-        } else {
-            benefitsSelect.clear();
-        }
-    }
-
     private String getGroupPart(String[] parts, int index) {
         if (parts.length <= index) {
             return null;
@@ -1997,135 +1614,6 @@ public class CardView extends Div {
                 .map(MainLayout.class::cast)
                 .findFirst()
                 .orElse(null);
-    }
-
-    public static void generateAndSend(String title, List<String> students) {
-        UI ui = UI.getCurrent();
-        if (ui == null) {
-            throw new IllegalStateException(
-                    "UI.getCurrent() == null. Викликати generateAndSend треба з UI-потоку Vaadin (наприклад у кнопці)."
-            );
-        }
-
-        try {
-            // 1. Почистити та відсортувати студентів
-            List<String> sortedStudents = prepareStudents(students);
-
-            // 2. Генеруємо PDF як масив байтів
-            byte[] pdfBytes = buildPdfBytes(title, sortedStudents);
-
-            // 3. Формуємо ім'я файла
-            String fileName = sanitizeFilename(title) + "-list.pdf";
-
-            // 4. Створюємо StreamResource
-            StreamResource resource = new StreamResource(
-                    fileName,
-                    (StreamResourceWriter) (outputStream, session) -> {
-                        try (InputStream in = new ByteArrayInputStream(pdfBytes)) {
-                            in.transferTo(outputStream);
-                        } catch (IOException ioException) {
-                            throw new UncheckedIOException(ioException);
-                        }
-                    }
-            );
-
-            resource.setContentType("application/pdf");
-            resource.setCacheTime(0); // щоб завжди було свіже
-
-            // 5. Реєструємо і відкриваємо у новій вкладці
-            StreamRegistration registration = ui.getSession()
-                    .getResourceRegistry()
-                    .registerResource(resource);
-
-            String resourceUrl = registration.getResourceUri().toString();
-            ui.getPage().open(resourceUrl, "_blank");
-
-        } catch (Exception e) {
-            throw new RuntimeException("Не вдалося згенерувати або відкрити PDF", e);
-        }
-    }
-
-
-    // ------------------ ВНУТРІШНІ ХЕЛПЕРИ ------------------ //
-
-    /**
-     * Чистить список від null/порожніх і сортує за українською абеткою.
-     */
-    private static List<String> prepareStudents(List<String> students) {
-        List<String> cleaned = new ArrayList<>();
-        for (String s : students) {
-            if (s != null && !s.isBlank()) {
-                cleaned.add(s.trim());
-            }
-        }
-
-        Collator uaCollator = Collator.getInstance(new Locale("uk", "UA"));
-        cleaned.sort(uaCollator);
-
-        return cleaned;
-    }
-
-    /**
-     * Створює PDF в оперативній пам'яті і повертає як масив байтів.
-     * Нічого не зберігає на диск.
-     */
-    private static byte[] buildPdfBytes(String groupName, List<String> sortedStudents) throws Exception {
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        PdfWriter writer = new PdfWriter(baos);
-        PdfDocument pdfDoc = new PdfDocument(writer);
-        pdfDoc.setDefaultPageSize(PageSize.A4);
-
-        Document doc = new Document(pdfDoc);
-        doc.setMargins(36, 36, 36, 36); // приблизно 1 см поля
-
-        // 1. Підвантажити шрифт з classpath, щоб кирилиця не поламалась
-        //    /fonts/DejaVuSans.ttf повинен бути у resources всередині твого jar
-        PdfFont font;
-        try (InputStream fontStream = CardView.class
-                .getResourceAsStream("/fonts/times.ttf")) {
-
-            if (fontStream == null) {
-                throw new IllegalStateException("Не знайдено /fonts/DejaVuSans.ttf у resources.");
-            }
-
-            byte[] fontBytes = fontStream.readAllBytes();
-            font = PdfFontFactory.createFont(fontBytes, PdfEncodings.IDENTITY_H);
-        }
-        doc.setFont(font);
-
-        // 2. Назва групи по центру, жирним, трішки більшим
-        Paragraph titleP = new Paragraph(groupName)
-                .setFontSize(14)
-                .setTextAlignment(TextAlignment.CENTER)
-                .setMarginBottom(4f);
-        doc.add(titleP);
-
-        // 3. Горизонтальна лінія під назвою
-        LineSeparator line = new LineSeparator(new SolidLine(1f));
-        line.setMarginBottom(16f);
-        doc.add(line);
-
-        // 4. Пронумерований список студентів
-        int idx = 1;
-        for (String student : sortedStudents) {
-            Paragraph row = new Paragraph(idx + ". " + student)
-                    .setFontSize(12)
-                    .setMarginBottom(4f);
-            doc.add(row);
-            idx++;
-        }
-
-        doc.close(); // флашить усе у baos
-        return baos.toByteArray();
-    }
-
-    /**
-     * Робимо чисте ім'я файлу. Дозволяємо кирилицю, цифри, дефіс, підкреслення і крапку.
-     */
-    private static String sanitizeFilename(String in) {
-        if (in == null || in.isBlank()) return "group";
-        return in.replaceAll("[^a-zA-Z0-9\\u0400-\\u04FF\\-_.]", "_");
     }
 
     private List<String> fetchStudentNames(String groupCode) {
