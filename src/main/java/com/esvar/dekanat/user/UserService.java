@@ -1,7 +1,6 @@
 package com.esvar.dekanat.user;
 
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import com.esvar.dekanat.mailer.EmailService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -17,12 +16,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JavaMailSender mailSender;
+    private final EmailService emailService;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JavaMailSender mailSender) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.mailSender = mailSender;
+        this.emailService = emailService;
     }
 
     public List<UserModel> findAll() {
@@ -39,40 +38,9 @@ public class UserService {
         userModel.setEnabled(true);
 
         UserModel savedUser = userRepository.save(userModel);
-        sendWelcomeEmail(savedUser, rawPassword);
+        emailService.sendWelcomeEmail(savedUser, rawPassword);
 
         return rawPassword;
-    }
-
-    private void sendWelcomeEmail(UserModel userModel, String rawPassword) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(userModel.getEmail());
-        message.setSubject("Доступ до системи Деканат");
-        message.setText(String.format("""
-                Доброго дня, %s!
-
-                Вам створено обліковий запис у системі "Деканат".
-                Логін: %s
-                Пароль: %s
-
-                Після першого входу, будь ласка, змініть пароль у налаштуваннях.
-                """.stripIndent(),
-                formatFullName(userModel),
-                userModel.getEmail(),
-                rawPassword));
-        mailSender.send(message);
-    }
-
-    private String formatFullName(UserModel userModel) {
-        return String.format("%s %s %s",
-                defaultString(userModel.getLastname()),
-                defaultString(userModel.getFirstname()),
-                defaultString(userModel.getPatronymic())
-        ).trim();
-    }
-
-    private String defaultString(String value) {
-        return value == null ? "" : value;
     }
 
     private String generatePassword() {
