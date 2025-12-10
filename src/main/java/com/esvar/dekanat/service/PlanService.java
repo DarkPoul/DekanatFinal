@@ -130,41 +130,35 @@ public class PlanService {
         return planRepository.findById(id).orElse(null);
     }
 
-    public List<SpecialtyDTO> getSpecialtiesByFacultyAndDepartment(String faculty, String department) {
+    public List<String> getSpecialtiesByFacultyAndDepartment(String faculty, String department) {
         Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
 
         return planRepository.findByFacultyAndDepartment(
                         facultyRepository.findByTitle(faculty),
                         departmentRepository.findByTitle(department)
                 ).stream()
-                .map(PlansEntity::getSpecialty)
+                .flatMap(plan -> plan.getGroups().stream())
                 .filter(Objects::nonNull)
-                .collect(Collectors.toMap(
-                        SpecialtyEntity::getAbbreviation,
-                        specialty -> new SpecialtyDTO(
-                                specialty.getAbbreviation(),
-                                specialty.getTitle()
-                        ),
-                        (existing, duplicate) -> existing,
-                        LinkedHashMap::new
-                ))
-                .values()
-                .stream()
-                .sorted(Comparator.comparing(SpecialtyDTO::getTitle, ukrainianCollator))
+                .map(this::extractGroupPrefix)
+                .flatMap(Optional::stream)
+                .distinct()
+                .sorted(ukrainianCollator)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<String> getCourseByFacultyAndDepartmentAndSpecialty(String faculty, String department, String specialty) {
-        return planRepository.findByFacultyAndDepartmentAndSpecialty_Abbreviation(
+        return planRepository.findByFacultyAndDepartment(
                         facultyRepository.findByTitle(faculty),
-                        departmentRepository.findByTitle(department),
-                        specialty
+                        departmentRepository.findByTitle(department)
                 ).stream()
                 .flatMap(plan -> plan.getGroups().stream())
+                .filter(Objects::nonNull)
+                .filter(group -> extractGroupPrefix(group).filter(specialty::equals).isPresent())
                 .map(StudentGroupEntity::getCourse)
-                .map(String::valueOf)
                 .distinct()
+                .sorted()
+                .map(String::valueOf)
                 .collect(Collectors.toList());
     }
 
@@ -172,14 +166,14 @@ public class PlanService {
     public List<GroupDTO> getGroupsByFacultyAndDepartmentAndSpecialtyAndCourse(String faculty, String department, String specialty, int course) {
         Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
 
-        List<StudentGroupEntity> uniqueGroups = planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_Course(
+        List<StudentGroupEntity> uniqueGroups = planRepository.findByFacultyAndDepartment(
                         facultyRepository.findByTitle(faculty),
-                        departmentRepository.findByTitle(department),
-                        specialty,
-                        course
+                        departmentRepository.findByTitle(department)
                 ).stream()
                 .flatMap(plan -> plan.getGroups().stream())
                 .filter(Objects::nonNull)
+                .filter(group -> group.getCourse() == course)
+                .filter(group -> extractGroupPrefix(group).filter(specialty::equals).isPresent())
                 .collect(Collectors.toCollection(LinkedHashSet::new))
                 .stream()
                 .toList();
@@ -198,13 +192,14 @@ public class PlanService {
 
     public List<String> getDisciplinesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupGroupNumber(String faculty, String department, String specialty, int course, int groupNumber) {
         int semester = getNumberSemester(String.valueOf(course));
-        return planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumber(
+        return planRepository.findByFacultyAndDepartment(
                         facultyRepository.findByTitle(faculty),
-                        departmentRepository.findByTitle(department),
-                        specialty,
-                        course,
-                        groupNumber
+                        departmentRepository.findByTitle(department)
                 ).stream()
+                .filter(plan -> plan.getGroups().stream()
+                        .filter(Objects::nonNull)
+                        .filter(group -> group.getCourse() == course && group.getGroupNumber() == groupNumber)
+                        .anyMatch(group -> extractGroupPrefix(group).filter(specialty::equals).isPresent()))
                 .filter(p -> p.getSemester() == semester)
                 .map(PlansEntity::getDiscipline)
                 .map(DisciplineEntity::getTitle)
@@ -215,14 +210,16 @@ public class PlanService {
     public List<String> getControlTypesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
             String faculty, String department, String specialty, int course, int groupNumber, String discipline) {
         int semester = getNumberSemester(String.valueOf(course));
-        List<PlansEntity> plans = planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumberAndDiscipline_Title(
-                facultyRepository.findByTitle(faculty),
-                departmentRepository.findByTitle(department),
-                specialty,
-                course,
-                groupNumber,
-                discipline
-        );
+        List<PlansEntity> plans = planRepository.findByFacultyAndDepartment(
+                        facultyRepository.findByTitle(faculty),
+                        departmentRepository.findByTitle(department)
+                ).stream()
+                .filter(plan -> plan.getDiscipline() != null && discipline.equals(plan.getDiscipline().getTitle()))
+                .filter(plan -> plan.getGroups().stream()
+                        .filter(Objects::nonNull)
+                        .filter(group -> group.getCourse() == course && group.getGroupNumber() == groupNumber)
+                        .anyMatch(group -> extractGroupPrefix(group).filter(specialty::equals).isPresent()))
+                .toList();
 
         List<PlansEntity> semesterPlans = plans.stream()
                 .filter(p -> p.getSemester() == semester)
@@ -279,16 +276,42 @@ public class PlanService {
 
     public PlansEntity getPlanEntityByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(String faculty, String department, String specialty, int course, int groupNumber, String discipline){
         int semester = getNumberSemester(String.valueOf(course));
-        return planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumberAndDiscipline_Title(
+        return planRepository.findByFacultyAndDepartment(
                         facultyRepository.findByTitle(faculty),
-                        departmentRepository.findByTitle(department),
-                        specialty,
-                        course,
-                        groupNumber,
-                        discipline
+                        departmentRepository.findByTitle(department)
                 ).stream()
+                .filter(plan -> plan.getDiscipline() != null && discipline.equals(plan.getDiscipline().getTitle()))
+                .filter(plan -> plan.getGroups().stream()
+                        .filter(Objects::nonNull)
+                        .filter(group -> group.getCourse() == course && group.getGroupNumber() == groupNumber)
+                        .anyMatch(group -> extractGroupPrefix(group).filter(specialty::equals).isPresent()))
                 .filter(p -> p.getSemester() == semester)
                 .findFirst().orElse(null);
+    }
+
+    private Optional<String> extractGroupPrefix(StudentGroupEntity group) {
+        if (group == null) {
+            return Optional.empty();
+        }
+
+        String groupCode = group.getGroupCode();
+        if (groupCode == null) {
+            return Optional.empty();
+        }
+
+        String trimmed = groupCode.trim();
+        if (trimmed.isEmpty()) {
+            return Optional.empty();
+        }
+
+        int dashIndex = trimmed.indexOf('-');
+        String prefix = dashIndex >= 0 ? trimmed.substring(0, dashIndex) : trimmed;
+        prefix = prefix.trim();
+        if (prefix.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(prefix);
     }
 
     private int getNumberSemester(String course) {

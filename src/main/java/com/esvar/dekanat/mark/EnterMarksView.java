@@ -186,13 +186,7 @@ public class EnterMarksView extends Div {
         selectSpecialty.setLabel("Спеціальність");
         selectSpecialty.setWidth("100%");
         selectSpecialty.getStyle().set("padding", "0px").set("margin", "0px").set("margin-bottom", "5px");
-        selectSpecialty.setItemLabelGenerator(option -> {
-            if (option == null) {
-                return "";
-            }
-            String title = option.getTitle();
-            return (title != null && !title.isBlank()) ? title : option.getAbbreviation();
-        });
+        selectSpecialty.setItemLabelGenerator(option -> option == null ? "" : option);
 
         selectCourse.setLabel("Курс");
         selectCourse.setWidth("100%");
@@ -318,7 +312,7 @@ public class EnterMarksView extends Div {
 
         selectSpecialty.addValueChangeListener(event -> {
             clearGrid();
-            SpecialtyDTO selectedSpecialty = selectSpecialty.getValue();
+            String selectedSpecialty = selectSpecialty.getValue();
             if (selectedSpecialty != null) {
                 selectCourse.setReadOnly(false);
                 selectGroup.setReadOnly(true);
@@ -332,7 +326,7 @@ public class EnterMarksView extends Div {
                 selectCourse.setItems(planService.getCourseByFacultyAndDepartmentAndSpecialty(
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
-                        selectedSpecialty.getAbbreviation()
+                        selectedSpecialty
                 ));
             }
         });
@@ -340,7 +334,7 @@ public class EnterMarksView extends Div {
         selectCourse.addValueChangeListener(event -> {
             clearGrid();
             currentGroup = null;
-            SpecialtyDTO selectedSpecialty = selectSpecialty.getValue();
+            String selectedSpecialty = selectSpecialty.getValue();
             if (selectCourse.getValue() != null && selectedSpecialty != null) {
                 selectGroup.setReadOnly(false);
                 selectDiscipline.setReadOnly(true);
@@ -352,7 +346,7 @@ public class EnterMarksView extends Div {
                 selectGroup.setItems(planService.getGroupsByFacultyAndDepartmentAndSpecialtyAndCourse(
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
-                        selectedSpecialty.getAbbreviation(),
+                        selectedSpecialty,
                         Integer.parseInt(selectCourse.getValue())
                 ));
             }
@@ -363,7 +357,7 @@ public class EnterMarksView extends Div {
             GroupDTO selectedGroup = selectGroup.getValue();
             currentGroup = selectedGroup == null ? null : groupService.getGroupByTitle(selectedGroup.getGroupCode());
             updateReportButtonState();
-            SpecialtyDTO selectedSpecialty = selectSpecialty.getValue();
+            String selectedSpecialty = selectSpecialty.getValue();
             if (selectedGroup != null && selectedSpecialty != null) {
                 selectDiscipline.setReadOnly(false);
                 selectControlType.setReadOnly(true);
@@ -373,7 +367,7 @@ public class EnterMarksView extends Div {
                 selectDiscipline.setItems(planService.getDisciplinesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupGroupNumber(
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
-                        selectedSpecialty.getAbbreviation(),
+                        selectedSpecialty,
                         selectedGroup.getCourse(),
                         selectedGroup.getGroupNumber()
                 ));
@@ -383,14 +377,14 @@ public class EnterMarksView extends Div {
         selectDiscipline.addValueChangeListener(event -> {
             clearGrid();
             GroupDTO selectedGroup = selectGroup.getValue();
-            SpecialtyDTO selectedSpecialty = selectSpecialty.getValue();
+            String selectedSpecialty = selectSpecialty.getValue();
             if (selectDiscipline.getValue() != null && selectedGroup != null && selectedSpecialty != null) {
                 selectControlType.setReadOnly(false);
 
                 selectControlType.setItems(planService.getControlTypesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
-                        selectedSpecialty.getAbbreviation(),
+                        selectedSpecialty,
                         selectedGroup.getCourse(),
                         selectedGroup.getGroupNumber(),
                         selectDiscipline.getValue()
@@ -399,7 +393,7 @@ public class EnterMarksView extends Div {
                 plansEntity = planService.getPlanEntityByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
                         selectFaculty.getValue(),
                         selectDepartment.getValue(),
-                        selectedSpecialty.getAbbreviation(),
+                        selectedSpecialty,
                         selectedGroup.getCourse(),
                         selectedGroup.getGroupNumber(),
                         selectDiscipline.getValue()
