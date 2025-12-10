@@ -288,7 +288,7 @@ public class UsersView extends VerticalLayout {
         }
 
         if (role.equals("ROLE_ADMIN")) {
-            roleTypeLabels.put("0", "Адміністратор");
+            roleTypeLabels.put("0", "admin");
         } else if (role.equals("ROLE_DEKANAT")) {
             facultyService.getAllFaculties().forEach(faculty ->
                     roleTypeLabels.put(String.valueOf(faculty.getId()), faculty.getTitle()));
