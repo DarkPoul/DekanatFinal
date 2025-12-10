@@ -21,6 +21,10 @@ public class FacultyService {
         return facultyRepository.findAll().stream().map(FacultyEntity::getTitle).collect(Collectors.toList());
     }
 
+    public List<FacultyEntity> getAllFaculties() {
+        return facultyRepository.findAll();
+    }
+
     /**
      * Returns the title of the faculty by its ID.
      *
