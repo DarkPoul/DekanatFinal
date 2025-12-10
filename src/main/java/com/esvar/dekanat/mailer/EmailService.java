@@ -63,14 +63,25 @@ public class EmailService {
     public void sendWelcomeEmail(UserModel userModel, String rawPassword) {
         String fullName = composeFullName(userModel);
         String body = """
-                Доброго дня, %s!
+        Шановний(-а) %s!
 
-                Вам створено обліковий запис у системі "Деканат".
-                Логін: %s
-                Пароль: %s
+        Вас підключено до інформаційної системи АСУ «Деканат».
+        Для входу в систему, будь ласка, скористайтеся наступним посиланням:
+        https://dekanat.ntu.edu.ua/
 
-                Після першого входу, будь ласка, змініть пароль у налаштуваннях.
-                """.stripIndent().formatted(fullName, userModel.getEmail(), rawPassword);
+        Ваші облікові дані для входу:
+        Логін: %s
+        Пароль: %s
+
+        У разі виникнення запитань або технічних труднощів
+        звертайтеся до команди підтримки АСУ «Деканат»
+        за контактами, наданими у системі.
+
+        З повагою,
+        Команда АСУ «Деканат»
+        dekanat.support@ntu.edu.ua
+        """.stripIndent().formatted(fullName, userModel.getEmail(), rawPassword);
+
 
         sendEmail(userModel.getEmail(), "Доступ до системи Деканат", body);
     }
