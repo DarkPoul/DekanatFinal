@@ -2,6 +2,7 @@ package com.esvar.dekanat.security;
 
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.login.LoginForm;
 import com.vaadin.flow.component.login.LoginI18n;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -51,7 +52,31 @@ public class LoginView extends VerticalLayout implements BeforeEnterObserver {
 
 //        UI.getCurrent().access(() -> UI.getCurrent().navigate(""));
 
-        add(new H1("Dekanat CRM"), login);
+        Paragraph infoParagraph = new Paragraph(
+                "У зв’язку з проведенням технічних робіт можливі тимчасові перебої в роботі системи.\n" +
+                        "Рекомендуємо частіше зберігати внесену інформацію."
+        );
+
+        infoParagraph.getStyle()
+                .set("white-space", "pre-line")
+                // фон та кольори в стилі Lumo
+                .set("background-color", "var(--lumo-primary-color-10pct)")
+                .set("color", "var(--lumo-body-text-color)")
+                // відступи та радіус — як у стандартних компонентів
+                .set("padding", "var(--lumo-space-s) var(--lumo-space-m)")
+                .set("border-radius", "var(--lumo-border-radius-m)")
+                // легка рамка + акцентована ліва смуга
+                .set("border", "1px solid var(--lumo-contrast-10pct)")
+                .set("border-left", "4px solid var(--lumo-primary-color)")
+                // типографіка під Lumo
+                .set("font-size", "var(--lumo-font-size-s)")
+                .set("font-weight", "500")
+                .set("line-height", "1.4")
+                // щоб відокремити від решти контенту
+                .set("margin", "var(--lumo-space-m) 0")
+                .set("display", "block");
+
+        add(new H1("Dekanat CRM"), infoParagraph, login);
     }
 
     @Override
