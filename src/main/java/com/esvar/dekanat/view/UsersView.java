@@ -1,236 +1,264 @@
 package com.esvar.dekanat.view;
 
-import com.esvar.dekanat.entity.UserEntity;
-import com.vaadin.flow.component.Component;
+import com.esvar.dekanat.service.DepartmentService;
+import com.esvar.dekanat.service.FacultyService;
+import com.esvar.dekanat.service.UserService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
-import com.vaadin.flow.component.grid.ColumnTextAlign;
-import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.grid.GridVariant;
-import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.H2;
-import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.icon.Icon;
-import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.data.provider.ListDataProvider;
-import com.vaadin.flow.data.renderer.ComponentRenderer;
-import com.vaadin.flow.function.ValueProvider;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.ValidationException;
+import com.vaadin.flow.data.validator.EmailValidator;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Route(value = "users", layout = MainLayout.class)
 @PageTitle("Користувачі")
-@PermitAll
+@RolesAllowed("ROLE_ADMIN")
 public class UsersView extends VerticalLayout {
 
-    private final VerticalLayout addUserLayout = new VerticalLayout();
-    private final VerticalLayout allUserLayout = new VerticalLayout();
+    private final UserService userService;
+    private final FacultyService facultyService;
+    private final DepartmentService departmentService;
 
-    private final TextField FirstnameTF = new TextField("Ім'я");
-    private final TextField LastnameTF = new TextField("Прізвище");
-    private final TextField PatronymicTF = new TextField("По батькові");
-    private final TextField EmailTF = new TextField("Email");
-    private final ComboBox<String> RoleCB = new ComboBox<>("Роль");
-    private final ComboBox<String> RoleTypeCB = new ComboBox<>("Тип ролі");
-    private final Button addUserButton = new Button("Додати користувача");
-    private final Button saveUserButton = new Button("Зберегти");
-    private final Button cancelUserButton = new Button("Відміна");
+    private final TextField firstnameField = new TextField("Ім'я");
+    private final TextField lastnameField = new TextField("Прізвище");
+    private final TextField patronymicField = new TextField("По батькові");
+    private final EmailField emailField = new EmailField("Email");
+    private final ComboBox<String> roleField = new ComboBox<>("Роль");
+    private final ComboBox<RoleTypeOption> roleTypeField = new ComboBox<>("Тип ролі");
+    private final Button saveUserButton = new Button("Створити користувача");
+    private final Button cancelUserButton = new Button("Очистити");
 
+    private final Binder<UserFormData> binder = new Binder<>(UserFormData.class);
+    private List<RoleTypeOption> availableRoleTypeOptions = new ArrayList<>();
 
-    public UsersView() {
+    public UsersView(UserService userService, FacultyService facultyService, DepartmentService departmentService) {
+        this.userService = userService;
+        this.facultyService = facultyService;
+        this.departmentService = departmentService;
 
-
-        createUserForm();
-        createGrid();
+        configureForm();
+        configureBinder();
     }
 
-    public void createUserForm() {
-        FirstnameTF.setWidth("200px");
-        LastnameTF.setWidth("200px");
-        PatronymicTF.setWidth("200px");
-        EmailTF.setWidth("250px");
-        RoleCB.setWidth("200px");
-        RoleTypeCB.setWidth("200px");
+    private void configureForm() {
+        setSpacing(true);
+        setPadding(true);
 
-        addUserButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        addUserButton.setWidth("180px");
-        saveUserButton.setWidth("120px");
-        cancelUserButton.setWidth("120px");
+        firstnameField.setRequiredIndicatorVisible(true);
+        lastnameField.setRequiredIndicatorVisible(true);
+        patronymicField.setRequiredIndicatorVisible(true);
+        emailField.setRequiredIndicatorVisible(true);
+        roleField.setRequiredIndicatorVisible(true);
+        roleTypeField.setRequiredIndicatorVisible(true);
 
-        HorizontalLayout firstRow = new HorizontalLayout(FirstnameTF, LastnameTF, PatronymicTF, EmailTF);
-        HorizontalLayout secondRow = new HorizontalLayout(RoleCB, RoleTypeCB);
-        HorizontalLayout thirdRow = new HorizontalLayout(addUserButton, saveUserButton, cancelUserButton);
+        roleField.setItems("ADMIN", "DEKANAT", "DEPARTMENT");
+        roleField.addValueChangeListener(event -> updateRoleTypeOptions(event.getValue()));
 
-        firstRow.setSpacing(true);
-        secondRow.setSpacing(true);
-        thirdRow.setSpacing(true);
+        roleTypeField.setItemLabelGenerator(RoleTypeOption::label);
+        roleTypeField.setAllowCustomValue(false);
+        roleTypeField.setEnabled(false);
 
-        addUserLayout.add(
-                firstRow,
-                secondRow,
-                thirdRow
-        );
-        addUserLayout.setPadding(true);
-        add(addUserLayout);
+        firstnameField.setWidth("250px");
+        lastnameField.setWidth("250px");
+        patronymicField.setWidth("250px");
+        emailField.setWidth("300px");
+        roleField.setWidth("240px");
+        roleTypeField.setWidth("240px");
+
+        saveUserButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        saveUserButton.addClickListener(event -> saveUser());
+        cancelUserButton.addClickListener(event -> resetForm());
+
+        H2 title = new H2("Додати нового користувача (доступно лише адміністраторам)");
+
+        HorizontalLayout firstRow = new HorizontalLayout(firstnameField, lastnameField, patronymicField, emailField);
+        HorizontalLayout secondRow = new HorizontalLayout(roleField, roleTypeField);
+        HorizontalLayout actions = new HorizontalLayout(saveUserButton, cancelUserButton);
+
+        add(title, firstRow, secondRow, actions);
     }
 
-    public void createGrid() {
-        Grid<UserEntity> grid = new Grid<>(UserEntity.class, false);
-        grid.setSelectionMode(Grid.SelectionMode.MULTI);
+    private void configureBinder() {
+        binder.forField(emailField)
+                .asRequired("Email обов'язковий")
+                .withValidator(new EmailValidator("Некоректний формат email"))
+                .bind(UserFormData::getEmail, UserFormData::setEmail);
 
-        // ======== КОЛОНКИ =========
-        Grid.Column<UserEntity> idColumn = grid.addColumn(UserEntity::getId)
-                .setHeader("ID")
-                .setWidth("120px")
-                .setFlexGrow(0)
-                .setTextAlign(ColumnTextAlign.CENTER);
+        binder.forField(firstnameField)
+                .asRequired("Ім'я обов'язкове")
+                .bind(UserFormData::getFirstname, UserFormData::setFirstname);
 
-        Grid.Column<UserEntity> pibColumn = grid.addColumn(UserEntity::getPib)
-                .setHeader("Прізвище Ім'я По батькові")
-                .setWidth("200px");
+        binder.forField(lastnameField)
+                .asRequired("Прізвище обов'язкове")
+                .bind(UserFormData::getLastname, UserFormData::setLastname);
 
-        Grid.Column<UserEntity> emailColumn = grid.addColumn(UserEntity::getEmail)
-                .setHeader("Пошта")
-                .setWidth("180px");
+        binder.forField(patronymicField)
+                .asRequired("По батькові обов'язкове")
+                .bind(UserFormData::getPatronymic, UserFormData::setPatronymic);
 
-        Grid.Column<UserEntity> activeColumn = grid.addColumn(new ComponentRenderer<>(user -> {
-                    Icon icon = user.isActive() ? VaadinIcon.CHECK.create() : VaadinIcon.CLOSE.create();
-                    icon.setColor(user.isActive() ? "green" : "red");
-                    icon.setSize("18px");
-                    return icon;
-                }))
-                .setHeader("А")
-                .setWidth("120px")
-                .setFlexGrow(0)
-                .setTextAlign(ColumnTextAlign.CENTER);
+        binder.forField(roleField)
+                .asRequired("Роль обов'язкова")
+                .bind(UserFormData::getRole, UserFormData::setRole);
 
-        Grid.Column<UserEntity> roleColumn = grid.addColumn(UserEntity::getRole)
-                .setHeader("Роль")
-                .setWidth("160px");
+        binder.forField(roleTypeField)
+                .asRequired("Тип ролі обов'язковий")
+                .withConverter(RoleTypeOption::id, this::findRoleTypeOptionById, "Оберіть тип ролі")
+                .bind(UserFormData::getRoleTypeId, UserFormData::setRoleTypeId);
 
-        Grid.Column<UserEntity> roleTypeColumn = grid.addColumn(UserEntity::getRoleType)
-                .setHeader("Тип ролі")
-                .setWidth("160px");
-
-        Grid.Column<UserEntity> actionsColumn = grid.addColumn(new ComponentRenderer<>(user -> {
-                    Button edit = new Button(new Icon(VaadinIcon.EDIT));
-                    edit.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-                    edit.getElement().getStyle().set("width", "32px").set("height", "32px");
-                    edit.addClickListener(e -> editUser(user));
-
-                    Button reset = new Button(new Icon(VaadinIcon.KEY));
-                    reset.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-                    reset.getElement().getStyle().set("width", "32px").set("height", "32px");
-                    reset.addClickListener(e -> resetPassUser(user));
-
-                    Button delete = new Button(new Icon(VaadinIcon.TRASH));
-                    delete.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY_INLINE);
-                    delete.getElement().getStyle().set("width", "32px").set("height", "32px");
-                    delete.addClickListener(e -> deleteUser(user));
-
-                    HorizontalLayout layout = new HorizontalLayout(edit, reset, delete);
-                    layout.setSpacing(false);
-                    layout.getStyle().set("gap", "6px");
-                    layout.setJustifyContentMode(JustifyContentMode.CENTER);
-                    return layout;
-                }))
-                .setHeader("Дії")
-                .setWidth("140px")
-                .setFlexGrow(0)
-                .setTextAlign(ColumnTextAlign.CENTER);
-
-        grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_COLUMN_BORDERS);
-        grid.setHeight("500px");
-
-        // ======== ДАНІ =========
-        List<UserEntity> allUsers = getDemoUsers();
-        ListDataProvider<UserEntity> dataProvider = new ListDataProvider<>(allUsers);
-        grid.setDataProvider(dataProvider);
-
-        // ======== ФІЛЬТРИ =========
-        HeaderRow filterRow = grid.appendHeaderRow();
-
-        TextField idFilter = createFilterField("ID", dataProvider,
-                user -> String.valueOf(user.getId()));
-        filterRow.getCell(idColumn).setComponent(idFilter);
-
-        TextField pibFilter = createFilterField("Фільтр за ПІБ", dataProvider,
-                UserEntity::getPib);
-        filterRow.getCell(pibColumn).setComponent(pibFilter);
-
-        TextField emailFilter = createFilterField("Фільтр за поштою", dataProvider,
-                UserEntity::getEmail);
-        filterRow.getCell(emailColumn).setComponent(emailFilter);
-
-        Checkbox activeFilter = new Checkbox();
-        activeFilter.addValueChangeListener(e -> {
-            dataProvider.clearFilters();
-            dataProvider.addFilter(user -> {
-                if (activeFilter.getValue()) return user.isActive();
-                else return true;
-            });
-        });
-        filterRow.getCell(activeColumn).setComponent(activeFilter);
-
-        TextField roleFilter = createFilterField("Фільтр за роллю", dataProvider,
-                UserEntity::getRole);
-        filterRow.getCell(roleColumn).setComponent(roleFilter);
-
-        TextField roleTypeFilter = createFilterField("Фільтр за типом", dataProvider,
-                UserEntity::getRoleType);
-        filterRow.getCell(roleTypeColumn).setComponent(roleTypeFilter);
-
-        allUserLayout.setWidthFull();
-        allUserLayout.add(grid);
-        add(allUserLayout);
+        binder.setBean(new UserFormData());
     }
 
-    /**
-     * Допоміжний метод створення текстового фільтра з live-оновленням.
-     */
-    private TextField createFilterField(String placeholder,
-                                        ListDataProvider<UserEntity> dataProvider,
-                                        ValueProvider<UserEntity, String> valueProvider) {
-        TextField filter = new TextField();
-        filter.setPlaceholder(placeholder);
-        filter.setWidthFull();
-        filter.setClearButtonVisible(true);
-        filter.addValueChangeListener(event ->
-                dataProvider.setFilter(user -> {
-                    String value = valueProvider.apply(user);
-                    if (value == null) return false;
-                    return value.toLowerCase().contains(event.getValue().toLowerCase());
-                })
-        );
-        return filter;
+    private void updateRoleTypeOptions(String role) {
+        roleTypeField.clear();
+        availableRoleTypeOptions = new ArrayList<>();
+
+        if (role == null) {
+            roleTypeField.setItems(Collections.emptyList());
+            roleTypeField.setEnabled(false);
+            return;
+        }
+
+        switch (role) {
+            case "DEKANAT" -> availableRoleTypeOptions = facultyService.getAllFaculties().stream()
+                    .map(faculty -> new RoleTypeOption(String.valueOf(faculty.getId()),
+                            faculty.getId() + ": " + faculty.getTitle()))
+                    .toList();
+            case "DEPARTMENT" -> availableRoleTypeOptions = departmentService.getAllDepartments().stream()
+                    .map(department -> new RoleTypeOption(String.valueOf(department.getId()),
+                            department.getId() + ": " + department.getTitle()))
+                    .toList();
+            default -> availableRoleTypeOptions = List.of(new RoleTypeOption("0", "0: Адміністратор"));
+        }
+
+        roleTypeField.setItems(availableRoleTypeOptions);
+        roleTypeField.setEnabled(true);
     }
 
-
-    private void editUser(UserEntity user) {
-        System.out.println("Редагуємо користувача: " + user.getPib());
+    private RoleTypeOption findRoleTypeOptionById(String id) {
+        if (id == null) {
+            return null;
+        }
+        return availableRoleTypeOptions.stream()
+                .filter(option -> option.id().equals(id))
+                .findFirst()
+                .orElse(null);
     }
 
-    private void deleteUser(UserEntity user) {
-        System.out.println("Видаляємо користувача: " + user.getPib());
-    }
-    private void resetPassUser(UserEntity user) {
-        System.out.println("Скидаємо пароль користувача: " + user.getPib());
+    private void saveUser() {
+        UserFormData formData = binder.getBean();
+        if (formData == null) {
+            formData = new UserFormData();
+            binder.setBean(formData);
+        }
+
+        try {
+            binder.writeBean(formData);
+        } catch (ValidationException e) {
+            Notification.show("Перевірте правильність заповнення форми", 4000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+
+        try {
+            UserService.CreatedUser createdUser = userService.createUser(
+                    formData.getEmail(),
+                    formData.getFirstname(),
+                    formData.getLastname(),
+                    formData.getPatronymic(),
+                    formData.getRole(),
+                    formData.getRoleTypeId()
+            );
+
+            Notification notification = Notification.show(
+                    "Користувача створено. Тимчасовий пароль: " + createdUser.rawPassword(),
+                    7000,
+                    Notification.Position.MIDDLE
+            );
+            notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            resetForm();
+        } catch (IllegalArgumentException ex) {
+            Notification.show(ex.getMessage(), 5000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+        }
     }
 
-    private List<UserEntity> getDemoUsers() {
-        List<UserEntity> list = new ArrayList<>();
-        list.add(new UserEntity(1L, "Іваненко Іван Іванович", "qwerty@gmail.com", true, "Адмін", "Системна"));
-        list.add(new UserEntity(2L, "Петренко Петро Петрович", "qwerty@gmail.com", false, "Користувач", "Локальна"));
-        list.add(new UserEntity(3L, "Сидоренко Олег Васильович", "qwerty@gmail.com", true ,"Модератор", "Проєктна"));
-        return list;
+    private void resetForm() {
+        binder.setBean(new UserFormData());
+        roleTypeField.clear();
+        roleTypeField.setItems(Collections.emptyList());
+        roleTypeField.setEnabled(false);
     }
+
+    private static class UserFormData {
+        private String firstname;
+        private String lastname;
+        private String patronymic;
+        private String email;
+        private String role;
+        private String roleTypeId;
+
+        public String getFirstname() {
+            return firstname;
+        }
+
+        public void setFirstname(String firstname) {
+            this.firstname = firstname;
+        }
+
+        public String getLastname() {
+            return lastname;
+        }
+
+        public void setLastname(String lastname) {
+            this.lastname = lastname;
+        }
+
+        public String getPatronymic() {
+            return patronymic;
+        }
+
+        public void setPatronymic(String patronymic) {
+            this.patronymic = patronymic;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getRole() {
+            return role;
+        }
+
+        public void setRole(String role) {
+            this.role = role;
+        }
+
+        public String getRoleTypeId() {
+            return roleTypeId;
+        }
+
+        public void setRoleTypeId(String roleTypeId) {
+            this.roleTypeId = roleTypeId;
+        }
+    }
+
+    private record RoleTypeOption(String id, String label) { }
 }

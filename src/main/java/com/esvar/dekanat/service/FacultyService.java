@@ -17,6 +17,11 @@ public class FacultyService {
     }
 
 
+    public List<FacultyEntity> getAllFaculties() {
+        return facultyRepository.findAll();
+    }
+
+
     public List<String> getFacultyTitles() {
         return facultyRepository.findAll().stream().map(FacultyEntity::getTitle).collect(Collectors.toList());
     }
