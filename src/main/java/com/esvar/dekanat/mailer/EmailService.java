@@ -48,9 +48,7 @@ public class EmailService {
         }
 
         SimpleMailMessage message = new SimpleMailMessage();
-        if (StringUtils.hasText(defaultFrom)) {
-            message.setFrom(defaultFrom);
-        }
+        message.setFrom(resolveFromAddress());
         message.setTo(recipient);
         message.setSubject(subject);
         message.setText(body == null ? "" : body);
@@ -75,6 +73,16 @@ public class EmailService {
                 """.stripIndent().formatted(fullName, userModel.getEmail(), rawPassword);
 
         sendEmail(userModel.getEmail(), "Доступ до системи Деканат", body);
+    }
+
+    private String resolveFromAddress() {
+        if (StringUtils.hasText(defaultFrom)) {
+            return defaultFrom;
+        }
+        if (StringUtils.hasText(mailProperties.getUsername())) {
+            return mailProperties.getUsername();
+        }
+        throw new MailPreparationException("Налаштуйте адресу відправника: MAIL_DEFAULT_FROM або MAIL_USERNAME не задано.");
     }
 
     private String composeFullName(UserModel user) {
