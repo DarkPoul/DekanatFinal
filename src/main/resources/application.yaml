@@ -21,6 +21,9 @@ vaadin:
 upload:
   dir: uploads
 
+mail:
+  default-from: ${MAIL_DEFAULT_FROM:}
+
 #server:
 #  # Порт береться із змінної оточення SERVER_PORT (за замовчуванням 8080)
 #  port: ${SERVER_PORT:8080}
