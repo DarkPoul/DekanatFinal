@@ -35,8 +35,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class SummaryReportPdfGenerator {
 
-    private static final float FIRST_COLUMN_WIDTH = 150f;
-    private static final float OTHER_COLUMN_WIDTH = 35f;
+    private static final float FIRST_COLUMN_WIDTH = 130f;
+    private static final float OTHER_COLUMN_WIDTH = 18f;
+    private static final float TWO_MODULE_FIRST_COLUMN_WIDTH = 120f;
+    private static final float TWO_MODULE_OTHER_COLUMN_WIDTH = 18f;
+    private static final float TWO_MODULE_HEADER_ROW_HEIGHT = 90f;
     private static final float HEADER_ROW_HEIGHT = 110f;
     private static final String FIRST_MODULE_TITLE = "за перший модульний контроль";
     private static final String TWO_MODULE_TITLE = "за два модульних контроля";
@@ -117,9 +120,9 @@ public class SummaryReportPdfGenerator {
             document.add(title);
             System.out.println("[SummaryReportPdfGenerator] Додано заголовок (2 модулі)");
 
-            Table table = createTwoModuleTableStructure(disciplineColumns.size());
-            addTwoModuleHeaderRows(table, disciplineColumns);
-            addTwoModuleStudentRows(table, studentFullNames, disciplineColumns, marksByStudent);
+        Table table = createTwoModuleTableStructure(disciplineColumns.size());
+        addTwoModuleHeaderRows(table, disciplineColumns);
+        addTwoModuleStudentRows(table, studentFullNames, disciplineColumns, marksByStudent);
             System.out.println("[SummaryReportPdfGenerator] Додано рядки студентів (2 модулі)");
 
             if (addAverageRow) {
@@ -261,15 +264,16 @@ public class SummaryReportPdfGenerator {
         System.out.println("[SummaryReportPdfGenerator] Створюємо структуру таблиці. Кількість дисциплін: " + disciplineCount);
         int totalColumns = 2 + disciplineCount;
         float[] columnWidths = new float[totalColumns];
-        columnWidths[0] = FIRST_COLUMN_WIDTH;
+        columnWidths[0] = TWO_MODULE_FIRST_COLUMN_WIDTH;
         for (int i = 1; i < totalColumns - 1; i++) {
-            columnWidths[i] = OTHER_COLUMN_WIDTH;
+            columnWidths[i] = TWO_MODULE_OTHER_COLUMN_WIDTH;
         }
-        columnWidths[totalColumns - 1] = OTHER_COLUMN_WIDTH;
+        columnWidths[totalColumns - 1] = TWO_MODULE_OTHER_COLUMN_WIDTH;
 
         Table table = new Table(columnWidths);
         table.setWidth(UnitValue.createPercentValue(100));
         table.setFixedLayout();
+        table.setFontSize(9f);
         System.out.println("[SummaryReportPdfGenerator] Таблиця створена з " + totalColumns + " колонками");
         return table;
     }
@@ -372,11 +376,12 @@ public class SummaryReportPdfGenerator {
             }
 
             Paragraph disciplineTitle = new Paragraph(headerText)
-                    .setTextAlignment(TextAlignment.CENTER);
+                    .setTextAlignment(TextAlignment.CENTER)
+                    .setFontSize(9f);
 
             Cell disciplineHeaderCell = new Cell(1, 3)
                     .add(disciplineTitle)
-                    .setHeight(HEADER_ROW_HEIGHT)
+                    .setHeight(TWO_MODULE_HEADER_ROW_HEIGHT)
                     .setTextAlignment(TextAlignment.CENTER)
                     .setVerticalAlignment(VerticalAlignment.MIDDLE)
                     .setBorder(new SolidBorder(1));
@@ -384,7 +389,7 @@ public class SummaryReportPdfGenerator {
         }
 
         Cell zeroHeader = new Cell(2, 1)
-                .add(new Paragraph("К-сть 0 у студента").setTextAlignment(TextAlignment.CENTER))
+                .add(new Paragraph("К-сть 0 у студента").setTextAlignment(TextAlignment.CENTER).setFontSize(9f))
                 .setTextAlignment(TextAlignment.CENTER)
                 .setVerticalAlignment(VerticalAlignment.MIDDLE)
                 .setBorder(new SolidBorder(1));
@@ -401,7 +406,9 @@ public class SummaryReportPdfGenerator {
 
     private Cell createSubHeaderCell(String text) {
         return new Cell()
-                .add(new Paragraph(text).setTextAlignment(TextAlignment.CENTER))
+                .add(new Paragraph(text)
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setFontSize(8f))
                 .setTextAlignment(TextAlignment.CENTER)
                 .setVerticalAlignment(VerticalAlignment.MIDDLE)
                 .setBorder(new SolidBorder(1));
@@ -621,12 +628,15 @@ public class SummaryReportPdfGenerator {
         // ЗМІНА: public static, + вирівнювання ширин під базову таблицю
         public static Div addNumericHeader(Table baseTable, float marginTop) {
             int totalColumns = baseTable.getNumberOfColumns();
+            boolean isTwoModule = (totalColumns - 2) % 3 == 0 && totalColumns > 2;
+            float firstColumnWidth = isTwoModule ? TWO_MODULE_FIRST_COLUMN_WIDTH : FIRST_COLUMN_WIDTH;
+            float otherColumnWidth = isTwoModule ? TWO_MODULE_OTHER_COLUMN_WIDTH : OTHER_COLUMN_WIDTH;
 
             // Відтворюємо ті самі ширини, що й у createTableStructure(...)
             float[] widths = new float[totalColumns];
-            widths[0] = FIRST_COLUMN_WIDTH;
+            widths[0] = firstColumnWidth;
             for (int i = 1; i < totalColumns; i++) {
-                widths[i] = OTHER_COLUMN_WIDTH;
+                widths[i] = otherColumnWidth;
             }
 
             Table numericRow = new Table(widths);
