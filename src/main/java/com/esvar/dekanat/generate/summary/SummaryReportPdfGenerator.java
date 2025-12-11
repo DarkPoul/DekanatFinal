@@ -329,14 +329,13 @@ public class SummaryReportPdfGenerator {
                 System.out.println("[SummaryReportPdfGenerator] Дисципліна вибіркова: " + discipline.title());
             }
 
-            Paragraph rotated = new Paragraph(headerText)
-                    .setRotationAngle(Math.toRadians(90))
+            Paragraph disciplineTitle = new Paragraph(headerText)
                     .setTextAlignment(TextAlignment.CENTER)
-                    .setFontSize(10f);
+                    .setFontSize(9f);
 
             Cell disciplineHeaderCell = new Cell()
-                    .add(rotated)
-                    .setHeight(HEADER_ROW_HEIGHT)
+                    .add(disciplineTitle)
+                    .setMinHeight(HEADER_ROW_HEIGHT)
                     .setTextAlignment(TextAlignment.CENTER)
                     .setVerticalAlignment(VerticalAlignment.MIDDLE)
                     .setBorder(new SolidBorder(1));
@@ -344,13 +343,12 @@ public class SummaryReportPdfGenerator {
         }
 
         Paragraph zeroColumnText = new Paragraph("К-сть 0 у студента")
-                .setRotationAngle(Math.toRadians(90))
                 .setTextAlignment(TextAlignment.CENTER)
-                .setFontSize(10f);
+                .setFontSize(9f);
 
         Cell zeroHeaderCell = new Cell()
                 .add(zeroColumnText)
-                .setHeight(HEADER_ROW_HEIGHT)
+                .setMinHeight(HEADER_ROW_HEIGHT)
                 .setTextAlignment(TextAlignment.CENTER)
                 .setVerticalAlignment(VerticalAlignment.MIDDLE)
                 .setBorder(new SolidBorder(1));
@@ -381,7 +379,7 @@ public class SummaryReportPdfGenerator {
 
             Cell disciplineHeaderCell = new Cell(1, 3)
                     .add(disciplineTitle)
-                    .setHeight(TWO_MODULE_HEADER_ROW_HEIGHT)
+                    .setMinHeight(TWO_MODULE_HEADER_ROW_HEIGHT)
                     .setTextAlignment(TextAlignment.CENTER)
                     .setVerticalAlignment(VerticalAlignment.MIDDLE)
                     .setBorder(new SolidBorder(1));
