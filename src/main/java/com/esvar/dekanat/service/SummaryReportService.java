@@ -26,6 +26,7 @@ public class SummaryReportService {
     private static final String CONTROL_TYPE_TWO_MODULES = "Два модульних контроля";
     private static final String CONTROL_TYPE_SEMESTER = "Семестровий контроль";
     private static final List<String> SEMESTER_CONTROL_TYPES = List.of(
+            CONTROL_TYPE_SEMESTER,
             "Залік",
             "Екзамен",
             "Диференційний залік",
