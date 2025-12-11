@@ -8,10 +8,12 @@ package com.esvar.dekanat.plan;
 
 import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.entity.*;
+import com.esvar.dekanat.mark.EnterMarksView;
 import com.esvar.dekanat.plan.dialog.PlanDialog;
 import com.esvar.dekanat.repository.StudentRepository;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.view.MainLayout;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -26,8 +28,13 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamRegistration;
+import com.vaadin.flow.server.StreamResource;
 import jakarta.annotation.security.PermitAll;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.text.Collator;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -58,9 +65,11 @@ public class PlanView extends Div {
     private final StudentService studentService;
     private final MarksInitializerService marksInitializerService;
     private final StudentRepository studentRepository;
+    private final SummaryReportService summaryReportService;
+    private static final Logger log = LoggerFactory.getLogger(EnterMarksView.class);
 
     // UI-компоненти
-    private final ComboBox<String> groupSelect = new ComboBox<>(); // Вибір групи
+    private final ComboBox<GroupDTO> selectGroup = new ComboBox<>(); // Вибір групи
     private final Select<String> sessionSelect = new Select<>(); // Вибір сесії
     private final Button firstModuleButton = new Button("І модульний контроль");
     private final Button secondModuleButton = new Button("ІІ модульний контроль");
@@ -74,7 +83,7 @@ public class PlanView extends Div {
                     ControlMethodService controlMethodService,
                     GroupService groupService, PlanService planService,
                     MarksPartsService marksPartsService, StudentPlansService studentPlansService,
-                    MarksService marksService, ControlPartsService controlPartsService, StudentService studentService, MarksInitializerService marksInitializerService, StudentRepository studentRepository) {
+                    MarksService marksService, ControlPartsService controlPartsService, StudentService studentService, MarksInitializerService marksInitializerService, StudentRepository studentRepository, SummaryReportService summaryReportService) {
         // Ініціалізація сервісів
         this.disciplineService = disciplineService;
         this.departmentService = departmentService;
@@ -88,6 +97,7 @@ public class PlanView extends Div {
         this.studentService = studentService;
         this.marksInitializerService = marksInitializerService;
         this.studentRepository = studentRepository;
+        this.summaryReportService = summaryReportService;
 
         // Ініціалізація діалогового вікна
         List<String> disciplines = disciplineService.getAllDisciplines().stream()
@@ -143,15 +153,13 @@ public class PlanView extends Div {
         planGrid.setHeight("100%");
 
         // Налаштування вибору групи
-        groupSelect.setLabel("Група");
+        selectGroup.setLabel("Група");
         Collator collator = Collator.getInstance(new Locale("uk", "UA"));
-        groupSelect.setItems(
-                groupService.getGroupsDTO().stream()
-                        .map(GroupDTO::toString)
-                        .sorted(collator)
-                        .collect(Collectors.toList())
+        selectGroup.setItems(
+                groupService.getGroupsDTO()
         );
-        groupSelect.addValueChangeListener(event -> {
+
+        selectGroup.addValueChangeListener(event -> {
             updateStudentListInDialog();
             updateGrid();
         });
@@ -169,12 +177,9 @@ public class PlanView extends Div {
     }
 
     private void setupLayout() {
-        HorizontalLayout filterLayout = new HorizontalLayout(createPlanEntryBlock(), createReportGenerationBlock());
-        filterLayout.getStyle()
-                .set("padding", "20px 20px 0px 20px")
-                .set("gap", "16px")
-                .set("flex-wrap", "wrap");
-        filterLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.STRETCH);
+        HorizontalLayout filterLayout = new HorizontalLayout(selectGroup, sessionSelect, createReportGenerationBlock());
+        filterLayout.getStyle().set("padding", "20px 20px 0px 20px");
+        filterLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.END);
         filterLayout.setWidthFull();
 
         HorizontalLayout gridLayout = new HorizontalLayout(planGrid);
@@ -185,42 +190,8 @@ public class PlanView extends Div {
         add(filterLayout, gridLayout, addButton);
     }
 
-    private Div createPlanEntryBlock() {
-        groupSelect.setWidthFull();
-        sessionSelect.setWidthFull();
-
-        Span title = new Span("Внесення навчальних планів");
-        title.getStyle()
-                .set("fontWeight", "600")
-                .set("fontSize", "var(--lumo-font-size-s)");
-
-        HorizontalLayout selectorsRow = new HorizontalLayout(groupSelect, sessionSelect);
-        selectorsRow.setWidthFull();
-        selectorsRow.getStyle()
-                .set("gap", "12px")
-                .set("flex-wrap", "wrap");
-        selectorsRow.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.END);
-
-        VerticalLayout content = new VerticalLayout(title, selectorsRow);
-        content.setPadding(false);
-        content.setSpacing(true);
-        content.setMargin(false);
-        content.setWidthFull();
-
-        Div container = new Div(content);
-        container.getStyle()
-                .set("border", "1px solid var(--lumo-contrast-20pct)")
-                .set("borderRadius", "var(--lumo-border-radius-m)")
-                .set("padding", "12px 16px")
-                .set("background", "var(--lumo-base-color)")
-                .set("boxShadow", "var(--lumo-box-shadow-s)")
-                .set("flex", "1 1 360px");
-
-        return container;
-    }
-
     private void openCreateDialog() {
-        String selectedGroup = groupSelect.getValue();
+        String selectedGroup = selectGroup.getValue().getGroupCode();
         if (selectedGroup != null) {
             List<String> students = groupService.getAllStudentsForSelectedGroup(selectedGroup);
             planDialog.updateStudentsList(students);
@@ -375,7 +346,7 @@ public class PlanView extends Div {
     }
 
     private void updateStudentListInDialog() {
-        String selectedGroup = groupSelect.getValue();
+        String selectedGroup = selectGroup.getValue().getGroupCode();
         if (selectedGroup != null) {
             List<String> students = groupService.getAllStudentsForSelectedGroup(selectedGroup);
             planDialog.updateStudentsList(students);
@@ -385,18 +356,18 @@ public class PlanView extends Div {
     }
 
     private void updateGrid() {
-        String selectedGroup = groupSelect.getValue();
+        String selectedGroup = selectGroup.getValue().getGroupCode();
         String selectedSession = sessionSelect.getValue();
         if (selectedGroup == null || selectedSession == null) {
             planGrid.setItems(planService.getAllPlansForGroupAndSemester(null, 0));
             return;
         }
 
-        planGrid.setItems(planService.getAllPlansForGroupAndSemester(groupService.getGroupByTitle(groupSelect.getValue()), getSelectedSemester()));
+        planGrid.setItems(planService.getAllPlansForGroupAndSemester(groupService.getGroupByTitle(selectGroup.getValue().getGroupCode()), getSelectedSemester()));
     }
 
     private int getSelectedSemester() {
-        String selectedGroup = groupSelect.getValue();
+        String selectedGroup = selectGroup.getValue().getGroupCode();
         String selectedSession = sessionSelect.getValue();
         if (selectedGroup == null || selectedSession == null) {
             return 1; // За замовчуванням - перший семестр
@@ -414,7 +385,7 @@ public class PlanView extends Div {
     }
 
     private StudentGroupEntity getSelectedGroup() {
-        String selectedGroup = groupSelect.getValue();
+        String selectedGroup = selectGroup.getValue().getGroupCode();
         if (selectedGroup == null) {
             return null;
         }
@@ -444,13 +415,57 @@ public class PlanView extends Div {
         reportButtons.forEach(button -> {
             button.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
             button.setTooltipText("Функціонал генерації у розробці");
-            button.addClickListener(event -> Notification.show("Генерація відомостей буде доступна найближчим часом."));
+        });
+
+        firstModuleButton.addClickListener(buttonClickEvent -> {
+            generateFirstModuleSummaryReport();
+            Notification.show("Генерація першого модулю");
+        });
+        secondModuleButton.addClickListener(buttonClickEvent -> {
+            Notification.show("Генерація відомостей буде доступна найближчим часом.");
+        });
+        secondModuleButton.addClickListener(buttonClickEvent -> {
+            Notification.show("Генерація відомостей буде доступна найближчим часом.");
         });
 
         firstModuleButton.setIcon(VaadinIcon.FILE_TEXT.create());
         secondModuleButton.setIcon(VaadinIcon.FILE_PROCESS.create());
         semesterControlButton.setIcon(VaadinIcon.FILE_PRESENTATION.create());
         semesterControlButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
+    }
+
+    private void generateFirstModuleSummaryReport() {
+        try {
+            SummaryReportService.SummaryReportResult result = summaryReportService.generateFirstModuleReport(selectGroup.getValue());
+            String fileName = String.format("summary-first-module-%s.pdf", result.groupCode());
+            openPdfReport(fileName, result.pdfBytes());
+
+            Notification notification = Notification.show("Звіт сформовано");
+            notification.setDuration(3000);
+        } catch (SummaryReportService.SummaryReportGenerationException ex) {
+            Notification.show(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Не вдалося згенерувати зведений звіт", ex);
+            Notification.show("Не вдалося згенерувати звіт");
+        }
+    }
+
+    private void openPdfReport(String fileName, byte[] pdfBytes) {
+        UI ui = UI.getCurrent();
+        if (ui == null) {
+            throw new IllegalStateException("UI is not available for opening the PDF report");
+        }
+
+        StreamResource resource = new StreamResource(fileName, () -> new ByteArrayInputStream(pdfBytes));
+        resource.setContentType("application/pdf");
+        resource.setCacheTime(0);
+
+        StreamRegistration registration = ui.getSession()
+                .getResourceRegistry()
+                .registerResource(resource);
+
+        String resourceUrl = registration.getResourceUri().toString();
+        ui.getPage().open(resourceUrl, "_blank");
     }
 
     private Div createReportGenerationBlock() {
@@ -468,7 +483,6 @@ public class PlanView extends Div {
         content.setPadding(false);
         content.setSpacing(true);
         content.setMargin(false);
-        content.setWidthFull();
 
         Div container = new Div(content);
         container.getStyle()
@@ -477,7 +491,7 @@ public class PlanView extends Div {
                 .set("padding", "12px 16px")
                 .set("background", "var(--lumo-base-color)")
                 .set("boxShadow", "var(--lumo-box-shadow-s)")
-                .set("flex", "1 1 320px");
+                .set("marginLeft", "auto");
 
         return container;
     }
