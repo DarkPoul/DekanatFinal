@@ -156,7 +156,7 @@ public class SummaryReportService {
 
         System.out.println("[SummaryReportService] Знайдено студентів: " + students.size());
 
-        int semester = computeFirstModuleSemester(selectedGroup.getCourse());
+        int semester = computeSemesterForControl(selectedGroup.getCourse(), controlTitle);
         System.out.println("[SummaryReportService] Обчислено семестр для контролю: " + semester);
         Map<Long, PlanAssignment> planAssignments = collectPlanAssignments(group, semester, students, controlTypes);
         if (planAssignments.isEmpty()) {
@@ -212,6 +212,20 @@ public class SummaryReportService {
         return securityService.getCurrentUserModel()
                 .map(this::formatTeacherName)
                 .orElse("");
+    }
+
+    private int computeSecondModuleSemester(int course) {
+        if (course <= 0) {
+            return 1;
+        }
+        return course * 2;
+    }
+
+    private int computeSemesterForControl(int course, String controlTitle) {
+        if (CONTROL_TYPE_SECOND_MODULE.equals(controlTitle) || CONTROL_TYPE_SEMESTER.equals(controlTitle)) {
+            return computeSecondModuleSemester(course);
+        }
+        return computeFirstModuleSemester(course);
     }
 
     private String formatTeacherName(UserModel user) {

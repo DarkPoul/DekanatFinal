@@ -398,7 +398,7 @@ public class SummaryReportPdfGenerator {
         for (int i = 0; i < disciplineColumns.size(); i++) {
             table.addHeaderCell(createSubHeaderCell("1м"));
             table.addHeaderCell(createSubHeaderCell("2м"));
-            table.addHeaderCell(createSubHeaderCell("Сума"));
+            table.addHeaderCell(createSubHeaderCell("С"));
         }
 
         System.out.println("[SummaryReportPdfGenerator] Заголовки колонок додано (2 модулі)");
