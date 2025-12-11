@@ -1232,8 +1232,8 @@ public class EnterMarksView extends Div {
             }
             case "Залік" -> {
                 DataModelForZalik data = buildDataModelForZalik(secondTeacher);
-//                Path path = documentGenerationService.generate(ZalikPdfGenerator.NAME, data);
-//                return path.toString();
+                Path path = documentGenerationService.generate(ZalikPdfGenerator.NAME, data);
+                return path.toString();
             }
         }
 
