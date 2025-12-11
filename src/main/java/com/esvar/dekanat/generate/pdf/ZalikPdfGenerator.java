@@ -24,6 +24,7 @@ import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
+import com.itextpdf.layout.properties.VerticalAlignment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -72,7 +73,7 @@ public class ZalikPdfGenerator implements PdfGenerator {
 
                 addHeader(document, regular, bold, zalikData);
                 addStudentsTable(document, regular, bold, zalikData);
-                addSummarySection(document, regular, bold, zalikData);
+                addFooter(document, regular, bold, zalikData);
 
                 log.info("Generated zalik PDF at {}", outputPath);
             }
@@ -84,87 +85,92 @@ public class ZalikPdfGenerator implements PdfGenerator {
     }
 
     private void addHeader(Document document, PdfFont regular, PdfFont bold, DataModelForZalik data) {
+        document.setFontSize(11);
+
         document.add(new Paragraph("НАЦІОНАЛЬНИЙ ТРАНСПОРТНИЙ УНІВЕРСИТЕТ")
                 .setFont(bold)
-                .setFontSize(11)
                 .setTextAlignment(TextAlignment.CENTER));
 
         SolidLine solidLine = new SolidLine(1f);
-        LineSeparator line = new LineSeparator(solidLine);
-        line.setMarginTop(-6);
-        line.setMarginBottom(0);
+        LineSeparator separator = new LineSeparator(solidLine);
+        separator.setMarginTop(-6);
+        separator.setMarginBottom(2);
 
-        document.add(line);
-        document.add(new Paragraph(Objects.toString(data.facultyName(), ""))
+        document.add(separator);
+        document.add(new Paragraph("Факультет " + Objects.toString(data.facultyName(), ""))
                 .setFont(regular)
-                .setFontSize(11));
-        document.add(line);
-        document.add(new Paragraph("Спеціальність: " + Objects.toString(data.specialityName(), ""))
+                .setTextAlignment(TextAlignment.CENTER));
+        document.add(new Paragraph("за " + Objects.toString(data.studyYear(), "") + " навчальний рік")
                 .setFont(regular)
-                .setFontSize(11));
-        document.add(line);
-
-        Table groupTable = new Table(UnitValue.createPercentArray(new float[]{25, 10, 25, 40}))
-                .useAllAvailableWidth();
-
-        groupTable.addCell(buildLabelCell("Курс: ", regular));
-        groupTable.addCell(buildValueCell(Objects.toString(data.courseNumber(), ""), regular));
-        groupTable.addCell(buildLabelCell("\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0Група: ", regular));
-        groupTable.addCell(buildValueCell(Objects.toString(data.groupName(), ""), regular));
-
-        document.add(groupTable);
-
-        document.add(new Paragraph(Objects.toString(data.studyYear(), "") + " навчальний рік")
-                .setFont(regular)
-                .setFontSize(11)
                 .setTextAlignment(TextAlignment.CENTER));
 
         document.add(new Paragraph("ВІДОМІСТЬ ОБЛІКУ УСПІШНОСТІ № " + Objects.toString(data.order(), ""))
                 .setFont(bold)
                 .setFontSize(12)
                 .setTextAlignment(TextAlignment.CENTER)
-                .setMarginTop(6));
+                .setMarginTop(4)
+                .setMarginBottom(6));
 
-        document.add(new Paragraph(String.format("з дисципліни: %s за %s семестр",
-                        Objects.toString(data.disciplineName(), ""), Objects.toString(data.semesterNumber(), "")))
-                .setFont(regular)
-                .setFontSize(11)
-                .setTextAlignment(TextAlignment.CENTER));
-
-        document.add(new Paragraph("Форма семестрового контролю: " + Objects.toString(data.controlTypeName(), ""))
-                .setFont(regular)
-                .setFontSize(11)
-                .setTextAlignment(TextAlignment.CENTER));
-
-        document.add(new Paragraph("Загальна кількість годин: " + Objects.toString(data.hours(), ""))
-                .setFont(regular)
-                .setFontSize(11)
-                .setTextAlignment(TextAlignment.CENTER));
-
-        Table teachersTable = new Table(UnitValue.createPercentArray(new float[]{50, 50}))
+        Table courseTable = new Table(UnitValue.createPercentArray(new float[]{22, 14, 24, 14, 26}))
                 .useAllAvailableWidth();
-        teachersTable.addCell(buildTeacherCell("Перший викладач: ", Objects.toString(data.firstTeacher(), ""), regular));
-        teachersTable.addCell(buildTeacherCell("Другий викладач: ", Objects.toString(data.secondTeacher(), ""), regular));
+        courseTable.addCell(labelCell("для курсу", regular));
+        courseTable.addCell(underlinedValueCell(Objects.toString(data.courseNumber(), ""), regular));
+        courseTable.addCell(labelCell("Група", regular));
+        courseTable.addCell(underlinedValueCell(Objects.toString(data.groupName(), ""), regular));
+        courseTable.addCell(labelCell("за " + Objects.toString(data.semesterNumber(), "") + " семестр", regular));
 
+        document.add(courseTable);
+
+        document.add(new Paragraph("Спеціальність: " + Objects.toString(data.specialityName(), ""))
+                .setFont(regular)
+                .setMarginTop(4));
+
+        Table disciplineTable = new Table(UnitValue.createPercentArray(new float[]{20, 50, 30}))
+                .useAllAvailableWidth();
+        disciplineTable.addCell(labelCell("Дисципліна: ", regular));
+        disciplineTable.addCell(underlinedValueCell(Objects.toString(data.disciplineName(), ""), regular));
+        disciplineTable.addCell(labelCell("годин (навчальний план)", regular));
+        document.add(disciplineTable);
+
+        Table controlTable = new Table(UnitValue.createPercentArray(new float[]{28, 32, 18, 22}))
+                .useAllAvailableWidth();
+        controlTable.addCell(labelCell("Форма семестрового контролю:", regular));
+        controlTable.addCell(underlinedValueCell(Objects.toString(data.controlTypeName(), ""), regular));
+        controlTable.addCell(labelCell("Загальна кількість годин:", regular));
+        controlTable.addCell(underlinedValueCell(Objects.toString(data.hours(), ""), regular));
+        document.add(controlTable);
+
+        Table teachersTable = new Table(UnitValue.createPercentArray(new float[]{33, 33, 34}))
+                .useAllAvailableWidth();
+        teachersTable.addCell(labelWithValue("Викладач(ка):", Objects.toString(data.firstTeacher(), ""), regular));
+        teachersTable.addCell(labelWithValue("Викладач лабораторних занять:", Objects.toString(data.secondTeacher(), ""), regular));
+        teachersTable.addCell(labelWithValue("Староста:", "", regular));
         document.add(teachersTable);
-        document.add(new Paragraph(""));
+
+        document.add(new Paragraph("Декан факультету: " + Objects.toString(data.dean(), ""))
+                .setFont(regular)
+                .setMarginTop(2)
+                .setMarginBottom(8));
     }
 
     private void addStudentsTable(Document document, PdfFont regular, PdfFont bold, DataModelForZalik data) {
-        float[] columnWidths = {4, 28, 15, 14, 10, 10, 12, 7};
+        document.add(new Paragraph("Підсумки оцінювання семестру (оцінки)")
+                .setFont(bold)
+                .setTextAlignment(TextAlignment.LEFT)
+                .setMarginBottom(4));
+
+        float[] columnWidths = {5, 30, 16, 12, 18, 12, 7};
         Table table = new Table(UnitValue.createPercentArray(columnWidths))
                 .useAllAvailableWidth();
 
-        addHeaderCell(table, "№", bold);
-        addHeaderCell(table, "ПІБ", bold);
+        addHeaderCell(table, "№ з/п", bold);
+        addHeaderCell(table, "Прізвище, ім'я та по батькові", bold);
         addHeaderCell(table, "Номер залікової книжки", bold);
-        addHeaderCell(table, "Нац. оцінка", bold);
-        addHeaderCell(table, "Бали", bold);
-        addHeaderCell(table, "ECTS", bold);
-        addHeaderCell(table, "Дата", bold);
+        addHeaderCell(table, "Бали (0-100)", bold);
+        addHeaderCell(table, "Оцінка за національною шкалою", bold);
+        addHeaderCell(table, "Оцінка за шкалою ECTS", bold);
         addHeaderCell(table, "Підпис", bold);
 
-        String date = formatDate(data);
         List<StudentModelToDocumentGenerate> students = data.students();
         for (StudentModelToDocumentGenerate student : students) {
             int numericMark = parseToInt(student.mark());
@@ -174,76 +180,94 @@ public class ZalikPdfGenerator implements PdfGenerator {
             table.addCell(defaultCell(String.valueOf(student.index()), regular, TextAlignment.CENTER));
             table.addCell(defaultCell(student.name(), regular, TextAlignment.LEFT));
             table.addCell(defaultCell(student.studentNumber(), regular, TextAlignment.CENTER));
-            table.addCell(defaultCell(nationalGrade, regular, TextAlignment.CENTER));
             table.addCell(defaultCell(student.mark(), regular, TextAlignment.CENTER));
+            table.addCell(defaultCell(nationalGrade, regular, TextAlignment.CENTER));
             table.addCell(defaultCell(ectsGrade, regular, TextAlignment.CENTER));
-            table.addCell(defaultCell(date, regular, TextAlignment.CENTER));
             table.addCell(defaultCell("", regular, TextAlignment.CENTER));
         }
 
         document.add(table);
     }
 
-    private void addSummarySection(Document document, PdfFont regular, PdfFont bold, DataModelForZalik data) {
-        document.add(new Paragraph(""));
+    private void addFooter(Document document, PdfFont regular, PdfFont bold, DataModelForZalik data) {
+        int totalMarks = calculateTotalMarks(data.students());
+        int studentCount = data.students() == null ? 0 : data.students().size();
+        int averageMark = studentCount > 0 ? Math.round((float) totalMarks / studentCount) : 0;
 
-        Table gradeTable = new Table(UnitValue.createPercentArray(new float[]{10, 10, 10, 10, 10, 10, 10}))
+        document.add(new Paragraph().setMarginTop(6));
+
+        Table resultTable = new Table(UnitValue.createPercentArray(new float[]{25, 25, 25, 25}))
                 .useAllAvailableWidth();
-        addHeaderCell(gradeTable, "A", bold);
-        addHeaderCell(gradeTable, "B", bold);
-        addHeaderCell(gradeTable, "C", bold);
-        addHeaderCell(gradeTable, "D", bold);
-        addHeaderCell(gradeTable, "E", bold);
-        addHeaderCell(gradeTable, "FX", bold);
-        addHeaderCell(gradeTable, "F", bold);
+        resultTable.addCell(summaryCell("ВСЬОГО ОЦІНОК (бали)", "100", regular, bold));
+        resultTable.addCell(summaryCell("СУМА ОЦІНОК (бали)", String.valueOf(totalMarks), regular, bold));
+        resultTable.addCell(summaryCell("ОЦІНКА ЗА НАЦІОНАЛЬНОЮ ШКАЛОЮ", convertMarkToNationalGrade(averageMark), regular, bold));
+        resultTable.addCell(summaryCell("ОЦІНКА за шкалою ECTS", convertMarkToECTSGrade(averageMark), regular, bold));
+        document.add(resultTable);
 
-        gradeTable.addCell(defaultCell(Objects.toString(data.a(), "0"), regular, TextAlignment.CENTER));
-        gradeTable.addCell(defaultCell(Objects.toString(data.b(), "0"), regular, TextAlignment.CENTER));
-        gradeTable.addCell(defaultCell(Objects.toString(data.c(), "0"), regular, TextAlignment.CENTER));
-        gradeTable.addCell(defaultCell(Objects.toString(data.d(), "0"), regular, TextAlignment.CENTER));
-        gradeTable.addCell(defaultCell(Objects.toString(data.e(), "0"), regular, TextAlignment.CENTER));
-        gradeTable.addCell(defaultCell(Objects.toString(data.fx(), "0"), regular, TextAlignment.CENTER));
-        gradeTable.addCell(defaultCell(Objects.toString(data.f(), "0"), regular, TextAlignment.CENTER));
+        document.add(new Paragraph().setMarginTop(4));
 
-        document.add(gradeTable);
-
-        document.add(new Paragraph(""));
-
-        Table signTable = new Table(UnitValue.createPercentArray(new float[]{33, 34, 33}))
+        Table distribution = new Table(UnitValue.createPercentArray(new float[]{12, 12, 12, 12, 12, 12, 12}))
                 .useAllAvailableWidth();
-        signTable.addCell(signatureCell("Викладач", Objects.toString(data.gradeTeacher(), ""), regular));
-        signTable.addCell(signatureCell("Декан", Objects.toString(data.dean(), ""), regular));
-        signTable.addCell(signatureCell("Завідувач кафедри", Objects.toString(data.departmentName(), ""), regular));
+        addHeaderCell(distribution, "A", bold);
+        addHeaderCell(distribution, "B", bold);
+        addHeaderCell(distribution, "C", bold);
+        addHeaderCell(distribution, "D", bold);
+        addHeaderCell(distribution, "E", bold);
+        addHeaderCell(distribution, "FX", bold);
+        addHeaderCell(distribution, "F", bold);
 
-        document.add(signTable);
+        distribution.addCell(defaultCell(Objects.toString(data.a(), "0"), regular, TextAlignment.CENTER));
+        distribution.addCell(defaultCell(Objects.toString(data.b(), "0"), regular, TextAlignment.CENTER));
+        distribution.addCell(defaultCell(Objects.toString(data.c(), "0"), regular, TextAlignment.CENTER));
+        distribution.addCell(defaultCell(Objects.toString(data.d(), "0"), regular, TextAlignment.CENTER));
+        distribution.addCell(defaultCell(Objects.toString(data.e(), "0"), regular, TextAlignment.CENTER));
+        distribution.addCell(defaultCell(Objects.toString(data.fx(), "0"), regular, TextAlignment.CENTER));
+        distribution.addCell(defaultCell(Objects.toString(data.f(), "0"), regular, TextAlignment.CENTER));
+
+        document.add(distribution);
+
+        String date = formatDate(data);
+        if (!date.isBlank()) {
+            document.add(new Paragraph("Дата проведення: " + date)
+                    .setFont(regular)
+                    .setMarginTop(6));
+        }
+
+        Table signatures = new Table(UnitValue.createPercentArray(new float[]{34, 33, 33}))
+                .useAllAvailableWidth();
+        signatures.addCell(signatureCell("Екзаменатор", Objects.toString(data.gradeTeacher(), ""), regular));
+        signatures.addCell(signatureCell("Декан", Objects.toString(data.dean(), ""), regular));
+        signatures.addCell(signatureCell("Завідувач кафедри", Objects.toString(data.departmentName(), ""), regular));
+
+        document.add(signatures);
     }
 
-    private Cell buildLabelCell(String text, PdfFont font) {
-        return new Cell().setPadding(0)
+    private Cell labelCell(String text, PdfFont font) {
+        return new Cell().setBorder(Border.NO_BORDER)
                 .add(new Paragraph(text)
                         .setFont(font)
-                        .setFontSize(11))
-                .setBorder(Border.NO_BORDER);
+                        .setFontSize(11));
     }
 
-    private Cell buildValueCell(String text, PdfFont font) {
-        return new Cell().setPadding(0)
+    private Cell underlinedValueCell(String text, PdfFont font) {
+        return new Cell().setBorder(Border.NO_BORDER)
                 .add(new Paragraph(text)
                         .setFont(font)
                         .setFontSize(11)
-                        .setTextAlignment(TextAlignment.CENTER))
-                .setBorderTop(Border.NO_BORDER)
-                .setBorderLeft(Border.NO_BORDER)
-                .setBorderRight(Border.NO_BORDER)
-                .setBorderBottom(new SolidBorder(0.5f));
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setBorderBottom(new SolidBorder(0.5f)));
     }
 
-    private Cell buildTeacherCell(String label, String value, PdfFont font) {
-        return new Cell().setPadding(4)
-                .add(new Paragraph(label + value)
+    private Cell labelWithValue(String label, String value, PdfFont font) {
+        return new Cell().setBorder(Border.NO_BORDER)
+                .add(new Paragraph(label)
                         .setFont(font)
                         .setFontSize(11))
-                .setBorder(Border.NO_BORDER);
+                .add(new Paragraph(value)
+                        .setFont(font)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setBorderBottom(new SolidBorder(0.5f)));
     }
 
     private void addHeaderCell(Table table, String text, PdfFont bold) {
@@ -251,7 +275,8 @@ public class ZalikPdfGenerator implements PdfGenerator {
                         .setFont(bold)
                         .setFontSize(10)
                         .setTextAlignment(TextAlignment.CENTER))
-                .setPadding(4));
+                .setPadding(4)
+                .setVerticalAlignment(VerticalAlignment.MIDDLE));
     }
 
     private Cell defaultCell(String text, PdfFont font, TextAlignment alignment) {
@@ -259,23 +284,48 @@ public class ZalikPdfGenerator implements PdfGenerator {
                         .setFont(font)
                         .setFontSize(10)
                         .setTextAlignment(alignment))
-                .setPadding(4);
+                .setPadding(4)
+                .setVerticalAlignment(VerticalAlignment.MIDDLE);
+    }
+
+    private Cell summaryCell(String label, String value, PdfFont font, PdfFont bold) {
+        return new Cell().setPadding(6)
+                .add(new Paragraph(label)
+                        .setFont(font)
+                        .setFontSize(10)
+                        .setTextAlignment(TextAlignment.CENTER))
+                .add(new Paragraph(value)
+                        .setFont(bold)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER));
     }
 
     private Cell signatureCell(String label, String value, PdfFont font) {
         Paragraph labelParagraph = new Paragraph(label)
                 .setFont(font)
-                .setFontSize(11);
+                .setFontSize(11)
+                .setTextAlignment(TextAlignment.CENTER);
         Paragraph valueParagraph = new Paragraph(value)
                 .setFont(font)
                 .setFontSize(11)
                 .setTextAlignment(TextAlignment.CENTER)
                 .setBorderBottom(new SolidBorder(0.5f));
 
-        return new Cell().setPadding(6)
+        return new Cell().setPadding(8)
                 .add(labelParagraph)
                 .add(valueParagraph)
                 .setBorder(Border.NO_BORDER);
+    }
+
+    private int calculateTotalMarks(List<StudentModelToDocumentGenerate> students) {
+        if (students == null || students.isEmpty()) {
+            return 0;
+        }
+        int total = 0;
+        for (StudentModelToDocumentGenerate student : students) {
+            total += parseToInt(student.mark());
+        }
+        return total;
     }
 
     private PdfFont loadFont(String resourcePath, String fallbackFont) throws IOException {
