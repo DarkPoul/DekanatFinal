@@ -372,7 +372,9 @@ public class SummaryReportPdfGenerator {
             }
 
             Paragraph disciplineTitle = new Paragraph(headerText)
-                    .setTextAlignment(TextAlignment.CENTER);
+                    .setRotationAngle(Math.toRadians(90))
+                    .setTextAlignment(TextAlignment.CENTER)
+                    .setFontSize(10f);
 
             Cell disciplineHeaderCell = new Cell(1, 3)
                     .add(disciplineTitle)
