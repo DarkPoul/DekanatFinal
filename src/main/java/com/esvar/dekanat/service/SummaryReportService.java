@@ -23,6 +23,17 @@ public class SummaryReportService {
 
     private static final String CONTROL_TYPE_FIRST_MODULE = "Перший модульний контроль";
     private static final String CONTROL_TYPE_SECOND_MODULE = "Другий модульний контроль";
+    private static final String CONTROL_TYPE_SEMESTER = "Семестровий контроль";
+    private static final List<String> SEMESTER_CONTROL_TYPES = List.of(
+            "Залік",
+            "Екзамен",
+            "Диференційний залік",
+            "Курсова робота",
+            "Курсовий проєкт",
+            "РР(фінальна оцінка)",
+            "РГР(фінальна оцінка)",
+            "Контрольна робота"
+    );
 
     private final GroupService groupService;
     private final StudentService studentService;
@@ -51,16 +62,24 @@ public class SummaryReportService {
 
     @Transactional(readOnly = true)
     public SummaryReportResult generateFirstModuleReport(GroupDTO selectedGroup) {
-        return generateModuleReport(selectedGroup, CONTROL_TYPE_FIRST_MODULE, false);
+        return generateReport(selectedGroup, List.of(CONTROL_TYPE_FIRST_MODULE), CONTROL_TYPE_FIRST_MODULE, false);
     }
 
     @Transactional(readOnly = true)
     public SummaryReportResult generateSecondModuleReport(GroupDTO selectedGroup) {
-        return generateModuleReport(selectedGroup, CONTROL_TYPE_SECOND_MODULE, true);
+        return generateReport(selectedGroup, List.of(CONTROL_TYPE_SECOND_MODULE), CONTROL_TYPE_SECOND_MODULE, true);
     }
 
-    private SummaryReportResult generateModuleReport(GroupDTO selectedGroup, String controlType, boolean includeSignature) {
-        System.out.println("[SummaryReportService] Початок генерації звіту для контролю: " + controlType);
+    @Transactional(readOnly = true)
+    public SummaryReportResult generateSemesterReport(GroupDTO selectedGroup) {
+        return generateReport(selectedGroup, SEMESTER_CONTROL_TYPES, CONTROL_TYPE_SEMESTER, true);
+    }
+
+    private SummaryReportResult generateReport(GroupDTO selectedGroup,
+                                               Collection<String> controlTypes,
+                                               String controlTitle,
+                                               boolean includeSignature) {
+        System.out.println("[SummaryReportService] Початок генерації звіту для контролю: " + controlTitle);
         if (selectedGroup == null) {
             System.out.println("[SummaryReportService] Не обрано групу для звіту");
             throw new SummaryReportGenerationException("Оберіть групу для формування звіту");
@@ -81,10 +100,10 @@ public class SummaryReportService {
 
         int semester = computeFirstModuleSemester(selectedGroup.getCourse());
         System.out.println("[SummaryReportService] Обчислено семестр для контролю: " + semester);
-        Map<Long, PlanAssignment> planAssignments = collectPlanAssignments(group, semester, students, controlType);
+        Map<Long, PlanAssignment> planAssignments = collectPlanAssignments(group, semester, students, controlTypes);
         if (planAssignments.isEmpty()) {
-            System.out.println("[SummaryReportService] Не знайдено планів для контролю: " + controlType);
-            throw new SummaryReportGenerationException("Не знайдено дисциплін для обраного модульного контролю");
+            System.out.println("[SummaryReportService] Не знайдено планів для контролю: " + controlTitle);
+            throw new SummaryReportGenerationException("Не знайдено дисциплін для обраного контролю");
         }
 
         System.out.println("[SummaryReportService] Зібрано планів: " + planAssignments.size());
@@ -119,7 +138,7 @@ public class SummaryReportService {
                 examiner,
                 false,
                 includeSignature,
-                buildReportTitle(controlType)
+                buildReportTitle(controlTitle)
         );
 
         System.out.println("[SummaryReportService] Генерація PDF завершена, розмір: " + (pdfBytes == null ? 0 : pdfBytes.length));
@@ -182,18 +201,18 @@ public class SummaryReportService {
     }
 
     private Map<Long, PlanAssignment> collectPlanAssignments(StudentGroupEntity group,
-                                                             int semester,
-                                                             List<StudentEntity> students,
-                                                             String controlType) {
+                                                            int semester,
+                                                            List<StudentEntity> students,
+                                                            Collection<String> controlTypes) {
         Map<Long, PlanAssignment> assignments = new LinkedHashMap<>();
-        Map<Long, ControlMethodEntity> moduleControlCache = new HashMap<>();
+        Map<Long, ControlMethodEntity> controlMethodCache = new HashMap<>();
 
         System.out.println("[SummaryReportService] Завантажуємо плани групи для семестру " + semester);
         List<PlansEntity> groupPlans = planService.getAllPlansForGroupAndSemester(group, semester);
         if (groupPlans != null) {
             System.out.println("[SummaryReportService] Отримано планів групи: " + groupPlans.size());
             for (PlansEntity plan : groupPlans) {
-                PlanAssignment assignment = ensurePlanAssignment(assignments, plan, moduleControlCache, controlType);
+                PlanAssignment assignment = ensurePlanAssignment(assignments, plan, controlMethodCache, controlTypes);
                 if (assignment != null) {
                     System.out.println("[SummaryReportService] Додаємо план групи: " + safeDisciplineTitle(plan));
                 }
@@ -211,13 +230,13 @@ public class SummaryReportService {
             for (StudentPlansEntity studentPlan : studentPlans) {
                 PlansEntity plan = studentPlan.getPlan();
                 if (plan == null || plan.getSemester() != semester) {
-                    System.out.println("[SummaryReportService] Пропускаємо план (не підходить для модульного контролю)");
+                    System.out.println("[SummaryReportService] Пропускаємо план (не підходить для обраного контролю)");
                     continue;
                 }
 
-                PlanAssignment assignment = ensurePlanAssignment(assignments, plan, moduleControlCache, controlType);
+                PlanAssignment assignment = ensurePlanAssignment(assignments, plan, controlMethodCache, controlTypes);
                 if (assignment == null) {
-                    System.out.println("[SummaryReportService] Пропускаємо план (не підходить для модульного контролю)");
+                    System.out.println("[SummaryReportService] Пропускаємо план (не підходить для обраного контролю)");
                     continue;
                 }
 
@@ -233,14 +252,14 @@ public class SummaryReportService {
     private PlanAssignment ensurePlanAssignment(Map<Long, PlanAssignment> assignments,
                                                 PlansEntity plan,
                                                 Map<Long, ControlMethodEntity> controlCache,
-                                                String controlType) {
+                                                Collection<String> controlTypes) {
         if (plan == null) {
             return null;
         }
 
-        ControlMethodEntity control = resolveModuleControl(plan, controlCache, controlType);
+        ControlMethodEntity control = resolveControlMethod(plan, controlCache, controlTypes);
         if (control == null) {
-            System.out.println("[SummaryReportService] План '" + safeDisciplineTitle(plan) + "' не має контролю '" + controlType + "'");
+            System.out.println("[SummaryReportService] План '" + safeDisciplineTitle(plan) + "' не має контрольної події зі списку '" + formatControlTypes(controlTypes) + "'");
             return null;
         }
 
@@ -252,9 +271,9 @@ public class SummaryReportService {
         return assignment;
     }
 
-    private ControlMethodEntity resolveModuleControl(PlansEntity plan,
+    private ControlMethodEntity resolveControlMethod(PlansEntity plan,
                                                      Map<Long, ControlMethodEntity> controlCache,
-                                                     String controlType) {
+                                                     Collection<String> controlTypes) {
         if (plan == null || plan.getId() == null) {
             return null;
         }
@@ -263,22 +282,37 @@ public class SummaryReportService {
             return controlCache.get(plan.getId());
         }
 
-        ControlMethodEntity control = null;
-        if (isMatchingControl(plan.getFirstControl(), controlType)) {
-            control = plan.getFirstControl();
-        } else if (isMatchingControl(plan.getSecondControl(), controlType)) {
-            control = plan.getSecondControl();
-        } else {
-            List<MarksEntity> marks = marksService.findMarksByPlanAndTypeControl(plan, controlType);
-            if (marks != null && !marks.isEmpty()) {
-                control = marks.get(0).getControlMethod();
-            }
+        ControlMethodEntity control = findControlMethodInPlan(plan, controlTypes);
+        if (control == null) {
+            control = findControlMethodByMarks(plan, controlTypes);
         }
 
         controlCache.put(plan.getId(), control);
         System.out.println("[SummaryReportService] План '" + safeDisciplineTitle(plan) + "' "
-                + (control != null ? "має" : "не має") + " контроль '" + controlType + "'");
+                + (control != null ? "має" : "не має") + " контроль зі списку '" + formatControlTypes(controlTypes) + "'");
         return control;
+    }
+
+    private ControlMethodEntity findControlMethodInPlan(PlansEntity plan, Collection<String> controlTypes) {
+        for (String controlType : controlTypes) {
+            if (isMatchingControl(plan.getFirstControl(), controlType)) {
+                return plan.getFirstControl();
+            }
+            if (isMatchingControl(plan.getSecondControl(), controlType)) {
+                return plan.getSecondControl();
+            }
+        }
+        return null;
+    }
+
+    private ControlMethodEntity findControlMethodByMarks(PlansEntity plan, Collection<String> controlTypes) {
+        for (String controlType : controlTypes) {
+            List<MarksEntity> marks = marksService.findMarksByPlanAndTypeControl(plan, controlType);
+            if (marks != null && !marks.isEmpty()) {
+                return marks.get(0).getControlMethod();
+            }
+        }
+        return null;
     }
 
     private boolean isMatchingControl(ControlMethodEntity controlMethod, String controlType) {
@@ -286,6 +320,17 @@ public class SummaryReportService {
             return false;
         }
         return controlMethod.getName().trim().equalsIgnoreCase(controlType);
+    }
+
+    private String formatControlTypes(Collection<String> controlTypes) {
+        if (controlTypes == null || controlTypes.isEmpty()) {
+            return "";
+        }
+        return String.join(", ", controlTypes.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .toList());
     }
 
     private Map<String, List<Integer>> buildMarksForSummaryReport(List<StudentEntity> students,
@@ -352,7 +397,7 @@ public class SummaryReportService {
         List<DisciplineSummary> summaries = new ArrayList<>();
         for (PlanAssignment assignment : assignments) {
             PlansEntity plan = assignment.plan;
-            ControlMethodEntity controlMethod = assignment.moduleControl;
+            ControlMethodEntity controlMethod = assignment.controlMethod;
             if (controlMethod == null) {
                 System.out.println("[SummaryReportService] Пропущено план без контрольної події");
                 continue;
@@ -423,12 +468,12 @@ public class SummaryReportService {
 
     private static class PlanAssignment {
         private final PlansEntity plan;
-        private final ControlMethodEntity moduleControl;
+        private final ControlMethodEntity controlMethod;
         private final Set<Long> assignedStudentIds = new LinkedHashSet<>();
 
-        private PlanAssignment(PlansEntity plan, ControlMethodEntity moduleControl) {
+        private PlanAssignment(PlansEntity plan, ControlMethodEntity controlMethod) {
             this.plan = plan;
-            this.moduleControl = moduleControl;
+            this.controlMethod = controlMethod;
         }
     }
 
