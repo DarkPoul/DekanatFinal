@@ -263,12 +263,11 @@ public class SummaryReportPdfGenerator {
     private Table createTableStructure(int disciplineCount) {
         System.out.println("[SummaryReportPdfGenerator] Створюємо структуру таблиці. Кількість дисциплін: " + disciplineCount);
         int totalColumns = 2 + disciplineCount;
-        float[] columnWidths = new float[totalColumns];
-        columnWidths[0] = TWO_MODULE_FIRST_COLUMN_WIDTH;
-        for (int i = 1; i < totalColumns - 1; i++) {
-            columnWidths[i] = TWO_MODULE_OTHER_COLUMN_WIDTH;
-        }
-        columnWidths[totalColumns - 1] = TWO_MODULE_OTHER_COLUMN_WIDTH;
+        float[] columnWidths = createAdjustedColumnWidths(
+                totalColumns,
+                TWO_MODULE_FIRST_COLUMN_WIDTH,
+                TWO_MODULE_OTHER_COLUMN_WIDTH
+        );
 
         Table table = new Table(columnWidths);
         table.setWidth(UnitValue.createPercentValue(100));
@@ -282,18 +281,27 @@ public class SummaryReportPdfGenerator {
         System.out.println("[SummaryReportPdfGenerator] Створюємо структуру таблиці (2 модулі). Кількість дисциплін: "
                 + disciplineCount);
         int totalColumns = 2 + disciplineCount * 3;
-        float[] columnWidths = new float[totalColumns];
-        columnWidths[0] = FIRST_COLUMN_WIDTH;
-        for (int i = 1; i < totalColumns - 1; i++) {
-            columnWidths[i] = OTHER_COLUMN_WIDTH;
-        }
-        columnWidths[totalColumns - 1] = OTHER_COLUMN_WIDTH;
+        float[] columnWidths = createAdjustedColumnWidths(totalColumns, FIRST_COLUMN_WIDTH, OTHER_COLUMN_WIDTH);
 
         Table table = new Table(columnWidths);
         table.setWidth(UnitValue.createPercentValue(100));
         table.setFixedLayout();
         System.out.println("[SummaryReportPdfGenerator] Таблиця (2 модулі) створена з " + totalColumns + " колонками");
         return table;
+    }
+
+    private float[] createAdjustedColumnWidths(int totalColumns, float originalFirstWidth, float otherWidth) {
+        float reducedFirstWidth = originalFirstWidth * 0.6f;
+        float freedWidth = originalFirstWidth - reducedFirstWidth;
+        float additionalPerOther = freedWidth / (totalColumns - 1);
+        float adjustedOtherWidth = otherWidth + additionalPerOther;
+
+        float[] columnWidths = new float[totalColumns];
+        columnWidths[0] = reducedFirstWidth;
+        for (int i = 1; i < totalColumns; i++) {
+            columnWidths[i] = adjustedOtherWidth;
+        }
+        return columnWidths;
     }
 
     private void addHeaderRows(Table table, List<DisciplineColumn> disciplineColumns) {
@@ -329,14 +337,13 @@ public class SummaryReportPdfGenerator {
                 System.out.println("[SummaryReportPdfGenerator] Дисципліна вибіркова: " + discipline.title());
             }
 
-            Paragraph rotated = new Paragraph(headerText)
-                    .setRotationAngle(Math.toRadians(90))
+            Paragraph disciplineTitle = new Paragraph(headerText)
                     .setTextAlignment(TextAlignment.CENTER)
-                    .setFontSize(10f);
+                    .setFontSize(9f);
 
             Cell disciplineHeaderCell = new Cell()
-                    .add(rotated)
-                    .setHeight(HEADER_ROW_HEIGHT)
+                    .add(disciplineTitle)
+                    .setMinHeight(HEADER_ROW_HEIGHT)
                     .setTextAlignment(TextAlignment.CENTER)
                     .setVerticalAlignment(VerticalAlignment.MIDDLE)
                     .setBorder(new SolidBorder(1));
@@ -344,13 +351,12 @@ public class SummaryReportPdfGenerator {
         }
 
         Paragraph zeroColumnText = new Paragraph("К-сть 0 у студента")
-                .setRotationAngle(Math.toRadians(90))
                 .setTextAlignment(TextAlignment.CENTER)
-                .setFontSize(10f);
+                .setFontSize(9f);
 
         Cell zeroHeaderCell = new Cell()
                 .add(zeroColumnText)
-                .setHeight(HEADER_ROW_HEIGHT)
+                .setMinHeight(HEADER_ROW_HEIGHT)
                 .setTextAlignment(TextAlignment.CENTER)
                 .setVerticalAlignment(VerticalAlignment.MIDDLE)
                 .setBorder(new SolidBorder(1));
@@ -381,7 +387,7 @@ public class SummaryReportPdfGenerator {
 
             Cell disciplineHeaderCell = new Cell(1, 3)
                     .add(disciplineTitle)
-                    .setHeight(TWO_MODULE_HEADER_ROW_HEIGHT)
+                    .setMinHeight(TWO_MODULE_HEADER_ROW_HEIGHT)
                     .setTextAlignment(TextAlignment.CENTER)
                     .setVerticalAlignment(VerticalAlignment.MIDDLE)
                     .setBorder(new SolidBorder(1));
