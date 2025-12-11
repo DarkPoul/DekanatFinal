@@ -681,10 +681,9 @@ public class SummaryReportPdfGenerator {
 
     private static class Signature {
 
-        private static final float[] SIGNATURE_TABLE_COLUMNS = {20f, 5f, 20f, 5f, 20f};
-        private static final String SIGNATURE_LABEL = "Екзаменатор (Викладач)";
+        private static final float[] SIGNATURE_TABLE_COLUMNS = {20f, 5f, 20f};
         private static final String SIGNATURE_LINE_HINT = "(підпис)";
-        private static final String SIGNATURE_NAME_HINT = "(прізвище,ініціали)";
+        private static final String SIGNATURE_NAME_HINT = "(прізвище, ініціали)";
         private static final float SIGNATURE_FONT_SIZE = 10f;
         private static final float SIGNATURE_HINT_FONT_SIZE = 8f;
         private static final float SIGNATURE_MARGIN_TOP = 10f;
@@ -696,14 +695,10 @@ public class SummaryReportPdfGenerator {
             Table table = new Table(UnitValue.createPercentArray(SIGNATURE_TABLE_COLUMNS))
                     .useAllAvailableWidth();
 
-            table.addCell(createLabelCell());
-            table.addCell(createSpacerCell());
             table.addCell(createSignatureLineCell());
             table.addCell(createSpacerCell());
             table.addCell(createExaminerCell(examiner));
 
-            table.addCell(createSpacerCell());
-            table.addCell(createSpacerCell());
             table.addCell(createHintCell(SIGNATURE_LINE_HINT));
             table.addCell(createSpacerCell());
             table.addCell(createHintCell(SIGNATURE_NAME_HINT));
@@ -713,14 +708,6 @@ public class SummaryReportPdfGenerator {
             signatureBlock.setKeepTogether(true);
             signatureBlock.add(table);
             return signatureBlock;
-        }
-
-        private static Cell createLabelCell() {
-            return new Cell()
-                    .setBorder(Border.NO_BORDER)
-                    .setPadding(0)
-                    .add(new Paragraph(SIGNATURE_LABEL)
-                            .setFontSize(SIGNATURE_FONT_SIZE));
         }
 
         private static Cell createSignatureLineCell() {
