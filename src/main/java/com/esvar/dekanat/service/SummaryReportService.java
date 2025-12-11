@@ -23,6 +23,7 @@ public class SummaryReportService {
 
     private static final String CONTROL_TYPE_FIRST_MODULE = "Перший модульний контроль";
     private static final String CONTROL_TYPE_SECOND_MODULE = "Другий модульний контроль";
+    private static final String CONTROL_TYPE_TWO_MODULES = "Два модульних контроля";
     private static final String CONTROL_TYPE_SEMESTER = "Семестровий контроль";
     private static final List<String> SEMESTER_CONTROL_TYPES = List.of(
             "Залік",
@@ -67,12 +68,69 @@ public class SummaryReportService {
 
     @Transactional(readOnly = true)
     public SummaryReportResult generateSecondModuleReport(GroupDTO selectedGroup) {
-        return generateReport(selectedGroup, List.of(CONTROL_TYPE_SECOND_MODULE), CONTROL_TYPE_SECOND_MODULE, true);
+        return generateTwoModuleReport(selectedGroup);
     }
 
     @Transactional(readOnly = true)
     public SummaryReportResult generateSemesterReport(GroupDTO selectedGroup) {
         return generateReport(selectedGroup, SEMESTER_CONTROL_TYPES, CONTROL_TYPE_SEMESTER, true);
+    }
+
+    private SummaryReportResult generateTwoModuleReport(GroupDTO selectedGroup) {
+        System.out.println("[SummaryReportService] Початок генерації звіту за два модулі");
+        if (selectedGroup == null) {
+            throw new SummaryReportGenerationException("Оберіть групу для формування звіту");
+        }
+
+        StudentGroupEntity group = Optional.ofNullable(groupService.getGroupByTitle(selectedGroup.getGroupCode()))
+                .orElseThrow(() -> new SummaryReportGenerationException("Групу не знайдено"));
+
+        List<StudentEntity> students = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
+        if (students.isEmpty()) {
+            throw new SummaryReportGenerationException("У групі немає студентів");
+        }
+
+        int semester = computeFirstModuleSemester(selectedGroup.getCourse());
+        Map<Long, TwoModulePlanAssignment> planAssignments = collectTwoModuleAssignments(group, semester, students);
+        if (planAssignments.isEmpty()) {
+            throw new SummaryReportGenerationException("Не знайдено дисциплін для обраного контролю");
+        }
+
+        List<String> studentFullNames = students.stream()
+                .map(StudentEntity::getFullName)
+                .collect(Collectors.toList());
+
+        List<TwoModuleDisciplineSummary> disciplineSummaries = buildTwoModuleDisciplineSummaries(planAssignments.values(), students);
+        if (disciplineSummaries.isEmpty()) {
+            throw new SummaryReportGenerationException("Список дисциплін порожній");
+        }
+
+        List<SummaryReportPdfGenerator.DisciplineColumn> disciplineColumns = disciplineSummaries.stream()
+                .map(summary -> new SummaryReportPdfGenerator.DisciplineColumn(summary.title(), summary.elective()))
+                .collect(Collectors.toList());
+
+        Map<String, List<SummaryReportPdfGenerator.ModuleMark>> marksByStudent =
+                buildTwoModuleMarksForSummaryReport(students, disciplineSummaries);
+
+        String examiner = resolveCurrentTeacherName();
+
+        byte[] pdfBytes = summaryReportPdfGenerator.generateTwoModuleSummaryReport(
+                group.getGroupCode(),
+                studentFullNames,
+                disciplineColumns,
+                marksByStudent,
+                true,
+                examiner,
+                false,
+                true,
+                buildReportTitle(CONTROL_TYPE_TWO_MODULES)
+        );
+
+        if (pdfBytes == null || pdfBytes.length == 0) {
+            throw new SummaryReportGenerationException("Не вдалося сформувати звіт");
+        }
+
+        return new SummaryReportResult(group.getGroupCode(), pdfBytes);
     }
 
     private SummaryReportResult generateReport(GroupDTO selectedGroup,
@@ -249,6 +307,59 @@ public class SummaryReportService {
         return assignments;
     }
 
+    private Map<Long, TwoModulePlanAssignment> collectTwoModuleAssignments(StudentGroupEntity group,
+                                                                           int semester,
+                                                                           List<StudentEntity> students) {
+        Map<Long, TwoModulePlanAssignment> assignments = new LinkedHashMap<>();
+        Map<Long, ControlMethodEntity> firstControlCache = new HashMap<>();
+        Map<Long, ControlMethodEntity> secondControlCache = new HashMap<>();
+
+        System.out.println("[SummaryReportService] Завантажуємо плани групи для двох модулів, семестр " + semester);
+        List<PlansEntity> groupPlans = planService.getAllPlansForGroupAndSemester(group, semester);
+        if (groupPlans != null) {
+            for (PlansEntity plan : groupPlans) {
+                TwoModulePlanAssignment assignment = ensureTwoModulePlanAssignment(
+                        assignments,
+                        plan,
+                        firstControlCache,
+                        secondControlCache
+                );
+                if (assignment != null) {
+                    System.out.println("[SummaryReportService] Додаємо план групи (2 модулі): " + safeDisciplineTitle(plan));
+                }
+            }
+        }
+
+        for (StudentEntity student : students) {
+            List<StudentPlansEntity> studentPlans = studentPlansService.getPlansForStudent(student);
+            if (studentPlans == null || studentPlans.isEmpty()) {
+                continue;
+            }
+
+            for (StudentPlansEntity studentPlan : studentPlans) {
+                PlansEntity plan = studentPlan.getPlan();
+                if (plan == null || plan.getSemester() != semester) {
+                    continue;
+                }
+
+                TwoModulePlanAssignment assignment = ensureTwoModulePlanAssignment(
+                        assignments,
+                        plan,
+                        firstControlCache,
+                        secondControlCache
+                );
+                if (assignment == null) {
+                    continue;
+                }
+
+                assignment.assignedStudentIds.add(student.getId());
+            }
+        }
+
+        System.out.println("[SummaryReportService] Повертаємо зібрані призначення планів (2 модулі): " + assignments.size());
+        return assignments;
+    }
+
     private PlanAssignment ensurePlanAssignment(Map<Long, PlanAssignment> assignments,
                                                 PlansEntity plan,
                                                 Map<Long, ControlMethodEntity> controlCache,
@@ -266,6 +377,31 @@ public class SummaryReportService {
         PlanAssignment assignment = assignments.get(plan.getId());
         if (assignment == null) {
             assignment = new PlanAssignment(plan, control);
+            assignments.put(plan.getId(), assignment);
+        }
+        return assignment;
+    }
+
+    private TwoModulePlanAssignment ensureTwoModulePlanAssignment(Map<Long, TwoModulePlanAssignment> assignments,
+                                                                  PlansEntity plan,
+                                                                  Map<Long, ControlMethodEntity> firstControlCache,
+                                                                  Map<Long, ControlMethodEntity> secondControlCache) {
+        if (plan == null) {
+            return null;
+        }
+
+        ControlMethodEntity firstControl = resolveControlMethod(plan, firstControlCache, List.of(CONTROL_TYPE_FIRST_MODULE));
+        ControlMethodEntity secondControl = resolveControlMethod(plan, secondControlCache, List.of(CONTROL_TYPE_SECOND_MODULE));
+
+        if (firstControl == null && secondControl == null) {
+            System.out.println("[SummaryReportService] План '" + safeDisciplineTitle(plan)
+                    + "' не має модульних контролів");
+            return null;
+        }
+
+        TwoModulePlanAssignment assignment = assignments.get(plan.getId());
+        if (assignment == null) {
+            assignment = new TwoModulePlanAssignment(plan, firstControl, secondControl);
             assignments.put(plan.getId(), assignment);
         }
         return assignment;
@@ -334,7 +470,7 @@ public class SummaryReportService {
     }
 
     private Map<String, List<Integer>> buildMarksForSummaryReport(List<StudentEntity> students,
-                                                                 List<DisciplineSummary> disciplineSummaries) {
+                                                                  List<DisciplineSummary> disciplineSummaries) {
         System.out.println("[SummaryReportService] Початок формування оцінок");
         List<String> studentNames = students.stream()
                 .map(StudentEntity::getFullName)
@@ -379,6 +515,60 @@ public class SummaryReportService {
         }
 
         System.out.println("[SummaryReportService] Формування оцінок завершено");
+        return marksByStudent;
+    }
+
+    private Map<Long, Integer> collectMarksByStudent(PlansEntity plan, ControlMethodEntity controlMethod) {
+        if (plan == null || controlMethod == null) {
+            return Map.of();
+        }
+
+        return marksService.findMarksByPlanAndControlMethod(plan, controlMethod).stream()
+                .filter(mark -> mark.getStudent() != null && mark.getStudent().getId() != null)
+                .collect(Collectors.toMap(
+                        mark -> mark.getStudent().getId(),
+                        mark -> Optional.ofNullable(mark.getFinalGrade()).orElse(0),
+                        (existing, replacement) -> existing,
+                        LinkedHashMap::new
+                ));
+    }
+
+    private Map<String, List<SummaryReportPdfGenerator.ModuleMark>> buildTwoModuleMarksForSummaryReport(
+            List<StudentEntity> students,
+            List<TwoModuleDisciplineSummary> disciplineSummaries) {
+        Map<String, List<SummaryReportPdfGenerator.ModuleMark>> marksByStudent = new LinkedHashMap<>();
+        List<String> studentNames = students.stream()
+                .map(StudentEntity::getFullName)
+                .collect(Collectors.toList());
+
+        for (String name : studentNames) {
+            marksByStudent.put(name, new ArrayList<>());
+        }
+
+        for (TwoModuleDisciplineSummary disciplineSummary : disciplineSummaries) {
+            Map<Long, Integer> firstModuleMarks = collectMarksByStudent(disciplineSummary.plan(), disciplineSummary.firstControlMethod());
+            Map<Long, Integer> secondModuleMarks = collectMarksByStudent(disciplineSummary.plan(), disciplineSummary.secondControlMethod());
+
+            for (int i = 0; i < students.size(); i++) {
+                StudentEntity student = students.get(i);
+                String studentName = studentNames.get(i);
+
+                if (!disciplineSummary.assignedStudentIds().contains(student.getId())) {
+                    marksByStudent.get(studentName).add(null);
+                    continue;
+                }
+
+                Integer firstMark = disciplineSummary.firstControlMethod() == null
+                        ? null
+                        : firstModuleMarks.getOrDefault(student.getId(), 0);
+                Integer secondMark = disciplineSummary.secondControlMethod() == null
+                        ? null
+                        : secondModuleMarks.getOrDefault(student.getId(), 0);
+
+                marksByStudent.get(studentName).add(new SummaryReportPdfGenerator.ModuleMark(firstMark, secondMark));
+            }
+        }
+
         return marksByStudent;
     }
 
@@ -448,6 +638,59 @@ public class SummaryReportService {
         return sorted;
     }
 
+    private List<TwoModuleDisciplineSummary> buildTwoModuleDisciplineSummaries(Collection<TwoModulePlanAssignment> assignments,
+                                                                               List<StudentEntity> students) {
+        if (assignments == null || assignments.isEmpty()) {
+            return List.of();
+        }
+
+        Set<Long> groupStudentIds = students.stream()
+                .map(StudentEntity::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        List<TwoModuleDisciplineSummary> summaries = new ArrayList<>();
+        for (TwoModulePlanAssignment assignment : assignments) {
+            PlansEntity plan = assignment.plan;
+            DisciplineEntity discipline = plan.getDiscipline();
+            if (discipline == null || discipline.getTitle() == null) {
+                continue;
+            }
+
+            String title = discipline.getTitle().trim();
+            if (title.isBlank()) {
+                continue;
+            }
+
+            Set<Long> assignedStudentIds = new LinkedHashSet<>(assignment.assignedStudentIds);
+            if (assignedStudentIds.isEmpty() && !plan.isElective()) {
+                assignedStudentIds.addAll(groupStudentIds);
+            } else if (!assignedStudentIds.isEmpty()) {
+                assignedStudentIds.retainAll(groupStudentIds);
+            }
+
+            if (assignedStudentIds.isEmpty()) {
+                continue;
+            }
+
+            boolean matchesGroup = assignedStudentIds.containsAll(groupStudentIds)
+                    && groupStudentIds.containsAll(assignedStudentIds);
+            boolean elective = plan.isElective() || !matchesGroup;
+
+            summaries.add(new TwoModuleDisciplineSummary(
+                    plan,
+                    assignment.firstControlMethod,
+                    assignment.secondControlMethod,
+                    title,
+                    elective,
+                    assignedStudentIds
+            ));
+        }
+
+        return summaries.stream()
+                .sorted(Comparator.comparing(TwoModuleDisciplineSummary::title, ukrainianCollator))
+                .collect(Collectors.toList());
+    }
+
     private String safeDisciplineTitle(PlansEntity plan) {
         DisciplineEntity discipline = plan.getDiscipline();
         if (discipline == null || discipline.getTitle() == null) {
@@ -466,6 +709,14 @@ public class SummaryReportService {
                                      Set<Long> assignedStudentIds) {
     }
 
+    private record TwoModuleDisciplineSummary(PlansEntity plan,
+                                              ControlMethodEntity firstControlMethod,
+                                              ControlMethodEntity secondControlMethod,
+                                              String title,
+                                              boolean elective,
+                                              Set<Long> assignedStudentIds) {
+    }
+
     private static class PlanAssignment {
         private final PlansEntity plan;
         private final ControlMethodEntity controlMethod;
@@ -474,6 +725,21 @@ public class SummaryReportService {
         private PlanAssignment(PlansEntity plan, ControlMethodEntity controlMethod) {
             this.plan = plan;
             this.controlMethod = controlMethod;
+        }
+    }
+
+    private static class TwoModulePlanAssignment {
+        private final PlansEntity plan;
+        private final ControlMethodEntity firstControlMethod;
+        private final ControlMethodEntity secondControlMethod;
+        private final Set<Long> assignedStudentIds = new LinkedHashSet<>();
+
+        private TwoModulePlanAssignment(PlansEntity plan,
+                                        ControlMethodEntity firstControlMethod,
+                                        ControlMethodEntity secondControlMethod) {
+            this.plan = plan;
+            this.firstControlMethod = firstControlMethod;
+            this.secondControlMethod = secondControlMethod;
         }
     }
 
