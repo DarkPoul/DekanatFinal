@@ -9,6 +9,7 @@ import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.entity.StudentGroupEntity;
 import com.esvar.dekanat.entity.StudentPlansEntity;
 import com.esvar.dekanat.generate.summary.SummaryReportPdfGenerator;
+import com.esvar.dekanat.repository.SessionRepository;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.user.UserModel;
 import org.springframework.stereotype.Service;
@@ -46,6 +47,7 @@ public class SummaryReportService {
     private final SummaryReportPdfGenerator summaryReportPdfGenerator;
     private final SecurityService securityService;
     private final Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
+    private final SessionRepository sessionRepository;
 
     public SummaryReportService(GroupService groupService,
                                 StudentService studentService,
@@ -53,7 +55,7 @@ public class SummaryReportService {
                                 PlanService planService,
                                 MarksService marksService,
                                 SummaryReportPdfGenerator summaryReportPdfGenerator,
-                                SecurityService securityService) {
+                                SecurityService securityService, SessionRepository sessionRepository) {
         this.groupService = groupService;
         this.studentService = studentService;
         this.studentPlansService = studentPlansService;
@@ -61,6 +63,7 @@ public class SummaryReportService {
         this.marksService = marksService;
         this.summaryReportPdfGenerator = summaryReportPdfGenerator;
         this.securityService = securityService;
+        this.sessionRepository = sessionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -217,8 +220,8 @@ public class SummaryReportService {
     }
 
     private int computeSecondModuleSemester(int course) {
-        if (course <= 0) {
-            return 1;
+        if (sessionRepository.findAll().get(0).isWinter()){
+            return course * 2 -1;
         }
         return course * 2;
     }

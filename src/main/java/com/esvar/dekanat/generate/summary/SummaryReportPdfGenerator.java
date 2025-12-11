@@ -42,7 +42,7 @@ public class SummaryReportPdfGenerator {
     private static final float TWO_MODULE_HEADER_ROW_HEIGHT = 90f;
     private static final float HEADER_ROW_HEIGHT = 110f;
     private static final String FIRST_MODULE_TITLE = "за перший модульний контроль";
-    private static final String TWO_MODULE_TITLE = "за два модульних контроля";
+    private static final String TWO_MODULE_TITLE = "за два модульних контролі";
 
     // ЗАЛИШАЄМО твою існуючу сигнатуру як-є для зворотної сумісності:
     public byte[] generateSummaryReport(
@@ -327,7 +327,7 @@ public class SummaryReportPdfGenerator {
                         .setTextAlignment(TextAlignment.CENTER))
                 .setTextAlignment(TextAlignment.CENTER)
                 .setVerticalAlignment(VerticalAlignment.MIDDLE)
-                .setBorder(new SolidBorder(1));
+                .setBorder(new SolidBorder(1)).setFontSize(9f);
         table.addHeaderCell(nameHeader);
 
         for (DisciplineColumn discipline : disciplineColumns) {
@@ -371,7 +371,7 @@ public class SummaryReportPdfGenerator {
                 .add(new Paragraph("ПІБ").setTextAlignment(TextAlignment.CENTER))
                 .setTextAlignment(TextAlignment.CENTER)
                 .setVerticalAlignment(VerticalAlignment.MIDDLE)
-                .setBorder(new SolidBorder(1));
+                .setBorder(new SolidBorder(1)).setFontSize(9f);
         table.addHeaderCell(nameHeader);
 
         for (DisciplineColumn discipline : disciplineColumns) {
@@ -460,7 +460,7 @@ public class SummaryReportPdfGenerator {
                     .add(new Paragraph(student))
                     .setTextAlignment(TextAlignment.LEFT)
                     .setVerticalAlignment(VerticalAlignment.MIDDLE)
-                    .setBorder(new SolidBorder(1));
+                    .setBorder(new SolidBorder(1)).setFontSize(8f);
             table.addCell(nameCell);
 
             List<ModuleMark> marks = marksByStudent.getOrDefault(student, Collections.emptyList());

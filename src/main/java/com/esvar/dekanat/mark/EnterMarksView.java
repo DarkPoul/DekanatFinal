@@ -146,6 +146,8 @@ public class EnterMarksView extends Div {
         this.groupService = groupService;
         this.summaryReportService = summaryReportService;
 
+        reportButton.setVisible(false);
+
         // Налаштування форми вибору параметрів
         selectFaculty.setLabel("Факультет");
         selectFaculty.setWidth("100%");
