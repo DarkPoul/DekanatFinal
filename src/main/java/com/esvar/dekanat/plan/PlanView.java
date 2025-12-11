@@ -17,8 +17,12 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
@@ -58,6 +62,9 @@ public class PlanView extends Div {
     // UI-компоненти
     private final ComboBox<String> groupSelect = new ComboBox<>(); // Вибір групи
     private final Select<String> sessionSelect = new Select<>(); // Вибір сесії
+    private final Button firstModuleButton = new Button("І модульний контроль");
+    private final Button secondModuleButton = new Button("ІІ модульний контроль");
+    private final Button semesterControlButton = new Button("Семестровий");
     private final Button addButton = new Button("Додати"); // Кнопка додавання плану
     private final Grid<PlansEntity> planGrid = new Grid<>(PlansEntity.class, false); // Таблиця планів
 
@@ -157,11 +164,18 @@ public class PlanView extends Div {
             updateStudentListInDialog();
             updateGrid();
         });
+
+        configureReportButtons();
     }
 
     private void setupLayout() {
-        HorizontalLayout filterLayout = new HorizontalLayout(groupSelect, sessionSelect);
-        filterLayout.getStyle().set("padding", "20px 20px 0px 20px");
+        HorizontalLayout filterLayout = new HorizontalLayout(createPlanEntryBlock(), createReportGenerationBlock());
+        filterLayout.getStyle()
+                .set("padding", "20px 20px 0px 20px")
+                .set("gap", "16px")
+                .set("flex-wrap", "wrap");
+        filterLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.STRETCH);
+        filterLayout.setWidthFull();
 
         HorizontalLayout gridLayout = new HorizontalLayout(planGrid);
         gridLayout.getStyle().set("padding", "20px");
@@ -169,6 +183,40 @@ public class PlanView extends Div {
 
         setHeight("90%");
         add(filterLayout, gridLayout, addButton);
+    }
+
+    private Div createPlanEntryBlock() {
+        groupSelect.setWidthFull();
+        sessionSelect.setWidthFull();
+
+        Span title = new Span("Внесення навчальних планів");
+        title.getStyle()
+                .set("fontWeight", "600")
+                .set("fontSize", "var(--lumo-font-size-s)");
+
+        HorizontalLayout selectorsRow = new HorizontalLayout(groupSelect, sessionSelect);
+        selectorsRow.setWidthFull();
+        selectorsRow.getStyle()
+                .set("gap", "12px")
+                .set("flex-wrap", "wrap");
+        selectorsRow.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.END);
+
+        VerticalLayout content = new VerticalLayout(title, selectorsRow);
+        content.setPadding(false);
+        content.setSpacing(true);
+        content.setMargin(false);
+        content.setWidthFull();
+
+        Div container = new Div(content);
+        container.getStyle()
+                .set("border", "1px solid var(--lumo-contrast-20pct)")
+                .set("borderRadius", "var(--lumo-border-radius-m)")
+                .set("padding", "12px 16px")
+                .set("background", "var(--lumo-base-color)")
+                .set("boxShadow", "var(--lumo-box-shadow-s)")
+                .set("flex", "1 1 360px");
+
+        return container;
     }
 
     private void openCreateDialog() {
@@ -389,6 +437,49 @@ public class PlanView extends Div {
 
         return Optional.ofNullable(studentRepository.findFirstBySurnameAndNameAndPatronymicOrderByIdAsc(surname, name, patronymic))
                 .orElseThrow(() -> new IllegalArgumentException("Студент '" + fullName + "' не знайдений."));
+    }
+
+    private void configureReportButtons() {
+        List<Button> reportButtons = List.of(firstModuleButton, secondModuleButton, semesterControlButton);
+        reportButtons.forEach(button -> {
+            button.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+            button.setTooltipText("Функціонал генерації у розробці");
+            button.addClickListener(event -> Notification.show("Генерація відомостей буде доступна найближчим часом."));
+        });
+
+        firstModuleButton.setIcon(VaadinIcon.FILE_TEXT.create());
+        secondModuleButton.setIcon(VaadinIcon.FILE_PROCESS.create());
+        semesterControlButton.setIcon(VaadinIcon.FILE_PRESENTATION.create());
+        semesterControlButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
+    }
+
+    private Div createReportGenerationBlock() {
+        Span title = new Span("Генерація відомостей");
+        title.getStyle()
+                .set("fontWeight", "600")
+                .set("fontSize", "var(--lumo-font-size-s)");
+
+        HorizontalLayout buttonsRow = new HorizontalLayout(firstModuleButton, secondModuleButton, semesterControlButton);
+        buttonsRow.setSpacing(true);
+        buttonsRow.setPadding(false);
+        buttonsRow.setWidthFull();
+
+        VerticalLayout content = new VerticalLayout(title, buttonsRow);
+        content.setPadding(false);
+        content.setSpacing(true);
+        content.setMargin(false);
+        content.setWidthFull();
+
+        Div container = new Div(content);
+        container.getStyle()
+                .set("border", "1px solid var(--lumo-contrast-20pct)")
+                .set("borderRadius", "var(--lumo-border-radius-m)")
+                .set("padding", "12px 16px")
+                .set("background", "var(--lumo-base-color)")
+                .set("boxShadow", "var(--lumo-box-shadow-s)")
+                .set("flex", "1 1 320px");
+
+        return container;
     }
 
 }
