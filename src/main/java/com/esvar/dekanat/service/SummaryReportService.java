@@ -27,6 +27,7 @@ public class SummaryReportService {
     private static final String CONTROL_TYPE_SEMESTER = "Семестровий контроль";
     private static final List<String> SEMESTER_CONTROL_TYPES = List.of(
             CONTROL_TYPE_SEMESTER,
+            "Семестровий",
             "Залік",
             "Екзамен",
             "Диференційний залік",
@@ -467,10 +468,17 @@ public class SummaryReportService {
     }
 
     private boolean isMatchingControl(ControlMethodEntity controlMethod, String controlType) {
-        if (controlMethod == null || controlMethod.getName() == null) {
+        if (controlMethod == null || controlMethod.getName() == null || controlType == null) {
             return false;
         }
-        return controlMethod.getName().trim().equalsIgnoreCase(controlType);
+
+        String controlName = controlMethod.getName().trim();
+        String normalizedControlName = controlName.toLowerCase(Locale.ROOT);
+        String normalizedControlType = controlType.trim().toLowerCase(Locale.ROOT);
+
+        return normalizedControlName.equals(normalizedControlType)
+                || normalizedControlName.contains(normalizedControlType)
+                || normalizedControlType.contains(normalizedControlName);
     }
 
     private String formatControlTypes(Collection<String> controlTypes) {
