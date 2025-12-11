@@ -38,6 +38,7 @@ public class SummaryReportPdfGenerator {
     private static final float FIRST_COLUMN_WIDTH = 150f;
     private static final float OTHER_COLUMN_WIDTH = 35f;
     private static final float HEADER_ROW_HEIGHT = 110f;
+    private static final String FIRST_MODULE_TITLE = "за перший модульний контроль";
 
     // ЗАЛИШАЄМО твою існуючу сигнатуру як-є для зворотної сумісності:
     public byte[] generateSummaryReport(
@@ -54,9 +55,10 @@ public class SummaryReportPdfGenerator {
                 disciplineColumns,
                 marksByStudent,
                 addAverageRow,
-                null,        // examiner
-                false,       // numericHeader
-                false        // includeSignature
+                null,                // examiner
+                false,               // numericHeader
+                false,               // includeSignature
+                FIRST_MODULE_TITLE   // controlTitle
         );
     }
 
@@ -79,7 +81,8 @@ public class SummaryReportPdfGenerator {
                 addAverageRow,
                 examiner,
                 numericHeader,
-                includeSignature
+                includeSignature,
+                FIRST_MODULE_TITLE
         );
     }
 
@@ -91,7 +94,8 @@ public class SummaryReportPdfGenerator {
             boolean addAverageRow,
             String examiner,
             boolean numericHeader,
-            boolean includeSignature
+            boolean includeSignature,
+            String controlTitle
     ) {
         System.out.println("[SummaryReportPdfGenerator] Старт генерації PDF для групи: " + groupName);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -106,7 +110,7 @@ public class SummaryReportPdfGenerator {
 
             Paragraph title = new Paragraph(
                     "Зведений звіт результатів оцінювання студентів групи " + groupName +
-                            " за перший модульний контроль")
+                            " " + controlTitle)
                     .setTextAlignment(TextAlignment.CENTER)
                     .setFontSize(14)
                     .setMarginBottom(10);

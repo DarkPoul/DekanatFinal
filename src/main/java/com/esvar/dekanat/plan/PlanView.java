@@ -412,20 +412,18 @@ public class PlanView extends Div {
 
     private void configureReportButtons() {
         List<Button> reportButtons = List.of(firstModuleButton, secondModuleButton, semesterControlButton);
-        reportButtons.forEach(button -> {
-            button.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
-            button.setTooltipText("Функціонал генерації у розробці");
-        });
+        reportButtons.forEach(button -> button.addThemeVariants(ButtonVariant.LUMO_CONTRAST));
+
+        firstModuleButton.setTooltipText("Зведений звіт за перший модульний контроль");
+        secondModuleButton.setTooltipText("Зведений звіт за другий модульний контроль");
+        semesterControlButton.setTooltipText("Генерація семестрових відомостей у розробці");
 
         firstModuleButton.addClickListener(buttonClickEvent -> {
             generateFirstModuleSummaryReport();
             Notification.show("Генерація першого модулю");
         });
         secondModuleButton.addClickListener(buttonClickEvent -> {
-            Notification.show("Генерація відомостей буде доступна найближчим часом.");
-        });
-        secondModuleButton.addClickListener(buttonClickEvent -> {
-            Notification.show("Генерація відомостей буде доступна найближчим часом.");
+            generateSecondModuleSummaryReport();
         });
 
         firstModuleButton.setIcon(VaadinIcon.FILE_TEXT.create());
@@ -438,6 +436,22 @@ public class PlanView extends Div {
         try {
             SummaryReportService.SummaryReportResult result = summaryReportService.generateFirstModuleReport(selectGroup.getValue());
             String fileName = String.format("summary-first-module-%s.pdf", result.groupCode());
+            openPdfReport(fileName, result.pdfBytes());
+
+            Notification notification = Notification.show("Звіт сформовано");
+            notification.setDuration(3000);
+        } catch (SummaryReportService.SummaryReportGenerationException ex) {
+            Notification.show(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Не вдалося згенерувати зведений звіт", ex);
+            Notification.show("Не вдалося згенерувати звіт");
+        }
+    }
+
+    private void generateSecondModuleSummaryReport() {
+        try {
+            SummaryReportService.SummaryReportResult result = summaryReportService.generateSecondModuleReport(selectGroup.getValue());
+            String fileName = String.format("summary-second-module-%s.pdf", result.groupCode());
             openPdfReport(fileName, result.pdfBytes());
 
             Notification notification = Notification.show("Звіт сформовано");
