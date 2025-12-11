@@ -7,6 +7,7 @@ import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
 
 import com.esvar.dekanat.generate.pdf.FirstModulePdfGenerator;
+import com.esvar.dekanat.generate.pdf.ZalikPdfGenerator;
 import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
@@ -1230,8 +1231,8 @@ public class EnterMarksView extends Div {
             }
             case "Залік" -> {
                 DataModelForZalik data = buildDataModelForZalik(secondTeacher);
-//                Path path = documentGenerationService.generate(ZalikPdfGenerator.NAME, data);
-//                return path.toString();
+                Path path = documentGenerationService.generate(ZalikPdfGenerator.NAME, data);
+                return path.toString();
             }
         }
 
