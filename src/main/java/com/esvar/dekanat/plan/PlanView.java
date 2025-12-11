@@ -416,7 +416,7 @@ public class PlanView extends Div {
 
         firstModuleButton.setTooltipText("Зведений звіт за перший модульний контроль");
         secondModuleButton.setTooltipText("Зведений звіт за другий модульний контроль");
-        semesterControlButton.setTooltipText("Генерація семестрових відомостей у розробці");
+        semesterControlButton.setTooltipText("Зведений звіт за семестровий контроль");
 
         firstModuleButton.addClickListener(buttonClickEvent -> {
             generateFirstModuleSummaryReport();
@@ -425,6 +425,7 @@ public class PlanView extends Div {
         secondModuleButton.addClickListener(buttonClickEvent -> {
             generateSecondModuleSummaryReport();
         });
+        semesterControlButton.addClickListener(buttonClickEvent -> generateSemesterSummaryReport());
 
         firstModuleButton.setIcon(VaadinIcon.FILE_TEXT.create());
         secondModuleButton.setIcon(VaadinIcon.FILE_PROCESS.create());
@@ -452,6 +453,22 @@ public class PlanView extends Div {
         try {
             SummaryReportService.SummaryReportResult result = summaryReportService.generateSecondModuleReport(selectGroup.getValue());
             String fileName = String.format("summary-second-module-%s.pdf", result.groupCode());
+            openPdfReport(fileName, result.pdfBytes());
+
+            Notification notification = Notification.show("Звіт сформовано");
+            notification.setDuration(3000);
+        } catch (SummaryReportService.SummaryReportGenerationException ex) {
+            Notification.show(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Не вдалося згенерувати зведений звіт", ex);
+            Notification.show("Не вдалося згенерувати звіт");
+        }
+    }
+
+    private void generateSemesterSummaryReport() {
+        try {
+            SummaryReportService.SummaryReportResult result = summaryReportService.generateSemesterReport(selectGroup.getValue());
+            String fileName = String.format("summary-semester-%s.pdf", result.groupCode());
             openPdfReport(fileName, result.pdfBytes());
 
             Notification notification = Notification.show("Звіт сформовано");
