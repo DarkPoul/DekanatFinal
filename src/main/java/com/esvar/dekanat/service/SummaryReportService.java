@@ -63,7 +63,7 @@ public class SummaryReportService {
 
     @Transactional(readOnly = true)
     public SummaryReportResult generateFirstModuleReport(GroupDTO selectedGroup) {
-        return generateReport(selectedGroup, List.of(CONTROL_TYPE_FIRST_MODULE), CONTROL_TYPE_FIRST_MODULE, false);
+        return generateReport(selectedGroup, List.of(CONTROL_TYPE_FIRST_MODULE), CONTROL_TYPE_FIRST_MODULE, true);
     }
 
     @Transactional(readOnly = true)
