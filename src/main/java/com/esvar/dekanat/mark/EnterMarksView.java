@@ -1258,7 +1258,7 @@ public class EnterMarksView extends Div {
         secondModuleButton.setWidthFull();
         secondModuleButton.addClickListener(event -> {
             reportDialog.close();
-            notifyFeatureInDevelopment();
+            generateSecondModuleSummaryReport();
         });
 
         Button semesterButton = new Button("Семестровий");
@@ -1282,6 +1282,22 @@ public class EnterMarksView extends Div {
         try {
             SummaryReportResult result = summaryReportService.generateFirstModuleReport(selectGroup.getValue());
             String fileName = String.format("summary-first-module-%s.pdf", result.groupCode());
+            openPdfReport(fileName, result.pdfBytes());
+
+            Notification notification = Notification.show("Звіт сформовано");
+            notification.setDuration(3000);
+        } catch (SummaryReportGenerationException ex) {
+            Notification.show(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Не вдалося згенерувати зведений звіт", ex);
+            Notification.show("Не вдалося згенерувати звіт");
+        }
+    }
+
+    private void generateSecondModuleSummaryReport() {
+        try {
+            SummaryReportResult result = summaryReportService.generateSecondModuleReport(selectGroup.getValue());
+            String fileName = String.format("summary-second-module-%s.pdf", result.groupCode());
             openPdfReport(fileName, result.pdfBytes());
 
             Notification notification = Notification.show("Звіт сформовано");
