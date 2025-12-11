@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * PDF generator for second module control grade sheets using iText.
+ * PDF generator for second module control grade sheets.
  */
 @Component
 public class SecondModulePdfGenerator implements PdfGenerator {
@@ -71,7 +71,7 @@ public class SecondModulePdfGenerator implements PdfGenerator {
 
                 addHeader(document, regular, bold, moduleData);
                 addStudentsTable(document, regular, moduleData.students());
-                addSignatureSection(document, regular, moduleData);
+                addSignatureSection(document, regular, bold, moduleData);
 
                 log.info("Generated second module control PDF at {}", outputPath);
             }
@@ -119,7 +119,7 @@ public class SecondModulePdfGenerator implements PdfGenerator {
                 .setBorderRight(Border.NO_BORDER)
                 .setBorderBottom(new SolidBorder(0.5f)));
         groupTable.addCell(new Cell().setPadding(0)
-                .add(new Paragraph("\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0Група: ")
+                .add(new Paragraph("\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0Група: ")
                         .setFont(regular)
                         .setFontSize(11))
                 .setBorder(Border.NO_BORDER));
@@ -149,7 +149,7 @@ public class SecondModulePdfGenerator implements PdfGenerator {
                 .setTextAlignment(TextAlignment.CENTER)
                 .setUnderline());
 
-        Table disciplineTable = new Table(UnitValue.createPercentArray(new float[]{20, 60, 20}))
+        Table disciplineTable = new Table(UnitValue.createPercentArray(new float[]{15, 70, 15}))
                 .useAllAvailableWidth();
         disciplineTable.addCell(new Cell().setPadding(0)
                 .setBorder(Border.NO_BORDER)
@@ -166,13 +166,16 @@ public class SecondModulePdfGenerator implements PdfGenerator {
                         .setFontSize(11)
                         .setTextAlignment(TextAlignment.CENTER)));
         disciplineTable.addCell(new Cell().setPadding(0)
-                .setBorder(Border.NO_BORDER)
-                .add(new Paragraph("\u00A0")
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph("")
                         .setFont(regular)
                         .setFontSize(11)));
         disciplineTable.addCell(new Cell().setPadding(0)
                 .setBorder(Border.NO_BORDER)
-                .add(new Paragraph("\u00A0")
+                .add(new Paragraph("")
                         .setFont(regular)
                         .setFontSize(11)));
         disciplineTable.addCell(new Cell().setPadding(0)
@@ -183,103 +186,255 @@ public class SecondModulePdfGenerator implements PdfGenerator {
                         .setTextAlignment(TextAlignment.CENTER)));
         disciplineTable.addCell(new Cell().setPadding(0)
                 .setBorder(Border.NO_BORDER)
-                .add(new Paragraph(String.format("Семестр: %s   Години: %s", data.semesterNumber(), data.hours()))
+                .add(new Paragraph("")
                         .setFont(regular)
-                        .setFontSize(10)
-                        .setTextAlignment(TextAlignment.RIGHT)));
+                        .setFontSize(11)));
 
         document.add(disciplineTable);
+
+        Table semControlTable = new Table(UnitValue.createPercentArray(new float[]{2, 5, 93}))
+                .useAllAvailableWidth();
+        semControlTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("за")
+                        .setFont(regular)
+                        .setFontSize(11)));
+        semControlTable.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph(Objects.toString(data.semesterNumber(), ""))
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        semControlTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("навчальний семестр.")
+                        .setFont(regular)
+                        .setFontSize(11)));
+        document.add(semControlTable);
+
+        Table semesterControlTable = new Table(UnitValue.createPercentArray(new float[]{30, 30, 30, 10}))
+                .useAllAvailableWidth();
+        semesterControlTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("Форма семестрового контролю")
+                        .setFont(regular)
+                        .setFontSize(11)));
+        semesterControlTable.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph(Objects.toString(data.controlTypeName(), ""))
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        semesterControlTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("Загальна кількість годин")
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        semesterControlTable.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph(Objects.toString(data.hours(), ""))
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        document.add(semesterControlTable);
+
+        document.add(createTeacherTable("Викладач", Objects.toString(data.firstTeacher(), ""), regular));
+        document.add(createTeacherTable("Викладач", Objects.toString(data.secondTeacher(), ""), regular,
+                "(прізвище, ім’я та по батькові викладача, який здійснював поточний контроль)"));
+
+        document.add(new Paragraph("")
+                .setFont(regular)
+                .setFontSize(11)
+                .setTextAlignment(TextAlignment.CENTER));
+    }
+
+    private Table createTeacherTable(String label, String value, PdfFont font) {
+        return createTeacherTable(label, value, font,
+                "(прізвище, ім’я та по батькові викладача, який виставляє підсумкову оцінку)");
+    }
+
+    private Table createTeacherTable(String label, String value, PdfFont font, String hint) {
+        Table table = new Table(UnitValue.createPercentArray(new float[]{10, 80, 10}))
+                .useAllAvailableWidth();
+        table.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph(label)
+                        .setFont(font)
+                        .setFontSize(11)));
+        table.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph(value)
+                        .setFont(font)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        table.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph("")
+                        .setFont(font)
+                        .setFontSize(11)));
+        table.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("")
+                        .setFont(font)
+                        .setFontSize(11)));
+        table.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph(hint)
+                        .setFont(font)
+                        .setFontSize(8)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        table.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("")
+                        .setFont(font)
+                        .setFontSize(11)));
+        return table;
     }
 
     private void addStudentsTable(Document document, PdfFont regular, List<StudentModelToDocumentGenerate> students) {
-        float[] columns = {30, 200, 120, 60};
-        Table table = new Table(UnitValue.createPointArray(columns))
+        Table headerTable = new Table(UnitValue.createPercentArray(new float[]{5, 35, 20, 20, 20}))
                 .useAllAvailableWidth();
 
-        addHeaderCell(table, "№", regular);
-        addHeaderCell(table, "Прізвище, ім'я та по батькові", regular);
-        addHeaderCell(table, "Номер залікової", regular);
-        addHeaderCell(table, "Оцінка", regular);
+        headerTable.addHeaderCell(createHeaderCell("№\nз/п", regular));
+        headerTable.addHeaderCell(createHeaderCell("Прізвище та ініціали студента", regular));
+        headerTable.addHeaderCell(createHeaderCell("Номер залікової книжки", regular));
+        headerTable.addHeaderCell(createHeaderCell("Кількість балів за результатами другого модуля (від 0 до 30 балів)", regular));
+        headerTable.addHeaderCell(createHeaderCell("Підпис викладача", regular));
+
+        document.add(headerTable);
+
+        Table table = new Table(UnitValue.createPercentArray(new float[]{5, 35, 20, 20, 20}))
+                .useAllAvailableWidth();
 
         for (StudentModelToDocumentGenerate student : students) {
-            table.addCell(new Cell().add(new Paragraph(String.valueOf(student.index()))
-                            .setFont(regular)
-                            .setFontSize(10))
-                    .setTextAlignment(TextAlignment.CENTER));
-            table.addCell(new Cell().add(new Paragraph(student.name())
-                            .setFont(regular)
-                            .setFontSize(10))
-                    .setTextAlignment(TextAlignment.LEFT));
-            table.addCell(new Cell().add(new Paragraph(student.studentNumber())
-                            .setFont(regular)
-                            .setFontSize(10))
-                    .setTextAlignment(TextAlignment.CENTER));
-            table.addCell(new Cell().add(new Paragraph(student.mark())
-                            .setFont(regular)
-                            .setFontSize(10))
-                    .setTextAlignment(TextAlignment.CENTER));
+            table.addCell(createBodyCell(String.valueOf(student.index()), regular, TextAlignment.CENTER));
+            table.addCell(createBodyCell(student.name(), regular, TextAlignment.LEFT));
+            table.addCell(createBodyCell(student.studentNumber(), regular, TextAlignment.CENTER));
+            table.addCell(createBodyCell(student.mark(), regular, TextAlignment.CENTER));
+            table.addCell(createBodyCell("", regular, TextAlignment.CENTER));
         }
 
         document.add(table);
     }
 
-    private void addSignatureSection(Document document, PdfFont regular, DataModelForMC2 data) {
-        document.add(new Paragraph("Якість знань (кількість студентів): ")
+    private void addSignatureSection(Document document, PdfFont regular, PdfFont bold, DataModelForMC2 data) {
+        document.add(new Paragraph("")
                 .setFont(regular)
-                .setFontSize(10));
+                .setFontSize(11)
+                .setMarginTop(12)
+                .setTextAlignment(TextAlignment.CENTER));
 
-        Table qualityTable = new Table(UnitValue.createPercentArray(new float[]{20, 20, 60}))
+        Table signatureTable = new Table(UnitValue.createPercentArray(new float[]{20, 5, 20, 5, 20}))
                 .useAllAvailableWidth();
-        qualityTable.addCell(new Cell().setBorder(Border.NO_BORDER)
-                .add(new Paragraph("Позитивна: " + Objects.toString(data.qualityTrue(), ""))
-                        .setFont(regular)
-                        .setFontSize(10)));
-        qualityTable.addCell(new Cell().setBorder(Border.NO_BORDER)
-                .add(new Paragraph("Негативна: " + Objects.toString(data.qualityFalse(), ""))
-                        .setFont(regular)
-                        .setFontSize(10)));
-        qualityTable.addCell(new Cell().setBorder(Border.NO_BORDER)
-                .add(new Paragraph(String.format("Викладач: %s", Objects.toString(data.gradeTeacher(), "")))
-                        .setFont(regular)
-                        .setFontSize(10)
-                        .setTextAlignment(TextAlignment.RIGHT)));
 
-        document.add(qualityTable);
+        signatureTable.addCell(createSignatureLabelCell(bold));
+        signatureTable.addCell(createSignatureSpacerCell());
+        signatureTable.addCell(createSignatureLineCell(bold));
+        signatureTable.addCell(createSignatureSpacerCell());
+        signatureTable.addCell(createSignatureNameCell(resolveSignatureName(data), bold));
 
-        document.add(new Paragraph(""));
+        signatureTable.addCell(createSignatureSpacerCell());
+        signatureTable.addCell(createSignatureSpacerCell());
+        signatureTable.addCell(createSignatureHintCell("(підпис)", regular));
+        signatureTable.addCell(createSignatureSpacerCell());
+        signatureTable.addCell(createSignatureHintCell("(прізвище,ініціали)", regular));
 
-        Table teachersTable = new Table(UnitValue.createPercentArray(new float[]{20, 30, 20, 30}))
-                .useAllAvailableWidth();
-        teachersTable.addCell(buildSignatureCell("Викладачі (М1):", regular));
-        teachersTable.addCell(buildSignatureLine(data.firstTeacher(), regular));
-        teachersTable.addCell(buildSignatureCell("Викладачі (М2):", regular));
-        teachersTable.addCell(buildSignatureLine(data.secondTeacher(), regular));
-
-        document.add(teachersTable);
+        document.add(signatureTable);
     }
 
-    private Cell buildSignatureCell(String title, PdfFont font) {
-        return new Cell().setBorder(Border.NO_BORDER)
-                .add(new Paragraph(title)
-                        .setFont(font)
+    private Cell createSignatureLabelCell(PdfFont bold) {
+        return new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("Екзаменатор (Викладач)")
+                        .setFont(bold)
                         .setFontSize(10));
     }
 
-    private Cell buildSignatureLine(String name, PdfFont font) {
-        Paragraph paragraph = new Paragraph(Objects.toString(name, ""))
-                .setFont(font)
-                .setFontSize(10)
-                .setTextAlignment(TextAlignment.CENTER)
-                .setUnderline();
-        return new Cell().setBorder(Border.NO_BORDER).add(paragraph);
+    private Cell createSignatureLineCell(PdfFont bold) {
+        return new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph("")
+                        .setFont(bold)
+                        .setFontSize(10));
     }
 
-    private void addHeaderCell(Table table, String text, PdfFont font) {
-        table.addCell(new Cell().add(new Paragraph(text)
+    private Cell createSignatureNameCell(String examiner, PdfFont bold) {
+        return new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph(Objects.toString(examiner, ""))
+                        .setFont(bold)
+                        .setFontSize(10)
+                        .setTextAlignment(TextAlignment.CENTER));
+    }
+
+    private Cell createSignatureHintCell(String text, PdfFont font) {
+        return new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph(text)
+                        .setFont(font)
+                        .setFontSize(8)
+                        .setTextAlignment(TextAlignment.CENTER));
+    }
+
+    private Cell createSignatureSpacerCell() {
+        return new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph(""));
+    }
+
+    private String resolveSignatureName(DataModelForMC2 data) {
+        if (!isBlank(data.secondTeacher())) {
+            return data.secondTeacher();
+        }
+        if (!isBlank(data.gradeTeacher())) {
+            return data.gradeTeacher();
+        }
+        if (!isBlank(data.firstTeacher())) {
+            return data.firstTeacher();
+        }
+        return "";
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private Cell createHeaderCell(String text, PdfFont font) {
+        return new Cell().add(new Paragraph(text)
                         .setFont(font)
                         .setFontSize(10)
-                        .setBold())
-                .setTextAlignment(TextAlignment.CENTER));
+                        .setTextAlignment(TextAlignment.CENTER))
+                .setBorder(new SolidBorder(0.5f));
+    }
+
+    private Cell createBodyCell(String text, PdfFont font, TextAlignment alignment) {
+        return new Cell().add(new Paragraph(Objects.toString(text, ""))
+                        .setFont(font)
+                        .setFontSize(10)
+                        .setTextAlignment(alignment))
+                .setBorder(new SolidBorder(0.5f));
     }
 
     private PdfFont loadFont(String resourcePath, String fallbackFont) throws IOException {
