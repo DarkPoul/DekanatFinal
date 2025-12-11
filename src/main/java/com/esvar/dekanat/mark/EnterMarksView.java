@@ -1,41 +1,81 @@
 package com.esvar.dekanat.mark;
 
+import com.esvar.dekanat.document.DocumentGenerationService;
 import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
+import com.esvar.dekanat.generate.*;
+
+import com.esvar.dekanat.generate.pdf.FirstModulePdfGenerator;
+import com.esvar.dekanat.generate.pdf.ZalikPdfGenerator;
+import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
+import com.esvar.dekanat.service.SummaryReportService.SummaryReportGenerationException;
+import com.esvar.dekanat.service.SummaryReportService.SummaryReportResult;
 import com.esvar.dekanat.user.UserModel;
 import com.esvar.dekanat.user.UserRepository;
 import com.esvar.dekanat.view.MainLayout;
+import com.itextpdf.io.font.PdfEncodings;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
+import com.itextpdf.kernel.geom.PageSize;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.LineSeparator;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.properties.TextAlignment;
 import com.vaadin.flow.component.Html;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.page.Push;
+import com.vaadin.flow.component.progressbar.ProgressBar;
+import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.Query;
+import com.vaadin.flow.data.value.ValueChangeMode;
+import com.vaadin.flow.dom.Element;
+import com.vaadin.flow.dom.ElementFactory;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.*;
 import jakarta.annotation.security.PermitAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.io.*;
+import java.nio.file.Path;
 import java.sql.Timestamp;
 import java.text.Collator;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 @PageTitle("Введення оцінок | Деканат")
@@ -61,6 +101,7 @@ public class EnterMarksView extends Div {
     private final ControlMethodService controlMethodService;
     private final MarksPartsService marksPartsService;
     private final ControlPartsService controlPartsService;
+    private final DocumentGenerationService documentGenerationService;
     private final GroupService groupService;
 
 
@@ -69,6 +110,9 @@ public class EnterMarksView extends Div {
     private VerticalLayout leftLayout = new VerticalLayout();
     private VerticalLayout rightLayout = new VerticalLayout();
     private HorizontalLayout buttonLayout = new HorizontalLayout();
+
+    private final Div loadingOverlay = new Div();
+    private final SummaryReportService summaryReportService;
 
     private Select<String> selectFaculty = new Select<>();
     private Select<String> selectDepartment = new Select<>();
@@ -81,12 +125,23 @@ public class EnterMarksView extends Div {
     private StudentGroupEntity currentGroup;
     private Grid<MarkDTO> studentGrid = new Grid<>(MarkDTO.class, false);
 
+    private final Button printReportButton =
+            new Button("Друк відомості", new Icon(VaadinIcon.PRINT));
+    private final Button additionalReportButton =
+            new Button("Додаткова відомість", new Icon(VaadinIcon.FILE_ADD));
+
+    private final Button reportButton = new Button("Звіт");
+    private final Dialog reportDialog = new Dialog();
+
     private final Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
+
+    @Value("${upload.dir}")
+    private String uploadsDir;
 
     public EnterMarksView(FacultyService facultyService, DepartmentService departmentService, PlanService planService,
                           StudentService studentService, StudentPlansService studentPlansService, SecurityService securityService,
                           UserRepository userRepository, MarksService marksService, ControlMethodService controlMethodService,
-                          MarksPartsService marksPartsService, ControlPartsService controlPartsService, GroupService groupService) {
+                          MarksPartsService marksPartsService, ControlPartsService controlPartsService, DocumentGenerationService documentGenerationService, GroupService groupService, SummaryReportService summaryReportService) {
         this.facultyService = facultyService;
         this.departmentService = departmentService;
         this.planService = planService;
@@ -98,7 +153,9 @@ public class EnterMarksView extends Div {
         this.controlMethodService = controlMethodService;
         this.marksPartsService = marksPartsService;
         this.controlPartsService = controlPartsService;
+        this.documentGenerationService = documentGenerationService;
         this.groupService = groupService;
+        this.summaryReportService = summaryReportService;
 
         // Налаштування форми вибору параметрів
         selectFaculty.setLabel("Факультет");
@@ -158,10 +215,17 @@ public class EnterMarksView extends Div {
         Button unlockButton = new Button("Розблокувати", new Icon(VaadinIcon.UNLOCK));
         unlockButton.setVisible(isAdmin || isDekanatGroup);
 
-        buttonLayout.add(saveButton, approveButton, unlockButton);
+        printReportButton.setEnabled(false);
+        additionalReportButton.setEnabled(false);
+        reportButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        reportButton.setEnabled(false);
+
+        buttonLayout.add(saveButton, approveButton, unlockButton, printReportButton, additionalReportButton, reportButton);
         buttonLayout.setWidth("100%");
-        buttonLayout.setFlexGrow(1, saveButton, approveButton, unlockButton);
+        buttonLayout.setFlexGrow(1, saveButton, approveButton, unlockButton, printReportButton, additionalReportButton, reportButton);
         buttonLayout.getStyle().set("gap", "10px");
+
+        configureReportControls();
 
         // Налаштування таблиці студентів
         studentGrid.getStyle().set("border-radius", "8px");
@@ -184,7 +248,8 @@ public class EnterMarksView extends Div {
 
         mainLayout.add(contentLayout);
         mainLayout.getStyle().set("height", "calc(100vh - 80px)");
-        add(mainLayout);
+        add(mainLayout, reportDialog);
+        configureLoadingOverlay();
 
         selectDepartment.setReadOnly(true);
         selectSpecialty.setReadOnly(true);
@@ -288,6 +353,7 @@ public class EnterMarksView extends Div {
             clearGrid();
             GroupDTO selectedGroup = selectGroup.getValue();
             currentGroup = selectedGroup == null ? null : groupService.getGroupByTitle(selectedGroup.getGroupCode());
+            updateReportButtonState();
             if (selectedGroup != null) {
                 selectDiscipline.setReadOnly(false);
                 selectControlType.setReadOnly(true);
@@ -395,6 +461,8 @@ public class EnterMarksView extends Div {
             updateGrid();
         });
 
+        printReportButton.addClickListener(e -> showSecondTeacherDialog());
+        additionalReportButton.addClickListener(e -> showAdditionalReportDialog());
     }
 
     private void configureGrid(String typeControl, int part) {
@@ -586,6 +654,7 @@ public class EnterMarksView extends Div {
 
     private void updateGrid() {
         if (selectControlType.getValue() == null) {
+            updatePrintButtonsState(List.of());
             return;
         }
 
@@ -703,6 +772,7 @@ public class EnterMarksView extends Div {
             ensureAllStudentsPresent(markDTOList);
             setRowNumbers(markDTOList);
             studentGrid.setItems(markDTOList);
+            updatePrintButtonsState(markDTOList);
         }
         // Якщо немає жодного MarksEntity, завантажуємо студентів із групи та намагаємося підвантажити модульні оцінки
         else {
@@ -720,6 +790,7 @@ public class EnterMarksView extends Div {
                 id++;
             }
             setRowNumbers(fallbackList);
+            updatePrintButtonsState(fallbackList);
             studentGrid.setItems(fallbackList);
         }
     }
@@ -917,6 +988,416 @@ public class EnterMarksView extends Div {
         return sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
     }
 
+
+
+
+
+
+
+
+    // Приклад допоміжних методів для побудови моделей даних для друку
+    private DataModelForMC1 buildDataModelForMC1(String secondTeacher) {
+        // Припущення: дані беруться з плану та пов'язаних сервісів.
+        String facultyName = plansEntity.getFaculty().getTitle();
+        String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
+                .map(EduProgramEntity::getTitle)
+                .orElse("Освітня програма не знайдена");
+        StudentGroupEntity group = requireCurrentGroup();
+        String courseNumber = String.valueOf(group.getCourse());
+        String groupName = group.getGroupCode();
+        String studyYear = String.valueOf(group.getYear());
+        // Використовуємо поточну дату
+        LocalDate today = LocalDate.now();
+        String day = today.format(DateTimeFormatter.ofPattern("dd"));
+        String month = today.format(DateTimeFormatter.ofPattern("MM"));
+        String year = today.format(DateTimeFormatter.ofPattern("yyyy"));
+        String disciplineName = plansEntity.getDiscipline().getTitle();
+        String semesterNumber = String.valueOf(plansEntity.getSemester());
+        String controlTypeName = selectControlType.getValue();
+        String hours = String.valueOf(plansEntity.getHours());
+        // Приклад з фіксованими значеннями для викладачів
+        String firstTeacher = getCurrentUserFullNameSurnameFirst();
+        String gradeTeacher = getCurrentUserFullName();
+
+        // Формуємо список студентів для друку
+        List<StudentModelToDocumentGenerate> students = new ArrayList<>();
+        List<StudentEntity> studentEntities = getSortedStudentsForPlan(group);
+        int index = 1;
+        for (StudentEntity student : studentEntities) {
+            // Припустимо, student.getRecordBookNumber() використовується як studentNumber
+            String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
+            if (mark == null) {
+                mark = "";
+            }
+            String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
+            students.add(new StudentModelToDocumentGenerate(index,
+                    student.getSurname() + " " + student.getName() + " " + patronymic,
+                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
+                    mark));
+            index++;
+        }
+
+        return new DataModelForMC1(facultyName, specialityName, courseNumber, groupName, studyYear,
+                day, month, year, disciplineName, semesterNumber, controlTypeName,
+                hours, firstTeacher, secondTeacher, gradeTeacher, students);
+    }
+
+    private DataModelForMC2 buildDataModelForMC2(String secondTeacher) {
+        // Подібно, але з додатковими полями qualityTrue та qualityFalse
+        String facultyName = plansEntity.getFaculty().getTitle();
+        String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
+                .map(EduProgramEntity::getTitle)
+                .orElse("");
+        StudentGroupEntity group = requireCurrentGroup();
+        String courseNumber = String.valueOf(group.getCourse());
+        String groupName = group.getGroupCode();
+        String studyYear = String.valueOf(group.getYear());
+        LocalDate today = LocalDate.now();
+        String day = today.format(DateTimeFormatter.ofPattern("dd"));
+        String month = today.format(DateTimeFormatter.ofPattern("MM"));
+        String year = today.format(DateTimeFormatter.ofPattern("yyyy"));
+        String disciplineName = plansEntity.getDiscipline().getTitle();
+        String semesterNumber = String.valueOf(plansEntity.getSemester());
+        String controlTypeName = selectControlType.getValue();
+        String hours = String.valueOf(plansEntity.getHours());
+        String firstTeacher = getCurrentUserFullNameSurnameFirst();
+        String gradeTeacher = getCurrentUserFullName();
+        String qualityTrue = "Якість1";
+        String qualityFalse = "Якість2";
+
+        List<StudentModelToDocumentGenerate> students = new ArrayList<>();
+        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
+        int index = 1;
+        for (StudentEntity student : studentEntities) {
+            String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
+            if (mark == null) {
+                mark = "";
+            }
+            String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
+            students.add(new StudentModelToDocumentGenerate(index,
+                    student.getSurname() + " " + student.getName() + " " + patronymic,
+                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
+                    mark));
+            index++;
+        }
+
+        return new DataModelForMC2(facultyName, specialityName, courseNumber, groupName, studyYear,
+                day, month, year, disciplineName, semesterNumber, controlTypeName,
+                hours, firstTeacher, secondTeacher, gradeTeacher, qualityTrue, qualityFalse, students);
+    }
+
+    private List<MarkDTO> getSelectedOrAllMarks() {
+        List<MarkDTO> all = studentGrid.getListDataView().getItems().toList();
+        Set<MarkDTO> selected = studentGrid.getSelectedItems();
+        if (selected.isEmpty() || selected.size() == all.size()) {
+            return all;
+        }
+        return new ArrayList<>(selected);
+    }
+
+    private String getCurrentUserFullNameSurnameFirst() {
+        return securityService.getCurrentUserModel()
+                .map(u -> capitalize(u.getLastname()) + " "
+                        + capitalize(u.getFirstname()) + " "
+                        + capitalize(u.getPatronymic()))
+                .orElse("");
+    }
+
+    private String getCurrentUserFullName() {
+        return securityService.getCurrentUserModel()
+                .map(u -> u.getFirstname() + " " + u.getLastname().toUpperCase())
+                .orElse("");
+    }
+
+    private void showSecondTeacherDialog() {
+        Dialog dialog = new Dialog();
+
+        TextField teacherField = new TextField();
+        teacherField.setWidthFull();
+        teacherField.setPlaceholder("Прізвище Ім'я По батькові");
+        teacherField.setPattern("^\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)? \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
+        teacherField.setErrorMessage("Формат: Прізвище Ім'я По батькові (наприклад, Іваненко Іван Іванович)");
+        teacherField.setValueChangeMode(ValueChangeMode.EAGER);
+
+
+        Button okButton = new Button("Підтвердити", e -> {
+            String secondTeacher = formatTeacherName(teacherField.getValue());
+            dialog.close();
+            generateReportWithLoading(secondTeacher);
+        });
+        okButton.setEnabled(false);
+
+        teacherField.addValueChangeListener(e -> {
+            String value = e.getValue();
+            boolean valid = value.matches("^\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)? \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
+            okButton.setEnabled(valid);
+            teacherField.setInvalid(!valid && !value.isEmpty());
+        });
+
+        VerticalLayout layout = new VerticalLayout(
+                new Span("Прізвище, ім'я та по батькові викладача, який здійснював поточний контроль"),
+                teacherField, okButton);
+        layout.setPadding(false);
+        layout.setSpacing(true);
+        layout.setAlignItems(FlexComponent.Alignment.STRETCH);
+        layout.setHorizontalComponentAlignment(FlexComponent.Alignment.CENTER, okButton);
+
+        dialog.add(layout);
+        dialog.open();
+    }
+
+
+    private String formatTeacherName(String input) {
+        if (input == null) {
+            return "";
+        }
+        String[] parts = input.trim().split("\\s+");
+        if (parts.length == 0) {
+            return "";
+        }
+        String lastName = capitalize(parts[0]);
+        String firstName = parts.length > 1 ? capitalize(parts[1]) : "";
+        String patronymic = parts.length > 2 ? capitalize(parts[2]) : "";
+        return (lastName + " " + firstName + " " + patronymic).trim();
+    }
+
+    private String capitalize(String str) {
+        if (str == null || str.isEmpty()) {
+            return "";
+        }
+        String[] parts = str.split("-");
+        for (int i = 0; i < parts.length; i++) {
+            if (!parts[i].isEmpty()) {
+                parts[i] = parts[i].substring(0, 1).toUpperCase()
+                        + parts[i].substring(1).toLowerCase();
+            }
+        }
+        return String.join("-", parts);
+    }
+
+    private void generateReportWithLoading(String secondTeacher) {
+        loadingOverlay.setVisible(true);
+        UI ui = UI.getCurrent();
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+
+        CompletableFuture.supplyAsync(() -> {
+            SecurityContextHolder.setContext(securityContext);
+            try {
+                return generateReportFile(secondTeacher);
+            } catch (Exception e) {
+                throw new CompletionException(e);
+            } finally {
+                SecurityContextHolder.clearContext();
+            }
+        }).whenComplete((filePath, throwable) -> {
+            if (ui != null && ui.isAttached()) {
+                ui.access(() -> {
+                    try {
+                        if (throwable == null) {
+                            showReport(filePath);
+                        } else {
+                            Notification.show(
+                                            "Помилка при генерації документа: " +
+                                                    throwable.getCause().getMessage(),
+                                            5000, Notification.Position.MIDDLE)
+                                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                        }
+                    } finally {
+                        loadingOverlay.setVisible(false);
+                    }
+                });
+            } else {
+                loadingOverlay.setVisible(false);
+            }
+        });
+    }
+
+    private String generateReportFile(String secondTeacher) throws Exception {
+        String controlType = selectControlType.getValue();
+        if (controlType == null) {
+            throw new IllegalStateException("Спочатку оберіть тип контролю!");
+        }
+
+        DocxUpdater updater = new DocxUpdater();
+        switch (controlType) {
+            case "Перший модульний контроль" -> {
+                DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
+                Path path = documentGenerationService.generate(FirstModulePdfGenerator.NAME, data);
+                return path.toString();
+            }
+            case "Другий модульний контроль" -> {
+                DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
+                return updater.generateForMC2(data);
+            }
+            case "Залік" -> {
+                DataModelForZalik data = buildDataModelForZalik(secondTeacher);
+                Path path = documentGenerationService.generate(ZalikPdfGenerator.NAME, data);
+                return path.toString();
+            }
+        }
+
+        throw new IllegalStateException(
+                "Друк для цього типу контролю знаходиться у розробці.");
+    }
+
+    private void configureReportControls() {
+        reportButton.addClickListener(event -> reportDialog.open());
+
+        reportDialog.setHeaderTitle("Оберіть тип звіту");
+        reportDialog.setCloseOnEsc(true);
+        reportDialog.setCloseOnOutsideClick(true);
+
+        Button firstModuleButton = new Button("Зведений для першого м.к.");
+        firstModuleButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        firstModuleButton.setWidthFull();
+        firstModuleButton.addClickListener(event -> {
+            reportDialog.close();
+            generateFirstModuleSummaryReport();
+        });
+
+        Button secondModuleButton = new Button("Зведений для другого м.к.");
+        secondModuleButton.setWidthFull();
+        secondModuleButton.addClickListener(event -> {
+            reportDialog.close();
+            generateSecondModuleSummaryReport();
+        });
+
+        Button semesterButton = new Button("Семестровий");
+        semesterButton.setWidthFull();
+        semesterButton.addClickListener(event -> {
+            reportDialog.close();
+            notifyFeatureInDevelopment();
+        });
+
+        VerticalLayout dialogContent = new VerticalLayout(firstModuleButton, secondModuleButton, semesterButton);
+        dialogContent.setPadding(false);
+        dialogContent.setSpacing(true);
+        dialogContent.setWidth("320px");
+        dialogContent.setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.STRETCH);
+
+        reportDialog.removeAll();
+        reportDialog.add(dialogContent);
+    }
+
+    private void generateFirstModuleSummaryReport() {
+        try {
+            SummaryReportResult result = summaryReportService.generateFirstModuleReport(selectGroup.getValue());
+            String fileName = String.format("summary-first-module-%s.pdf", result.groupCode());
+            openPdfReport(fileName, result.pdfBytes());
+
+            Notification notification = Notification.show("Звіт сформовано");
+            notification.setDuration(3000);
+        } catch (SummaryReportGenerationException ex) {
+            Notification.show(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Не вдалося згенерувати зведений звіт", ex);
+            Notification.show("Не вдалося згенерувати звіт");
+        }
+    }
+
+    private void generateSecondModuleSummaryReport() {
+        try {
+            SummaryReportResult result = summaryReportService.generateSecondModuleReport(selectGroup.getValue());
+            String fileName = String.format("summary-second-module-%s.pdf", result.groupCode());
+            openPdfReport(fileName, result.pdfBytes());
+
+            Notification notification = Notification.show("Звіт сформовано");
+            notification.setDuration(3000);
+        } catch (SummaryReportGenerationException ex) {
+            Notification.show(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Не вдалося згенерувати зведений звіт", ex);
+            Notification.show("Не вдалося згенерувати звіт");
+        }
+    }
+
+    private void openPdfReport(String fileName, byte[] pdfBytes) {
+        UI ui = UI.getCurrent();
+        if (ui == null) {
+            throw new IllegalStateException("UI is not available for opening the PDF report");
+        }
+
+        StreamResource resource = new StreamResource(fileName, () -> new ByteArrayInputStream(pdfBytes));
+        resource.setContentType("application/pdf");
+        resource.setCacheTime(0);
+
+        StreamRegistration registration = ui.getSession()
+                .getResourceRegistry()
+                .registerResource(resource);
+
+        String resourceUrl = registration.getResourceUri().toString();
+        ui.getPage().open(resourceUrl, "_blank");
+    }
+
+    private void notifyFeatureInDevelopment() {
+        Notification notification = Notification.show("Функція у розробці");
+        notification.setDuration(3000);
+    }
+
+    private void updateReportButtonState() {
+        reportButton.setEnabled(selectGroup.getValue() != null);
+    }
+
+    private void showReport(String finalFilePath) {
+        File pdfFile = new File(finalFilePath);
+        if (pdfFile.exists()) {
+            String fileName = pdfFile.getName();
+            StreamResource resource = new StreamResource(fileName, () -> {
+                try {
+                    return new FileInputStream(pdfFile);
+                } catch (IOException e) {
+                    Notification.show("Помилка при завантаженні файлу");
+                    return null;
+                }
+            });
+            Anchor downloadLink = new Anchor(resource, "");
+            downloadLink.getElement().setAttribute("download", true);
+            downloadLink.getElement().setAttribute("target", "_blank");
+            add(downloadLink);
+            UI.getCurrent().getPage()
+                    .executeJs("document.querySelector('a[download]').click();");
+        } else {
+            Notification.show("PDF файл не знайдено.");
+        }
+    }
+
+    private void configureLoadingOverlay() {
+        loadingOverlay.getStyle()
+                .set("position", "fixed")
+                .set("top", "0")
+                .set("left", "0")
+                .set("width", "100%")
+                .set("height", "100%")
+                .set("display", "flex")
+                .set("align-items", "center")
+                .set("justify-content", "center")
+                .set("background", "rgba(0,0,0,0.3)")
+                .set("z-index", "10000");
+
+        Div spinner = new Div();
+        spinner.getStyle()
+                .set("border", "8px solid #f3f3f3")
+                .set("border-top", "8px solid #2196F3")
+                .set("border-radius", "50%")
+                .set("width", "60px")
+                .set("height", "60px")
+                .set("animation", "spin 1s linear infinite");
+        loadingOverlay.add(spinner);
+        Element style = new Element("style");
+        style.setText("@keyframes spin {0% {transform: rotate(0deg);} 100% {transform: rotate(360deg);}}");
+        loadingOverlay.getElement().appendChild(style);
+        loadingOverlay.setVisible(false);
+        add(loadingOverlay);
+    }
+
+    private void updatePrintButtonsState(List<MarkDTO> list) {
+        boolean allLocked = list != null && !list.isEmpty()
+                && list.stream().allMatch(MarkDTO::isLocked);
+        printReportButton.setEnabled(allLocked);
+        additionalReportButton.setEnabled(allLocked);
+    }
+
+
     private void populateAuditInfo(MarkDTO dto, MarksEntity mark) {
         dto.setLastUpdated(formatLastUpdated(mark.getLastUpdated()));
         dto.setLastUpdatedBy(resolveLastUpdatedBy(mark));
@@ -953,6 +1434,109 @@ public class EnterMarksView extends Div {
             return display;
         }
         return Optional.ofNullable(user.getEmail()).orElse(SYSTEM_USER_DISPLAY_NAME);
+    }
+
+    private DataModelForZalik buildDataModelForZalik(String secondTeacher) {
+        String facultyName = plansEntity.getFaculty().getTitle();
+        String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
+                .map(EduProgramEntity::getTitle)
+                .orElse("");
+        StudentGroupEntity group = requireCurrentGroup();
+        String courseNumber = String.valueOf(group.getCourse());
+        String groupName = group.getGroupCode();
+        String studyYear = String.valueOf(group.getYear());
+        String order = plansEntity.getStatementNumber();
+        LocalDate today = LocalDate.now();
+        String day = today.format(DateTimeFormatter.ofPattern("dd"));
+        String month = today.format(DateTimeFormatter.ofPattern("MM"));
+        String year = today.format(DateTimeFormatter.ofPattern("yyyy"));
+        String disciplineName = plansEntity.getDiscipline().getTitle();
+        String semesterNumber = String.valueOf(plansEntity.getSemester());
+        String controlTypeName = selectControlType.getValue();
+        String hours = String.valueOf(plansEntity.getHours());
+        String firstTeacher = getCurrentUserFullNameSurnameFirst();
+        String gradeTeacher = getCurrentUserFullName();
+        FacultyEntity faculty = plansEntity.getFaculty();
+        String dean = faculty.getDeanLanding();
+        String departmentName = capitalize(faculty.getDeanI()) + " " + faculty.getDeanP().toUpperCase();
+
+        Map<String, Long> gradeMap = marksService
+                .findMarksByPlanAndTypeControl(plansEntity, controlTypeName)
+                .stream()
+                .collect(Collectors.groupingBy(m -> convertMarkToECTSGrade(m.getFinalGrade()), Collectors.counting()));
+
+        String a = String.valueOf(gradeMap.getOrDefault("A", 0L));
+        String b = String.valueOf(gradeMap.getOrDefault("B", 0L));
+        String c = String.valueOf(gradeMap.getOrDefault("C", 0L));
+        String d = String.valueOf(gradeMap.getOrDefault("D", 0L));
+        String e = String.valueOf(gradeMap.getOrDefault("E", 0L));
+        String fx = String.valueOf(gradeMap.getOrDefault("FX", 0L));
+        String f = String.valueOf(gradeMap.getOrDefault("F", 0L));
+        List<StudentModelToDocumentGenerate> students = new ArrayList<>();
+        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
+        int index = 1;
+        for (StudentEntity student : studentEntities) {
+            String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
+            if (mark == null) {
+                mark = "";
+            }
+            String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
+            students.add(new StudentModelToDocumentGenerate(index,
+                    student.getSurname() + " " + student.getName().charAt(0) + ". " + patronymic.charAt(0) + ".",
+                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
+                    mark));
+            index++;
+        }
+        return new DataModelForZalik(facultyName, specialityName, courseNumber, groupName, studyYear,
+                order, day, month, year, disciplineName, semesterNumber, controlTypeName,
+                hours, firstTeacher, secondTeacher, dean, departmentName,
+                a, b, c, d, e, fx, f, gradeTeacher, students);
+    }
+
+    private void showAdditionalReportDialog() {
+        Dialog dialog = new Dialog();
+
+        TextField teacherField = new TextField();
+        teacherField.setWidthFull();
+        teacherField.setPlaceholder("Прізвище Ім'я По батькові");
+        teacherField.setPattern("^\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)? \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
+        teacherField.setErrorMessage("Формат: Прізвище Ім'я По батькові (наприклад, Іваненко Іван Іванович)");
+        teacherField.setValueChangeMode(ValueChangeMode.EAGER);
+
+        RadioButtonGroup<String> typeGroup = new RadioButtonGroup<>();
+        typeGroup.setItems("Додаткова 1", "Додаткова 2");
+        typeGroup.setLabel("Тип додаткової відомості");
+        typeGroup.setValue("Додаткова 1");
+
+        Button okButton = new Button("Підтвердити", e -> {
+            String secondTeacher = formatTeacherName(teacherField.getValue());
+            dialog.close();
+            generateReportWithLoading(secondTeacher);
+        });
+        okButton.setEnabled(false);
+
+        teacherField.addValueChangeListener(e -> {
+            String value = e.getValue();
+            boolean valid = value.matches("^\\p{Lu}\\p{Ll}+(?:-\\p{Lu}\\p{Ll}+)? \\p{Lu}\\p{Ll}+ \\p{Lu}\\p{Ll}+$");
+            okButton.setEnabled(valid);
+            teacherField.setInvalid(!valid && !value.isEmpty());
+        });
+
+        HorizontalLayout inputLayout = new HorizontalLayout(teacherField, typeGroup);
+        inputLayout.setWidthFull();
+        inputLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
+
+        VerticalLayout layout = new VerticalLayout(
+                new Span("Прізвище, ім'я та по батькові викладача, який здійснював поточний контроль"),
+                inputLayout,
+                okButton);
+        layout.setPadding(false);
+        layout.setSpacing(true);
+        layout.setAlignItems(FlexComponent.Alignment.STRETCH);
+        layout.setHorizontalComponentAlignment(FlexComponent.Alignment.CENTER, okButton);
+
+        dialog.add(layout);
+        dialog.open();
     }
 
     private List<StudentEntity> sortStudentsByFullName(List<StudentEntity> students) {
