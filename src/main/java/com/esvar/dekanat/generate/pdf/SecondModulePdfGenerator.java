@@ -44,6 +44,7 @@ public class SecondModulePdfGenerator implements PdfGenerator {
     public static final String NAME = "second-module-control";
 
     private static final Logger log = LoggerFactory.getLogger(SecondModulePdfGenerator.class);
+    private static final int PASSING_THRESHOLD = 19;
 
     @Override
     public String getName() {
@@ -350,11 +351,11 @@ public class SecondModulePdfGenerator implements PdfGenerator {
 
         SummaryCounts counts = calculateSummaryCounts(students);
 
-        summaryTable.addCell(createBodyCell(String.valueOf(counts.above59()), regular, TextAlignment.CENTER));
-        summaryTable.addCell(createBodyCell("60-100", regular, TextAlignment.CENTER));
+        summaryTable.addCell(createBodyCell(String.valueOf(counts.aboveThreshold()), regular, TextAlignment.CENTER));
+        summaryTable.addCell(createBodyCell("20-30", regular, TextAlignment.CENTER));
 
-        summaryTable.addCell(createBodyCell(String.valueOf(counts.belowOrEqual59()), regular, TextAlignment.CENTER));
-        summaryTable.addCell(createBodyCell("0-59", regular, TextAlignment.CENTER));
+        summaryTable.addCell(createBodyCell(String.valueOf(counts.belowOrEqualThreshold()), regular, TextAlignment.CENTER));
+        summaryTable.addCell(createBodyCell("0-19", regular, TextAlignment.CENTER));
 
         document.add(summaryTable);
     }
@@ -448,22 +449,22 @@ public class SecondModulePdfGenerator implements PdfGenerator {
     }
 
     private SummaryCounts calculateSummaryCounts(List<StudentModelToDocumentGenerate> students) {
-        int above59 = 0;
-        int belowOrEqual59 = 0;
+        int aboveThreshold = 0;
+        int belowOrEqualThreshold = 0;
 
         for (StudentModelToDocumentGenerate student : students) {
             Integer mark = parseMark(student.mark());
             if (mark == null) {
                 continue;
             }
-            if (mark > 59) {
-                above59++;
+            if (mark > PASSING_THRESHOLD) {
+                aboveThreshold++;
             } else {
-                belowOrEqual59++;
+                belowOrEqualThreshold++;
             }
         }
 
-        return new SummaryCounts(above59, belowOrEqual59);
+        return new SummaryCounts(aboveThreshold, belowOrEqualThreshold);
     }
 
     private Integer parseMark(String mark) {
@@ -523,6 +524,6 @@ public class SecondModulePdfGenerator implements PdfGenerator {
         };
     }
 
-    private record SummaryCounts(int above59, int belowOrEqual59) {
+    private record SummaryCounts(int aboveThreshold, int belowOrEqualThreshold) {
     }
 }
