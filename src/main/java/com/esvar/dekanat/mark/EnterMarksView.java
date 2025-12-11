@@ -5,6 +5,7 @@ import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
+import com.esvar.dekanat.generate.pdf.ExamPdfGenerator;
 import com.esvar.dekanat.generate.pdf.FirstModulePdfGenerator;
 import com.esvar.dekanat.generate.pdf.SecondModulePdfGenerator;
 import com.esvar.dekanat.generate.pdf.ZalikPdfGenerator;
@@ -59,6 +60,7 @@ import java.io.*;
 import java.nio.file.Path;
 import java.sql.Timestamp;
 import java.text.Collator;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -1255,6 +1257,11 @@ public class EnterMarksView extends Div {
                 Path path = documentGenerationService.generate(ZalikPdfGenerator.NAME, data);
                 return new ReportGenerationResult(path.toString(), null);
             }
+            case "Екзамен" -> {
+                DataModelForExam data = buildDataModelForExam(secondTeacher);
+                Path path = documentGenerationService.generate(ExamPdfGenerator.NAME, data);
+                return new ReportGenerationResult(path.toString(), null);
+            }
         }
 
         throw new IllegalStateException(
@@ -1512,6 +1519,133 @@ public class EnterMarksView extends Div {
                 order, day, month, year, disciplineName, semesterNumber, controlTypeName,
                 hours, firstTeacher, secondTeacher, dean, departmentName,
                 a, b, c, d, e, fx, f, gradeTeacher, students);
+    }
+
+    private DataModelForExam buildDataModelForExam(String secondTeacher) {
+        String facultyName = plansEntity.getFaculty().getTitle();
+        SpecialtyEntity specialty = plansEntity.getSpecialty();
+        String specialityName = specialty.getTitle();
+        String knowledgeArea = Optional.ofNullable(specialty.getEduProgram())
+                .map(EduProgramEntity::getTitle)
+                .orElse(specialityName);
+        StudentGroupEntity group = requireCurrentGroup();
+        String courseNumber = String.valueOf(group.getCourse());
+        String groupName = group.getGroupCode();
+        String studyYear = String.valueOf(group.getYear());
+        String order = plansEntity.getStatementNumber();
+        LocalDate today = LocalDate.now();
+        String day = today.format(DateTimeFormatter.ofPattern("dd"));
+        String month = today.format(DateTimeFormatter.ofPattern("MM"));
+        String year = today.format(DateTimeFormatter.ofPattern("yyyy"));
+        String disciplineName = plansEntity.getDiscipline().getTitle();
+        String semesterNumber = String.valueOf(plansEntity.getSemester());
+        String controlTypeName = selectControlType.getValue();
+        String hours = String.valueOf(plansEntity.getHours());
+        String firstTeacher = getCurrentUserFullNameSurnameFirst();
+        String gradeTeacher = getCurrentUserFullName();
+        FacultyEntity faculty = plansEntity.getFaculty();
+        String dean = faculty.getDeanLanding();
+        String departmentHead = plansEntity.getDepartment().getTitle();
+
+        List<ExamStudentRow> students = new ArrayList<>();
+        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
+        int index = 1;
+        for (StudentEntity student : studentEntities) {
+            String firstModule = marksService.getMarkForFirstModalControl(student, plansEntity, CONTROL_TYPE_FIRST_MODULE);
+            String secondModule = marksService.getMarkForFirstModalControl(student, plansEntity, CONTROL_TYPE_SECOND_MODULE);
+            String examMark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
+
+            int total = parseMark(firstModule) + parseMark(secondModule) + parseMark(examMark);
+            String ectsGrade = convertMarkToECTSGrade(total);
+            String nationalGrade = convertMarkToNationalGrade(total);
+
+            students.add(new ExamStudentRow(
+                    index++,
+                    student.getSurname(),
+                    student.getName(),
+                    Optional.ofNullable(student.getPatronymic()).orElse(""),
+                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
+                    knowledgeArea,
+                    specialityName,
+                    firstModule,
+                    secondModule,
+                    examMark,
+                    String.valueOf(total),
+                    ectsGrade,
+                    nationalGrade
+            ));
+        }
+
+        ExamSummary summary = buildExamSummary(students);
+
+        return new DataModelForExam(facultyName, specialityName, knowledgeArea, courseNumber, groupName,
+                studyYear, order, day, month, year, disciplineName, semesterNumber, controlTypeName, hours,
+                firstTeacher, secondTeacher, dean, departmentHead, gradeTeacher, summary, students);
+    }
+
+    private ExamSummary buildExamSummary(List<ExamStudentRow> students) {
+        Map<String, Long> gradeCounts = students.stream()
+                .collect(Collectors.groupingBy(ExamStudentRow::ectsGrade, Collectors.counting()));
+
+        double totalPoints = students.stream()
+                .mapToInt(s -> parseMark(s.totalPoints()))
+                .sum();
+        double averagePoints = students.isEmpty() ? 0 : totalPoints / students.size();
+
+        double totalNationalScore = students.stream()
+                .mapToDouble(s -> convertNationalToScore(s.nationalGrade()))
+                .sum();
+        double averageNationalScore = students.isEmpty() ? 0 : totalNationalScore / students.size();
+
+        double totalEctsScore = students.stream()
+                .mapToDouble(s -> convertEctsToScore(s.ectsGrade()))
+                .sum();
+        double averageEctsScore = students.isEmpty() ? 0 : totalEctsScore / students.size();
+
+        DecimalFormat format = new DecimalFormat("0.0");
+
+        return new ExamSummary(
+                String.valueOf(gradeCounts.getOrDefault("A", 0L)),
+                String.valueOf(gradeCounts.getOrDefault("B", 0L)),
+                String.valueOf(gradeCounts.getOrDefault("C", 0L)),
+                String.valueOf(gradeCounts.getOrDefault("D", 0L)),
+                String.valueOf(gradeCounts.getOrDefault("E", 0L)),
+                String.valueOf(gradeCounts.getOrDefault("FX", 0L)),
+                String.valueOf(gradeCounts.getOrDefault("F", 0L)),
+                format.format(averagePoints),
+                format.format(averageNationalScore),
+                format.format(averageEctsScore),
+                String.valueOf(students.size())
+        );
+    }
+
+    private int parseMark(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ex) {
+            return 0;
+        }
+    }
+
+    private double convertNationalToScore(String nationalGrade) {
+        return switch (nationalGrade) {
+            case "Відмінно" -> 5;
+            case "Добре" -> 4;
+            case "Задовільно" -> 3;
+            case "Незадовільно" -> 2;
+            default -> 0;
+        };
+    }
+
+    private double convertEctsToScore(String ectsGrade) {
+        return switch (ectsGrade) {
+            case "A" -> 5;
+            case "B" -> 4;
+            case "C" -> 3;
+            case "D" -> 2;
+            case "E" -> 1;
+            default -> 0;
+        };
     }
 
     private void showAdditionalReportDialog() {
