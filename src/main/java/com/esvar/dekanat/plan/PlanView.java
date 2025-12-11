@@ -169,9 +169,12 @@ public class PlanView extends Div {
     }
 
     private void setupLayout() {
-        HorizontalLayout filterLayout = new HorizontalLayout(groupSelect, sessionSelect, createReportGenerationBlock());
-        filterLayout.getStyle().set("padding", "20px 20px 0px 20px");
-        filterLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.END);
+        HorizontalLayout filterLayout = new HorizontalLayout(createPlanEntryBlock(), createReportGenerationBlock());
+        filterLayout.getStyle()
+                .set("padding", "20px 20px 0px 20px")
+                .set("gap", "16px")
+                .set("flex-wrap", "wrap");
+        filterLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.STRETCH);
         filterLayout.setWidthFull();
 
         HorizontalLayout gridLayout = new HorizontalLayout(planGrid);
@@ -180,6 +183,40 @@ public class PlanView extends Div {
 
         setHeight("90%");
         add(filterLayout, gridLayout, addButton);
+    }
+
+    private Div createPlanEntryBlock() {
+        groupSelect.setWidthFull();
+        sessionSelect.setWidthFull();
+
+        Span title = new Span("Внесення навчальних планів");
+        title.getStyle()
+                .set("fontWeight", "600")
+                .set("fontSize", "var(--lumo-font-size-s)");
+
+        HorizontalLayout selectorsRow = new HorizontalLayout(groupSelect, sessionSelect);
+        selectorsRow.setWidthFull();
+        selectorsRow.getStyle()
+                .set("gap", "12px")
+                .set("flex-wrap", "wrap");
+        selectorsRow.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.END);
+
+        VerticalLayout content = new VerticalLayout(title, selectorsRow);
+        content.setPadding(false);
+        content.setSpacing(true);
+        content.setMargin(false);
+        content.setWidthFull();
+
+        Div container = new Div(content);
+        container.getStyle()
+                .set("border", "1px solid var(--lumo-contrast-20pct)")
+                .set("borderRadius", "var(--lumo-border-radius-m)")
+                .set("padding", "12px 16px")
+                .set("background", "var(--lumo-base-color)")
+                .set("boxShadow", "var(--lumo-box-shadow-s)")
+                .set("flex", "1 1 360px");
+
+        return container;
     }
 
     private void openCreateDialog() {
@@ -431,6 +468,7 @@ public class PlanView extends Div {
         content.setPadding(false);
         content.setSpacing(true);
         content.setMargin(false);
+        content.setWidthFull();
 
         Div container = new Div(content);
         container.getStyle()
@@ -439,7 +477,7 @@ public class PlanView extends Div {
                 .set("padding", "12px 16px")
                 .set("background", "var(--lumo-base-color)")
                 .set("boxShadow", "var(--lumo-box-shadow-s)")
-                .set("marginLeft", "auto");
+                .set("flex", "1 1 320px");
 
         return container;
     }
