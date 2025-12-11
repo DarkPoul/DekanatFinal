@@ -5,8 +5,8 @@ import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
-
 import com.esvar.dekanat.generate.pdf.FirstModulePdfGenerator;
+import com.esvar.dekanat.generate.pdf.SecondModulePdfGenerator;
 import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
@@ -15,17 +15,6 @@ import com.esvar.dekanat.service.SummaryReportService.SummaryReportResult;
 import com.esvar.dekanat.user.UserModel;
 import com.esvar.dekanat.user.UserRepository;
 import com.esvar.dekanat.view.MainLayout;
-import com.itextpdf.io.font.PdfEncodings;
-import com.itextpdf.kernel.font.PdfFont;
-import com.itextpdf.kernel.font.PdfFontFactory;
-import com.itextpdf.kernel.geom.PageSize;
-import com.itextpdf.kernel.pdf.PdfDocument;
-import com.itextpdf.kernel.pdf.PdfWriter;
-import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
-import com.itextpdf.layout.Document;
-import com.itextpdf.layout.element.LineSeparator;
-import com.itextpdf.layout.element.Paragraph;
-import com.itextpdf.layout.properties.TextAlignment;
 import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
@@ -1041,50 +1030,6 @@ public class EnterMarksView extends Div {
                 hours, firstTeacher, secondTeacher, gradeTeacher, students);
     }
 
-    private DataModelForMC2 buildDataModelForMC2(String secondTeacher) {
-        // Подібно, але з додатковими полями qualityTrue та qualityFalse
-        String facultyName = plansEntity.getFaculty().getTitle();
-        String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
-                .map(EduProgramEntity::getTitle)
-                .orElse("");
-        StudentGroupEntity group = requireCurrentGroup();
-        String courseNumber = String.valueOf(group.getCourse());
-        String groupName = group.getGroupCode();
-        String studyYear = String.valueOf(group.getYear());
-        LocalDate today = LocalDate.now();
-        String day = today.format(DateTimeFormatter.ofPattern("dd"));
-        String month = today.format(DateTimeFormatter.ofPattern("MM"));
-        String year = today.format(DateTimeFormatter.ofPattern("yyyy"));
-        String disciplineName = plansEntity.getDiscipline().getTitle();
-        String semesterNumber = String.valueOf(plansEntity.getSemester());
-        String controlTypeName = selectControlType.getValue();
-        String hours = String.valueOf(plansEntity.getHours());
-        String firstTeacher = getCurrentUserFullNameSurnameFirst();
-        String gradeTeacher = getCurrentUserFullName();
-        String qualityTrue = "Якість1";
-        String qualityFalse = "Якість2";
-
-        List<StudentModelToDocumentGenerate> students = new ArrayList<>();
-        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
-        int index = 1;
-        for (StudentEntity student : studentEntities) {
-            String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
-            if (mark == null) {
-                mark = "";
-            }
-            String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
-            students.add(new StudentModelToDocumentGenerate(index,
-                    student.getSurname() + " " + student.getName() + " " + patronymic,
-                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
-                    mark));
-            index++;
-        }
-
-        return new DataModelForMC2(facultyName, specialityName, courseNumber, groupName, studyYear,
-                day, month, year, disciplineName, semesterNumber, controlTypeName,
-                hours, firstTeacher, secondTeacher, gradeTeacher, qualityTrue, qualityFalse, students);
-    }
-
     private List<MarkDTO> getSelectedOrAllMarks() {
         List<MarkDTO> all = studentGrid.getListDataView().getItems().toList();
         Set<MarkDTO> selected = studentGrid.getSelectedItems();
@@ -1174,6 +1119,51 @@ public class EnterMarksView extends Div {
         return String.join("-", parts);
     }
 
+    private record ReportGenerationResult(String filePath, SummaryReportResult pdfReport) {}
+
+    private DataModelForMC2 buildDataModelForMC2(String secondTeacher) {
+        String facultyName = plansEntity.getFaculty().getTitle();
+        String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
+                .map(EduProgramEntity::getTitle)
+                .orElse("");
+        StudentGroupEntity group = requireCurrentGroup();
+        String courseNumber = String.valueOf(group.getCourse());
+        String groupName = group.getGroupCode();
+        String studyYear = String.valueOf(group.getYear());
+        LocalDate today = LocalDate.now();
+        String day = today.format(DateTimeFormatter.ofPattern("dd"));
+        String month = today.format(DateTimeFormatter.ofPattern("MM"));
+        String year = today.format(DateTimeFormatter.ofPattern("yyyy"));
+        String disciplineName = plansEntity.getDiscipline().getTitle();
+        String semesterNumber = String.valueOf(plansEntity.getSemester());
+        String controlTypeName = selectControlType.getValue();
+        String hours = String.valueOf(plansEntity.getHours());
+        String firstTeacher = getCurrentUserFullNameSurnameFirst();
+        String gradeTeacher = getCurrentUserFullName();
+        String qualityTrue = "Якість1";
+        String qualityFalse = "Якість2";
+
+        List<StudentModelToDocumentGenerate> students = new ArrayList<>();
+        List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
+        int index = 1;
+        for (StudentEntity student : studentEntities) {
+            String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
+            if (mark == null) {
+                mark = "";
+            }
+            String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
+            students.add(new StudentModelToDocumentGenerate(index,
+                    student.getSurname() + " " + student.getName() + " " + patronymic,
+                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
+                    mark));
+            index++;
+        }
+
+        return new DataModelForMC2(facultyName, specialityName, courseNumber, groupName, studyYear,
+                day, month, year, disciplineName, semesterNumber, controlTypeName,
+                hours, firstTeacher, secondTeacher, gradeTeacher, qualityTrue, qualityFalse, students);
+    }
+
     private void generateReportWithLoading(String secondTeacher) {
         loadingOverlay.setVisible(true);
         UI ui = UI.getCurrent();
@@ -1188,12 +1178,24 @@ public class EnterMarksView extends Div {
             } finally {
                 SecurityContextHolder.clearContext();
             }
-        }).whenComplete((filePath, throwable) -> {
+        }).whenComplete((result, throwable) -> {
             if (ui != null && ui.isAttached()) {
                 ui.access(() -> {
                     try {
                         if (throwable == null) {
-                            showReport(filePath);
+                            if (result == null) {
+                                Notification.show("Порожній результат генерації документа");
+                                return;
+                            }
+                            if (result.pdfReport() != null) {
+                                SummaryReportResult report = result.pdfReport();
+                                String fileName = String.format("module-control-%s.pdf", report.groupCode());
+                                openPdfReport(fileName, report.pdfBytes());
+                            } else if (result.filePath() != null) {
+                                showReport(result.filePath());
+                            } else {
+                                Notification.show("Не вдалося згенерувати документ");
+                            }
                         } else {
                             Notification.show(
                                             "Помилка при генерації документа: " +
@@ -1211,22 +1213,22 @@ public class EnterMarksView extends Div {
         });
     }
 
-    private String generateReportFile(String secondTeacher) throws Exception {
+    private ReportGenerationResult generateReportFile(String secondTeacher) throws Exception {
         String controlType = selectControlType.getValue();
         if (controlType == null) {
             throw new IllegalStateException("Спочатку оберіть тип контролю!");
         }
 
-        DocxUpdater updater = new DocxUpdater();
         switch (controlType) {
             case "Перший модульний контроль" -> {
                 DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
                 Path path = documentGenerationService.generate(FirstModulePdfGenerator.NAME, data);
-                return path.toString();
+                return new ReportGenerationResult(path.toString(), null);
             }
             case "Другий модульний контроль" -> {
                 DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
-                return updater.generateForMC2(data);
+                Path path = documentGenerationService.generate(SecondModulePdfGenerator.NAME, data);
+                return new ReportGenerationResult(path.toString(), null);
             }
             case "Залік" -> {
                 DataModelForZalik data = buildDataModelForZalik(secondTeacher);
