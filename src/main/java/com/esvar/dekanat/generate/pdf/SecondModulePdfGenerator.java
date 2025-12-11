@@ -44,6 +44,7 @@ public class SecondModulePdfGenerator implements PdfGenerator {
     public static final String NAME = "second-module-control";
 
     private static final Logger log = LoggerFactory.getLogger(SecondModulePdfGenerator.class);
+    private static final int PASSING_THRESHOLD = 19;
 
     @Override
     public String getName() {
@@ -71,6 +72,7 @@ public class SecondModulePdfGenerator implements PdfGenerator {
 
                 addHeader(document, regular, bold, moduleData);
                 addStudentsTable(document, regular, moduleData.students());
+                addSemesterPerformanceSummary(document, regular, bold, moduleData.students());
                 addSignatureSection(document, regular, bold, moduleData);
 
                 log.info("Generated second module control PDF at {}", outputPath);
@@ -333,6 +335,31 @@ public class SecondModulePdfGenerator implements PdfGenerator {
         document.add(table);
     }
 
+    private void addSemesterPerformanceSummary(Document document, PdfFont regular, PdfFont bold,
+                                               List<StudentModelToDocumentGenerate> students) {
+        document.add(new Paragraph("Підсумки семестрової успішності")
+                .setFont(bold)
+                .setFontSize(11)
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginTop(8)
+                .setMarginBottom(4));
+
+        Table summaryTable = new Table(UnitValue.createPercentArray(new float[]{60, 40}))
+                .useAllAvailableWidth();
+        summaryTable.addHeaderCell(createHeaderCell("Кількість студентів", regular));
+        summaryTable.addHeaderCell(createHeaderCell("Сума балів", regular));
+
+        SummaryCounts counts = calculateSummaryCounts(students);
+
+        summaryTable.addCell(createBodyCell(String.valueOf(counts.aboveThreshold()), regular, TextAlignment.CENTER));
+        summaryTable.addCell(createBodyCell("20-30", regular, TextAlignment.CENTER));
+
+        summaryTable.addCell(createBodyCell(String.valueOf(counts.belowOrEqualThreshold()), regular, TextAlignment.CENTER));
+        summaryTable.addCell(createBodyCell("0-19", regular, TextAlignment.CENTER));
+
+        document.add(summaryTable);
+    }
+
     private void addSignatureSection(Document document, PdfFont regular, PdfFont bold, DataModelForMC2 data) {
         document.add(new Paragraph("")
                 .setFont(regular)
@@ -421,6 +448,36 @@ public class SecondModulePdfGenerator implements PdfGenerator {
         return value == null || value.isBlank();
     }
 
+    private SummaryCounts calculateSummaryCounts(List<StudentModelToDocumentGenerate> students) {
+        int aboveThreshold = 0;
+        int belowOrEqualThreshold = 0;
+
+        for (StudentModelToDocumentGenerate student : students) {
+            Integer mark = parseMark(student.mark());
+            if (mark == null) {
+                continue;
+            }
+            if (mark > PASSING_THRESHOLD) {
+                aboveThreshold++;
+            } else {
+                belowOrEqualThreshold++;
+            }
+        }
+
+        return new SummaryCounts(aboveThreshold, belowOrEqualThreshold);
+    }
+
+    private Integer parseMark(String mark) {
+        if (mark == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(mark.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     private Cell createHeaderCell(String text, PdfFont font) {
         return new Cell().add(new Paragraph(text)
                         .setFont(font)
@@ -465,5 +522,8 @@ public class SecondModulePdfGenerator implements PdfGenerator {
             case "Другий модульний контроль" -> "Другий модуль";
             default -> controlName == null ? "контроль" : controlName;
         };
+    }
+
+    private record SummaryCounts(int aboveThreshold, int belowOrEqualThreshold) {
     }
 }
