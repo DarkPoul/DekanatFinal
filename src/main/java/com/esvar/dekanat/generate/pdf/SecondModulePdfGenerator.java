@@ -316,7 +316,7 @@ public class SecondModulePdfGenerator implements PdfGenerator {
         headerTable.addHeaderCell(createHeaderCell("№\nз/п", regular));
         headerTable.addHeaderCell(createHeaderCell("Прізвище та ініціали студента", regular));
         headerTable.addHeaderCell(createHeaderCell("Номер залікової книжки", regular));
-        headerTable.addHeaderCell(createHeaderCell("Кількість балів за результатами другого модуля (від 0 до 30 балів)", regular));
+        headerTable.addHeaderCell(createHeaderCell("Сума балів за результатами першого та другого модулів (від 0 до 60 балів)", regular));
         headerTable.addHeaderCell(createHeaderCell("Підпис викладача", regular));
 
         document.add(headerTable);
@@ -352,7 +352,7 @@ public class SecondModulePdfGenerator implements PdfGenerator {
         SummaryCounts counts = calculateSummaryCounts(students);
 
         summaryTable.addCell(createBodyCell(String.valueOf(counts.aboveThreshold()), regular, TextAlignment.CENTER));
-        summaryTable.addCell(createBodyCell("20-30", regular, TextAlignment.CENTER));
+        summaryTable.addCell(createBodyCell("20-60", regular, TextAlignment.CENTER));
 
         summaryTable.addCell(createBodyCell(String.valueOf(counts.belowOrEqualThreshold()), regular, TextAlignment.CENTER));
         summaryTable.addCell(createBodyCell("0-19", regular, TextAlignment.CENTER));

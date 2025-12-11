@@ -1149,10 +1149,7 @@ public class EnterMarksView extends Div {
         List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
         int index = 1;
         for (StudentEntity student : studentEntities) {
-            String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
-            if (mark == null) {
-                mark = "";
-            }
+            String mark = calculateTotalModuleMark(student);
             String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
             students.add(new StudentModelToDocumentGenerate(index,
                     student.getSurname() + " " + student.getName() + " " + patronymic,
@@ -1164,6 +1161,25 @@ public class EnterMarksView extends Div {
         return new DataModelForMC2(facultyName, specialityName, courseNumber, groupName, studyYear,
                 day, month, year, disciplineName, semesterNumber, controlTypeName,
                 hours, firstTeacher, secondTeacher, gradeTeacher, qualityTrue, qualityFalse, students);
+    }
+
+    private String calculateTotalModuleMark(StudentEntity student) {
+        String firstModuleMark = marksService.getMarkForFirstModalControl(student, plansEntity, CONTROL_TYPE_FIRST_MODULE);
+        String secondModuleMark = marksService.getMarkForFirstModalControl(student, plansEntity, CONTROL_TYPE_SECOND_MODULE);
+
+        int totalMark = parseModuleMark(firstModuleMark) + parseModuleMark(secondModuleMark);
+        return String.valueOf(totalMark);
+    }
+
+    private int parseModuleMark(String mark) {
+        if (mark == null) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(mark.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     private void generateReportWithLoading(String secondTeacher) {
