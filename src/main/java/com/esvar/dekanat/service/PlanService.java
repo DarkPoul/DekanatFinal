@@ -184,11 +184,19 @@ public class PlanService {
     }
 
     public List<String> getDisciplinesByGroup(StudentGroupEntity group) {
+        return getDisciplinesByGroup(group, null);
+    }
+
+    public List<String> getDisciplinesByGroup(StudentGroupEntity group, Long departmentId) {
         if (group == null) {
             return Collections.emptyList();
         }
         int semester = getNumberSemester(String.valueOf(group.getCourse()));
-        return planRepository.findByGroupAndSemester(group, semester).stream()
+        List<PlansEntity> plans = departmentId == null
+                ? planRepository.findByGroupAndSemester(group, semester)
+                : planRepository.findByGroupAndSemesterAndDepartment(group, semester, departmentId);
+
+        return plans.stream()
                 .map(PlansEntity::getDiscipline)
                 .map(DisciplineEntity::getTitle)
                 .distinct()
@@ -196,12 +204,19 @@ public class PlanService {
     }
 
     public List<String> getControlTypesByGroupAndDiscipline(StudentGroupEntity group, String discipline) {
+        return getControlTypesByGroupAndDiscipline(group, discipline, null);
+    }
+
+    public List<String> getControlTypesByGroupAndDiscipline(StudentGroupEntity group, String discipline, Long departmentId) {
         if (group == null || discipline == null) {
             return Collections.emptyList();
         }
         int semester = getNumberSemester(String.valueOf(group.getCourse()));
-        List<String> controlTypes = planRepository.findByGroupAndSemesterAndDiscipline_Title(group, semester, discipline)
-                .stream()
+        List<PlansEntity> plans = departmentId == null
+                ? planRepository.findByGroupAndSemesterAndDiscipline_Title(group, semester, discipline)
+                : planRepository.findByGroupAndSemesterAndDiscipline_TitleAndDepartment(group, semester, discipline, departmentId);
+
+        List<String> controlTypes = plans.stream()
                 .flatMap(plan -> Stream.of(plan.getFirstControl().getName(), plan.getSecondControl().getName()))
                 .filter(control -> !"Відсутній".equals(control))
                 .distinct()
@@ -214,12 +229,19 @@ public class PlanService {
     }
 
     public PlansEntity getPlanEntityByGroupAndDiscipline(StudentGroupEntity group, String discipline){
+        return getPlanEntityByGroupAndDiscipline(group, discipline, null);
+    }
+
+    public PlansEntity getPlanEntityByGroupAndDiscipline(StudentGroupEntity group, String discipline, Long departmentId){
         if (group == null || discipline == null) {
             return null;
         }
         int semester = getNumberSemester(String.valueOf(group.getCourse()));
-        return planRepository.findByGroupAndSemesterAndDiscipline_Title(group, semester, discipline)
-                .stream()
+        List<PlansEntity> plans = departmentId == null
+                ? planRepository.findByGroupAndSemesterAndDiscipline_Title(group, semester, discipline)
+                : planRepository.findByGroupAndSemesterAndDiscipline_TitleAndDepartment(group, semester, discipline, departmentId);
+
+        return plans.stream()
                 .findFirst().orElse(null);
     }
 
