@@ -183,57 +183,43 @@ public class PlanService {
                 .collect(Collectors.toList());
     }
 
-    public List<String> getDisciplinesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupGroupNumber(String faculty, String department, String specialty, int course, int groupNumber) {
-        int semester = getNumberSemester(String.valueOf(course));
-        return planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumber(
-                        facultyRepository.findByTitle(faculty),
-                        departmentRepository.findByTitle(department),
-                        specialty,
-                        course,
-                        groupNumber
-                ).stream()
-                .filter(p -> p.getSemester() == semester)
+    public List<String> getDisciplinesByGroup(StudentGroupEntity group) {
+        if (group == null) {
+            return Collections.emptyList();
+        }
+        int semester = getNumberSemester(String.valueOf(group.getCourse()));
+        return planRepository.findByGroupAndSemester(group, semester).stream()
                 .map(PlansEntity::getDiscipline)
                 .map(DisciplineEntity::getTitle)
                 .distinct()
                 .collect(Collectors.toList());
     }
 
-    public List<String> getControlTypesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
-            String faculty, String department, String specialty, int course, int groupNumber, String discipline) {
-        int semester = getNumberSemester(String.valueOf(course));
-        List<String> controlTypes = planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumberAndDiscipline_Title(
-                        facultyRepository.findByTitle(faculty),
-                        departmentRepository.findByTitle(department),
-                        specialty,
-                        course,
-                        groupNumber,
-                        discipline
-                ).stream()
-                .filter(p -> p.getSemester() == semester)
-                .flatMap(plan -> Stream.of(plan.getFirstControl().getName(), plan.getSecondControl().getName())) // Отримуємо обидва значення
-                .filter(control -> !"Відсутній".equals(control)) // Фільтруємо "Відсутній"
-                .distinct() // Унікальні значення (якщо потрібно)
+    public List<String> getControlTypesByGroupAndDiscipline(StudentGroupEntity group, String discipline) {
+        if (group == null || discipline == null) {
+            return Collections.emptyList();
+        }
+        int semester = getNumberSemester(String.valueOf(group.getCourse()));
+        List<String> controlTypes = planRepository.findByGroupAndSemesterAndDiscipline_Title(group, semester, discipline)
+                .stream()
+                .flatMap(plan -> Stream.of(plan.getFirstControl().getName(), plan.getSecondControl().getName()))
+                .filter(control -> !"Відсутній".equals(control))
+                .distinct()
                 .collect(Collectors.toList());
 
-        // Додаємо "Перший модульний контроль" і "Другий модульний контроль"
         controlTypes.add("Перший модульний контроль");
         controlTypes.add("Другий модульний контроль");
 
         return controlTypes;
     }
 
-    public PlansEntity getPlanEntityByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(String faculty, String department, String specialty, int course, int groupNumber, String discipline){
-        int semester = getNumberSemester(String.valueOf(course));
-        return planRepository.findByFacultyAndDepartmentAndSpecialty_AbbreviationAndGroup_CourseAndGroup_GroupNumberAndDiscipline_Title(
-                        facultyRepository.findByTitle(faculty),
-                        departmentRepository.findByTitle(department),
-                        specialty,
-                        course,
-                        groupNumber,
-                        discipline
-                ).stream()
-                .filter(p -> p.getSemester() == semester)
+    public PlansEntity getPlanEntityByGroupAndDiscipline(StudentGroupEntity group, String discipline){
+        if (group == null || discipline == null) {
+            return null;
+        }
+        int semester = getNumberSemester(String.valueOf(group.getCourse()));
+        return planRepository.findByGroupAndSemesterAndDiscipline_Title(group, semester, discipline)
+                .stream()
                 .findFirst().orElse(null);
     }
 

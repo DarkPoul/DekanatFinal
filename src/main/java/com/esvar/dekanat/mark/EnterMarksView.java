@@ -351,13 +351,7 @@ public class EnterMarksView extends Div {
 
                 selectControlType.clear();
 
-                selectDiscipline.setItems(planService.getDisciplinesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupGroupNumber(
-                        selectFaculty.getValue(),
-                        selectDepartment.getValue(),
-                        selectSpecialty.getValue(),
-                        selectedGroup.getCourse(),
-                        selectedGroup.getGroupNumber()
-                ));
+                selectDiscipline.setItems(planService.getDisciplinesByGroup(currentGroup));
             }
         });
 
@@ -367,23 +361,9 @@ public class EnterMarksView extends Div {
             if (selectDiscipline.getValue() != null && selectedGroup != null) {
                 selectControlType.setReadOnly(false);
 
-                selectControlType.setItems(planService.getControlTypesByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
-                        selectFaculty.getValue(),
-                        selectDepartment.getValue(),
-                        selectSpecialty.getValue(),
-                        selectedGroup.getCourse(),
-                        selectedGroup.getGroupNumber(),
-                        selectDiscipline.getValue()
-                ));
+                selectControlType.setItems(planService.getControlTypesByGroupAndDiscipline(currentGroup, selectDiscipline.getValue()));
 
-                plansEntity = planService.getPlanEntityByFacultyAndDepartmentAndSpecialtyAndGroupCourseAndGroupNumberAndDiscipline(
-                        selectFaculty.getValue(),
-                        selectDepartment.getValue(),
-                        selectSpecialty.getValue(),
-                        selectedGroup.getCourse(),
-                        selectedGroup.getGroupNumber(),
-                        selectDiscipline.getValue()
-                );
+                plansEntity = planService.getPlanEntityByGroupAndDiscipline(currentGroup, selectDiscipline.getValue());
             }
         });
 
