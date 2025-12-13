@@ -352,7 +352,7 @@ public class EnterMarksView extends Div {
 
                 selectControlType.clear();
 
-                selectDiscipline.setItems(planService.getDisciplinesByGroup(currentGroup, departmentId));
+                selectDiscipline.setItems(planService.getDisciplinesByGroup(currentGroup, getSelectedDepartmentId(departmentId)));
             }
         });
 
@@ -362,9 +362,11 @@ public class EnterMarksView extends Div {
             if (selectDiscipline.getValue() != null && selectedGroup != null) {
                 selectControlType.setReadOnly(false);
 
-                selectControlType.setItems(planService.getControlTypesByGroupAndDiscipline(currentGroup, selectDiscipline.getValue(), departmentId));
+                Long selectedDepartmentId = getSelectedDepartmentId(departmentId);
 
-                plansEntity = planService.getPlanEntityByGroupAndDiscipline(currentGroup, selectDiscipline.getValue(), departmentId);
+                selectControlType.setItems(planService.getControlTypesByGroupAndDiscipline(currentGroup, selectDiscipline.getValue(), selectedDepartmentId));
+
+                plansEntity = planService.getPlanEntityByGroupAndDiscipline(currentGroup, selectDiscipline.getValue(), selectedDepartmentId);
             }
         });
 
@@ -435,6 +437,17 @@ public class EnterMarksView extends Div {
 
         printReportButton.addClickListener(e -> showSecondTeacherDialog());
         additionalReportButton.addClickListener(e -> showAdditionalReportDialog());
+    }
+
+    private Long getSelectedDepartmentId(Long departmentId) {
+        if (departmentId != null) {
+            return departmentId;
+        }
+        String selectedDepartment = selectDepartment.getValue();
+        DepartmentEntity department = selectedDepartment == null
+                ? null
+                : departmentService.getDepartmentByTitle(selectedDepartment);
+        return department != null ? department.getId() : null;
     }
 
     private void configureGrid(String typeControl, int part) {
