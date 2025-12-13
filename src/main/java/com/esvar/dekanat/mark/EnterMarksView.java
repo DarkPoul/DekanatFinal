@@ -649,7 +649,12 @@ public class EnterMarksView extends Div {
             return;
         }
 
-        List<MarksEntity> marksEntityList = marksService.findMarksByPlanAndTypeControl(plansEntity, selectControlType.getValue());
+        StudentGroupEntity targetGroup = getPlanContextGroup();
+
+        List<MarksEntity> marksEntityList = marksService.findMarksByPlanAndTypeControl(plansEntity, selectControlType.getValue())
+                .stream()
+                .filter(mark -> targetGroup == null || targetGroup.equals(mark.getStudent().getGroup()))
+                .toList();
         List<MarkDTO> markDTOList = new ArrayList<>();
         configureGrid(selectControlType.getValue(), plansEntity.getParts());
 
