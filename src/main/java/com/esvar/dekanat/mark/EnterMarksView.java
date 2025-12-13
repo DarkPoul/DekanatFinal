@@ -169,6 +169,7 @@ public class EnterMarksView extends Div {
         boolean isDepartment   = roles.stream().anyMatch(r -> r.startsWith("ROLE_DEPARTMENT"));
         boolean isDekanatGroup = roles.stream().anyMatch(r -> r.startsWith("ROLE_DEKANAT"));
         boolean isAdmin        = roles.stream().anyMatch(r -> r.startsWith("ROLE_ADMIN"));
+        Long departmentId      = isDepartment ? Long.valueOf(role_type) : null;
 
         if (isDekanatGroup){
             selectFaculty.setValue(facultyService.getFacultyTitleById(Long.valueOf(role_type)));
@@ -351,7 +352,7 @@ public class EnterMarksView extends Div {
 
                 selectControlType.clear();
 
-                selectDiscipline.setItems(planService.getDisciplinesByGroup(currentGroup));
+                selectDiscipline.setItems(planService.getDisciplinesByGroup(currentGroup, departmentId));
             }
         });
 
@@ -361,9 +362,9 @@ public class EnterMarksView extends Div {
             if (selectDiscipline.getValue() != null && selectedGroup != null) {
                 selectControlType.setReadOnly(false);
 
-                selectControlType.setItems(planService.getControlTypesByGroupAndDiscipline(currentGroup, selectDiscipline.getValue()));
+                selectControlType.setItems(planService.getControlTypesByGroupAndDiscipline(currentGroup, selectDiscipline.getValue(), departmentId));
 
-                plansEntity = planService.getPlanEntityByGroupAndDiscipline(currentGroup, selectDiscipline.getValue());
+                plansEntity = planService.getPlanEntityByGroupAndDiscipline(currentGroup, selectDiscipline.getValue(), departmentId);
             }
         });
 
