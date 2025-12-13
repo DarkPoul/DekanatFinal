@@ -24,6 +24,15 @@ public interface PlanRepository extends JpaRepository<PlansEntity, Long> {
     @Query("""
             SELECT DISTINCT p FROM PlansEntity p
             JOIN p.groups g
+            WHERE g = :group AND p.semester = :semester AND p.discipline.title = :disciplineTitle
+            """)
+    List<PlansEntity> findByGroupAndSemesterAndDiscipline_Title(@Param("group") StudentGroupEntity group,
+                                                                @Param("semester") int semester,
+                                                                @Param("disciplineTitle") String disciplineTitle);
+
+    @Query("""
+            SELECT DISTINCT p FROM PlansEntity p
+            JOIN p.groups g
             WHERE p.faculty = :faculty
               AND p.department = :department
               AND p.specialty = :specialty
