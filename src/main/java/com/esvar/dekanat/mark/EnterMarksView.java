@@ -23,7 +23,6 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -1375,23 +1374,19 @@ public class EnterMarksView extends Div {
                     return null;
                 }
             });
-            String anchorId = "report-download-" + UUID.randomUUID();
-            Anchor downloadLink = new Anchor(resource, "");
-            downloadLink.setId(anchorId);
-            downloadLink.getElement().setAttribute("download", true);
-            downloadLink.getElement().setAttribute("target", "_blank");
-            downloadLink.setVisible(false);
+            resource.setContentType("application/pdf");
+            resource.setCacheTime(0);
 
-            // Ensure we always click the fresh link corresponding to the latest generated file
-            // and remove any previous temporary anchors to avoid stale downloads.
-            getChildren()
-                    .filter(component -> component.getId().isPresent()
-                            && component.getId().get().startsWith("report-download-"))
-                    .forEach(this::remove);
+            UI ui = UI.getCurrent();
+            if (ui == null) {
+                Notification.show("Не вдалося отримати UI для завантаження файлу");
+                return;
+            }
 
-            add(downloadLink);
-            UI.getCurrent().getPage()
-                    .executeJs("const link = document.getElementById($0); if (link) { link.click(); link.remove(); }", anchorId);
+            StreamRegistration registration = ui.getSession()
+                    .getResourceRegistry()
+                    .registerResource(resource);
+            ui.getPage().open(registration.getResourceUri().toString(), "_blank");
         } else {
             Notification.show("PDF файл не знайдено.");
         }
