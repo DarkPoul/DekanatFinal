@@ -50,7 +50,7 @@ public class BasicControlPdfGenerator implements PdfGenerator {
                 document.add(new Paragraph(controlName)
                         .setTextAlignment(TextAlignment.CENTER)
                         .setFontSize(18)
-                        .setBold());
+                        );
 
                 document.add(new Paragraph("Відомість буде допрацьована пізніше")
                         .setTextAlignment(TextAlignment.CENTER)
