@@ -23,7 +23,6 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -51,6 +50,7 @@ import jakarta.annotation.security.PermitAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -1185,6 +1185,11 @@ public class EnterMarksView extends Div {
     }
 
     private void generateReportWithLoading(String secondTeacher) {
+        String controlType = selectControlType.getValue();
+        if (controlType == null) {
+            Notification.show("Спочатку оберіть тип контролю!");
+            return;
+        }
         loadingOverlay.setVisible(true);
         UI ui = UI.getCurrent();
         SecurityContext securityContext = SecurityContextHolder.getContext();
@@ -1192,7 +1197,7 @@ public class EnterMarksView extends Div {
         CompletableFuture.supplyAsync(() -> {
             SecurityContextHolder.setContext(securityContext);
             try {
-                return generateReportFile(secondTeacher);
+                return generateReportFile(controlType, secondTeacher);
             } catch (Exception e) {
                 throw new CompletionException(e);
             } finally {
@@ -1235,21 +1240,21 @@ public class EnterMarksView extends Div {
         });
     }
 
-    private ReportGenerationResult generateReportFile(String secondTeacher) throws Exception {
-        String controlType = selectControlType.getValue();
-        if (controlType == null) {
-            throw new IllegalStateException("Спочатку оберіть тип контролю!");
-        }
-
+    private ReportGenerationResult generateReportFile(String controlType, String secondTeacher) throws Exception {
         return switch (controlType) {
-            case "Перший модульний контроль" -> {
+            case CONTROL_TYPE_FIRST_MODULE -> {
                 DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
                 Path path = documentGenerationService.generate(FirstModulePdfGenerator.NAME, data);
                 yield new ReportGenerationResult(path.toString(), null, null);
             }
-            case "Другий модульний контроль" -> {
+            case CONTROL_TYPE_SECOND_MODULE -> {
                 DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
                 Path path = documentGenerationService.generate(SecondModulePdfGenerator.NAME, data);
+                yield new ReportGenerationResult(path.toString(), null, null);
+            }
+            case "Залік", "Екзамен", "Диференційний залік", "Курсова робота", "Курсовий проєкт" -> {
+                DataModelForZalik data = buildDataModelForZalik(secondTeacher);
+                Path path = documentGenerationService.generate(ZalikPdfGenerator.NAME, data);
                 yield new ReportGenerationResult(path.toString(), null, null);
             }
             default -> {
@@ -1340,13 +1345,9 @@ public class EnterMarksView extends Div {
         StreamResource resource = new StreamResource(fileName, () -> new ByteArrayInputStream(pdfBytes));
         resource.setContentType("application/pdf");
         resource.setCacheTime(0);
+        resource.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"");
 
-        StreamRegistration registration = ui.getSession()
-                .getResourceRegistry()
-                .registerResource(resource);
-
-        String resourceUrl = registration.getResourceUri().toString();
-        ui.getPage().open(resourceUrl, "_blank");
+        ui.getPage().open(resource, "_blank", false);
     }
 
     private void notifyFeatureInDevelopment() {
@@ -1360,25 +1361,31 @@ public class EnterMarksView extends Div {
 
     private void showReport(String finalFilePath) {
         File pdfFile = new File(finalFilePath);
-        if (pdfFile.exists()) {
-            String fileName = pdfFile.getName();
-            StreamResource resource = new StreamResource(fileName, () -> {
-                try {
-                    return new FileInputStream(pdfFile);
-                } catch (IOException e) {
-                    Notification.show("Помилка при завантаженні файлу");
-                    return null;
-                }
-            });
-            Anchor downloadLink = new Anchor(resource, "");
-            downloadLink.getElement().setAttribute("download", true);
-            downloadLink.getElement().setAttribute("target", "_blank");
-            add(downloadLink);
-            UI.getCurrent().getPage()
-                    .executeJs("document.querySelector('a[download]').click();");
-        } else {
+        if (!pdfFile.exists()) {
             Notification.show("PDF файл не знайдено.");
+            return;
         }
+
+        String fileName = pdfFile.getName();
+        StreamResource resource = new StreamResource(fileName, () -> {
+            try {
+                return new FileInputStream(pdfFile);
+            } catch (IOException e) {
+                Notification.show("Помилка при завантаженні файлу");
+                return null;
+            }
+        });
+        resource.setContentType("application/pdf");
+        resource.setCacheTime(0);
+        resource.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"");
+
+        UI ui = UI.getCurrent();
+        if (ui == null) {
+            Notification.show("Не вдалося отримати UI для завантаження файлу");
+            return;
+        }
+
+        ui.getPage().open(resource, "_blank", false);
     }
 
     private void configureLoadingOverlay() {
