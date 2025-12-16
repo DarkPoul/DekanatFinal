@@ -400,7 +400,12 @@ public class PlanView extends Div {
             return Collections.emptyList();
         }
 
-        return plan.getGroups().stream()
+        PlansEntity planWithGroups = planService.getPlanWithGroups(plan.getId());
+        if (planWithGroups == null || planWithGroups.getGroups() == null || planWithGroups.getGroups().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return planWithGroups.getGroups().stream()
                 .filter(Objects::nonNull)
                 .flatMap(group -> studentService.getStudentByGroupId(group.getId()).stream())
                 .filter(Objects::nonNull)

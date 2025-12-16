@@ -129,6 +129,18 @@ public class PlanService {
         return planRepository.findById(id).orElse(null);
     }
 
+    @Transactional(readOnly = true)
+    public PlansEntity getPlanWithGroups(Long id) {
+        if (id == null) {
+            return null;
+        }
+        PlansEntity plan = planRepository.findById(id).orElse(null);
+        if (plan != null && plan.getGroups() != null) {
+            plan.getGroups().size();
+        }
+        return plan;
+    }
+
     public List<String> getSpecialtiesByFacultyAndDepartment(String faculty, String department) {
         return planRepository.findByFacultyAndDepartment
                 (
