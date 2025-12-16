@@ -292,10 +292,13 @@ public class PlanView extends Div {
                     .collect(Collectors.toList());
             targetStudents = studentPlansService.synchronizePlanAssignments(updatedPlan, mapped);
         } else {
-            StudentGroupEntity selectedGroup = getSelectedGroup();
-            List<StudentEntity> groupStudents = selectedGroup == null
-                    ? Collections.emptyList()
-                    : studentService.getStudentByGroupId(selectedGroup.getId());
+            List<StudentEntity> groupStudents = getStudentsForPlanGroups(updatedPlan);
+            if (groupStudents.isEmpty()) {
+                StudentGroupEntity selectedGroup = getSelectedGroup();
+                groupStudents = selectedGroup == null
+                        ? Collections.emptyList()
+                        : studentService.getStudentByGroupId(selectedGroup.getId());
+            }
             targetStudents = studentPlansService.synchronizePlanAssignments(updatedPlan, groupStudents);
         }
 
@@ -390,6 +393,24 @@ public class PlanView extends Div {
             return null;
         }
         return groupService.getGroupByTitle(selectedGroup);
+    }
+
+    private List<StudentEntity> getStudentsForPlanGroups(PlansEntity plan) {
+        if (plan == null || plan.getGroups() == null || plan.getGroups().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        PlansEntity planWithGroups = planService.getPlanWithGroups(plan.getId());
+        if (planWithGroups == null || planWithGroups.getGroups() == null || planWithGroups.getGroups().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return planWithGroups.getGroups().stream()
+                .filter(Objects::nonNull)
+                .flatMap(group -> studentService.getStudentByGroupId(group.getId()).stream())
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
     }
 
     private StudentEntity findStudentByFullName(String fullName) {
