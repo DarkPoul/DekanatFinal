@@ -7,6 +7,7 @@ import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
 import com.esvar.dekanat.generate.pdf.FirstModulePdfGenerator;
 import com.esvar.dekanat.generate.pdf.SecondModulePdfGenerator;
+import com.esvar.dekanat.generate.pdf.BasicControlPdfGenerator;
 import com.esvar.dekanat.generate.pdf.ZalikPdfGenerator;
 import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.security.SecurityService;
@@ -1121,7 +1122,7 @@ public class EnterMarksView extends Div {
         return String.join("-", parts);
     }
 
-    private record ReportGenerationResult(String filePath, SummaryReportResult pdfReport) {}
+    private record ReportGenerationResult(String filePath, SummaryReportResult pdfReport, String placeholderMessage) {}
 
 
     private DataModelForMC2 buildDataModelForMC2(String secondTeacher) {
@@ -1212,6 +1213,8 @@ public class EnterMarksView extends Div {
                                 openPdfReport(fileName, report.pdfBytes());
                             } else if (result.filePath() != null) {
                                 showReport(result.filePath());
+                            } else if (result.placeholderMessage() != null) {
+                                Notification.show(result.placeholderMessage());
                             } else {
                                 Notification.show("Не вдалося згенерувати документ");
                             }
@@ -1238,26 +1241,23 @@ public class EnterMarksView extends Div {
             throw new IllegalStateException("Спочатку оберіть тип контролю!");
         }
 
-        switch (controlType) {
+        return switch (controlType) {
             case "Перший модульний контроль" -> {
                 DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
                 Path path = documentGenerationService.generate(FirstModulePdfGenerator.NAME, data);
-                return new ReportGenerationResult(path.toString(), null);
+                yield new ReportGenerationResult(path.toString(), null, null);
             }
             case "Другий модульний контроль" -> {
                 DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
                 Path path = documentGenerationService.generate(SecondModulePdfGenerator.NAME, data);
-                return new ReportGenerationResult(path.toString(), null);
+                yield new ReportGenerationResult(path.toString(), null, null);
             }
-            case "Залік" -> {
-                DataModelForZalik data = buildDataModelForZalik(secondTeacher);
-                Path path = documentGenerationService.generate(ZalikPdfGenerator.NAME, data);
-                return new ReportGenerationResult(path.toString(), null);
+            default -> {
+                BasicControlPdfData data = new BasicControlPdfData(controlType);
+                Path path = documentGenerationService.generate(BasicControlPdfGenerator.NAME, data);
+                yield new ReportGenerationResult(path.toString(), null, null);
             }
-        }
-
-        throw new IllegalStateException(
-                "Друк для цього типу контролю знаходиться у розробці.");
+        };
     }
 
     private void configureReportControls() {
