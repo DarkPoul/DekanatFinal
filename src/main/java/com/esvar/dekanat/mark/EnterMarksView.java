@@ -1242,14 +1242,19 @@ public class EnterMarksView extends Div {
         }
 
         return switch (controlType) {
-            case "Перший модульний контроль" -> {
+            case CONTROL_TYPE_FIRST_MODULE -> {
                 DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
                 Path path = documentGenerationService.generate(FirstModulePdfGenerator.NAME, data);
                 yield new ReportGenerationResult(path.toString(), null, null);
             }
-            case "Другий модульний контроль" -> {
+            case CONTROL_TYPE_SECOND_MODULE -> {
                 DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
                 Path path = documentGenerationService.generate(SecondModulePdfGenerator.NAME, data);
+                yield new ReportGenerationResult(path.toString(), null, null);
+            }
+            case "Залік", "Екзамен", "Диференційний залік", "Курсова робота", "Курсовий проєкт" -> {
+                DataModelForZalik data = buildDataModelForZalik(secondTeacher);
+                Path path = documentGenerationService.generate(ZalikPdfGenerator.NAME, data);
                 yield new ReportGenerationResult(path.toString(), null, null);
             }
             default -> {
