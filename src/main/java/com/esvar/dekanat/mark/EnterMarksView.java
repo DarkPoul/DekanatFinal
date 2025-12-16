@@ -1375,12 +1375,23 @@ public class EnterMarksView extends Div {
                     return null;
                 }
             });
+            String anchorId = "report-download-" + UUID.randomUUID();
             Anchor downloadLink = new Anchor(resource, "");
+            downloadLink.setId(anchorId);
             downloadLink.getElement().setAttribute("download", true);
             downloadLink.getElement().setAttribute("target", "_blank");
+            downloadLink.setVisible(false);
+
+            // Ensure we always click the fresh link corresponding to the latest generated file
+            // and remove any previous temporary anchors to avoid stale downloads.
+            getChildren()
+                    .filter(component -> component.getId().isPresent()
+                            && component.getId().get().startsWith("report-download-"))
+                    .forEach(this::remove);
+
             add(downloadLink);
             UI.getCurrent().getPage()
-                    .executeJs("document.querySelector('a[download]').click();");
+                    .executeJs("const link = document.getElementById($0); if (link) { link.click(); link.remove(); }", anchorId);
         } else {
             Notification.show("PDF файл не знайдено.");
         }
