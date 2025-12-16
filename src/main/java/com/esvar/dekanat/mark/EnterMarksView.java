@@ -50,6 +50,7 @@ import jakarta.annotation.security.PermitAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -1344,13 +1345,9 @@ public class EnterMarksView extends Div {
         StreamResource resource = new StreamResource(fileName, () -> new ByteArrayInputStream(pdfBytes));
         resource.setContentType("application/pdf");
         resource.setCacheTime(0);
+        resource.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"");
 
-        StreamRegistration registration = ui.getSession()
-                .getResourceRegistry()
-                .registerResource(resource);
-
-        String resourceUrl = registration.getResourceUri().toString();
-        ui.getPage().open(resourceUrl, "_blank");
+        ui.getPage().open(resource, "_blank", false);
     }
 
     private void notifyFeatureInDevelopment() {
@@ -1364,32 +1361,31 @@ public class EnterMarksView extends Div {
 
     private void showReport(String finalFilePath) {
         File pdfFile = new File(finalFilePath);
-        if (pdfFile.exists()) {
-            String fileName = pdfFile.getName();
-            StreamResource resource = new StreamResource(fileName, () -> {
-                try {
-                    return new FileInputStream(pdfFile);
-                } catch (IOException e) {
-                    Notification.show("Помилка при завантаженні файлу");
-                    return null;
-                }
-            });
-            resource.setContentType("application/pdf");
-            resource.setCacheTime(0);
-
-            UI ui = UI.getCurrent();
-            if (ui == null) {
-                Notification.show("Не вдалося отримати UI для завантаження файлу");
-                return;
-            }
-
-            StreamRegistration registration = ui.getSession()
-                    .getResourceRegistry()
-                    .registerResource(resource);
-            ui.getPage().open(registration.getResourceUri().toString(), "_blank");
-        } else {
+        if (!pdfFile.exists()) {
             Notification.show("PDF файл не знайдено.");
+            return;
         }
+
+        String fileName = pdfFile.getName();
+        StreamResource resource = new StreamResource(fileName, () -> {
+            try {
+                return new FileInputStream(pdfFile);
+            } catch (IOException e) {
+                Notification.show("Помилка при завантаженні файлу");
+                return null;
+            }
+        });
+        resource.setContentType("application/pdf");
+        resource.setCacheTime(0);
+        resource.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"");
+
+        UI ui = UI.getCurrent();
+        if (ui == null) {
+            Notification.show("Не вдалося отримати UI для завантаження файлу");
+            return;
+        }
+
+        ui.getPage().open(resource, "_blank", false);
     }
 
     private void configureLoadingOverlay() {
