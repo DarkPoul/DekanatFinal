@@ -1185,6 +1185,11 @@ public class EnterMarksView extends Div {
     }
 
     private void generateReportWithLoading(String secondTeacher) {
+        String controlType = selectControlType.getValue();
+        if (controlType == null) {
+            Notification.show("Спочатку оберіть тип контролю!");
+            return;
+        }
         loadingOverlay.setVisible(true);
         UI ui = UI.getCurrent();
         SecurityContext securityContext = SecurityContextHolder.getContext();
@@ -1192,7 +1197,7 @@ public class EnterMarksView extends Div {
         CompletableFuture.supplyAsync(() -> {
             SecurityContextHolder.setContext(securityContext);
             try {
-                return generateReportFile(secondTeacher);
+                return generateReportFile(controlType, secondTeacher);
             } catch (Exception e) {
                 throw new CompletionException(e);
             } finally {
@@ -1235,21 +1240,21 @@ public class EnterMarksView extends Div {
         });
     }
 
-    private ReportGenerationResult generateReportFile(String secondTeacher) throws Exception {
-        String controlType = selectControlType.getValue();
-        if (controlType == null) {
-            throw new IllegalStateException("Спочатку оберіть тип контролю!");
-        }
-
+    private ReportGenerationResult generateReportFile(String controlType, String secondTeacher) throws Exception {
         return switch (controlType) {
-            case "Перший модульний контроль" -> {
+            case CONTROL_TYPE_FIRST_MODULE -> {
                 DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
                 Path path = documentGenerationService.generate(FirstModulePdfGenerator.NAME, data);
                 yield new ReportGenerationResult(path.toString(), null, null);
             }
-            case "Другий модульний контроль" -> {
+            case CONTROL_TYPE_SECOND_MODULE -> {
                 DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
                 Path path = documentGenerationService.generate(SecondModulePdfGenerator.NAME, data);
+                yield new ReportGenerationResult(path.toString(), null, null);
+            }
+            case "Залік", "Екзамен", "Диференційний залік", "Курсова робота", "Курсовий проєкт" -> {
+                DataModelForZalik data = buildDataModelForZalik(secondTeacher);
+                Path path = documentGenerationService.generate(ZalikPdfGenerator.NAME, data);
                 yield new ReportGenerationResult(path.toString(), null, null);
             }
             default -> {
