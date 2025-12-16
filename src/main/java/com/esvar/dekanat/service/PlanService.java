@@ -261,7 +261,12 @@ public class PlanService {
         if (plan.isElective()) {
             return;
         }
-        Set<StudentGroupEntity> planGroups = plan.getGroups();
+        PlansEntity managedPlan = planRepository.findById(plan.getId()).orElse(null);
+        if (managedPlan == null) {
+            return;
+        }
+
+        Set<StudentGroupEntity> planGroups = managedPlan.getGroups();
         if (planGroups == null || planGroups.isEmpty()) {
             return;
         }
