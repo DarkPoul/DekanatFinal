@@ -396,7 +396,7 @@ public class PlanView extends Div {
     }
 
     private List<StudentEntity> getStudentsForPlanGroups(PlansEntity plan) {
-        if (plan == null || plan.getGroups() == null || plan.getGroups().isEmpty()) {
+        if (plan == null || plan.getId() == null) {
             return Collections.emptyList();
         }
 
