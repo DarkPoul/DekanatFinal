@@ -1185,6 +1185,11 @@ public class EnterMarksView extends Div {
     }
 
     private void generateReportWithLoading(String secondTeacher) {
+        String controlType = selectControlType.getValue();
+        if (controlType == null) {
+            Notification.show("Спочатку оберіть тип контролю!");
+            return;
+        }
         loadingOverlay.setVisible(true);
         UI ui = UI.getCurrent();
         SecurityContext securityContext = SecurityContextHolder.getContext();
@@ -1192,7 +1197,7 @@ public class EnterMarksView extends Div {
         CompletableFuture.supplyAsync(() -> {
             SecurityContextHolder.setContext(securityContext);
             try {
-                return generateReportFile(secondTeacher);
+                return generateReportFile(controlType, secondTeacher);
             } catch (Exception e) {
                 throw new CompletionException(e);
             } finally {
@@ -1235,12 +1240,7 @@ public class EnterMarksView extends Div {
         });
     }
 
-    private ReportGenerationResult generateReportFile(String secondTeacher) throws Exception {
-        String controlType = selectControlType.getValue();
-        if (controlType == null) {
-            throw new IllegalStateException("Спочатку оберіть тип контролю!");
-        }
-
+    private ReportGenerationResult generateReportFile(String controlType, String secondTeacher) throws Exception {
         return switch (controlType) {
             case CONTROL_TYPE_FIRST_MODULE -> {
                 DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
