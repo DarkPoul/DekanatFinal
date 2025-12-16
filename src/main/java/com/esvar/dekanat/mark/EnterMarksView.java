@@ -1347,7 +1347,12 @@ public class EnterMarksView extends Div {
         resource.setCacheTime(0);
         resource.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"");
 
-        ui.getPage().open(resource, "_blank", false);
+        StreamRegistration registration = VaadinSession.getCurrent()
+                .getResourceRegistry()
+                .registerResource(resource);
+        String resourceUrl = registration.getResourceUri().toString();
+
+        ui.getPage().open(resourceUrl, "_blank");
     }
 
     private void notifyFeatureInDevelopment() {
@@ -1385,7 +1390,12 @@ public class EnterMarksView extends Div {
             return;
         }
 
-        ui.getPage().open(resource, "_blank", false);
+        StreamRegistration registration = VaadinSession.getCurrent()
+                .getResourceRegistry()
+                .registerResource(resource);
+        String resourceUrl = registration.getResourceUri().toString();
+
+        ui.getPage().open(resourceUrl, "_blank");
     }
 
     private void configureLoadingOverlay() {
