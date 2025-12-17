@@ -18,7 +18,7 @@ public class MarkProcessorFactory {
             case "Перший модульний контроль", "Другий модульний контроль", "Контрольна робота", "Залік", "Екзамен", "Курсова робота", "Курсовий проєкт", "Диференційний залік" ->
                     new ModularMarkProcessor(marksService, userRepository, securityService, studentService, controlMethodService);
             case "Розрахункова робота", "Розрахунково-графічна робота" ->
-                    new CalculationMarkProcessor(marksService, userRepository, securityService, studentService, marksPartsService, controlMethodService, controlPartsService);
+                    new CalculationMarkProcessor(marksService, securityService, studentService, marksPartsService, controlMethodService, controlPartsService);
             default -> throw new IllegalArgumentException("Unsupported control type: " + controlType);
         };
     }

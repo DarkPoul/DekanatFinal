@@ -489,20 +489,28 @@ public class EnterMarksView extends Div {
                     .setHeader(new Html("<div style='white-space:normal; word-break:break-word; text-align:center; line-height:1.2; max-width:60px;'>Оцінка<br>ECTS</div>")).setAutoWidth(false);
         }
         if (typeControl.equals("Розрахункова робота") || typeControl.equals("Розрахунково-графічна робота")) {
-            if (part >= 2) {
+            if (part >= 1) {
                 setPart1();
+            }
+            if (part >= 2) {
                 setPart2();
             }
-            if (part >= 4) {
+            if (part >= 3) {
                 setPart3();
+            }
+            if (part >= 4) {
                 setPart4();
             }
-            if (part >= 6) {
+            if (part >= 5) {
                 setPart5();
+            }
+            if (part >= 6) {
                 setPart6();
             }
-            if (part == 8) {
+            if (part >= 7) {
                 setPart7();
+            }
+            if (part == 8) {
                 setPart8();
             }
             studentGrid.addColumn(MarkDTO::getTotalGrade)
