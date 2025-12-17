@@ -29,7 +29,15 @@ public class StudentService {
     }
 
     public StudentEntity getStudentByFullName(String studentSurname, String studentName, String studentPatronymic) {
-        return studentRepository.findFirstBySurnameAndNameAndPatronymicOrderByIdAsc(studentSurname, studentName, studentPatronymic);
+        NameParts parts = buildNameParts(studentSurname, studentName, studentPatronymic);
+        if (!hasText(parts.surname()) || !hasText(parts.name())) {
+            return null;
+        }
+
+        List<StudentEntity> candidates = studentRepository
+                .findBySurnameIgnoreCaseAndNameIgnoreCaseOrderByIdAsc(parts.surname(), parts.name());
+
+        return selectBestMatch(candidates, parts).orElse(null);
     }
 
 
@@ -54,40 +62,24 @@ public class StudentService {
     }
 
     public StudentEntity getStudentByStudentPIB_AndGroup(String studentPIB, StudentGroupEntity group) {
-        if (studentPIB == null) {
-            throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
-        }
+        NameParts parts = parseFullName(studentPIB);
         if (group == null) {
             throw new IllegalArgumentException("Група студента не може бути порожньою.");
         }
 
-        String normalizedFullName = normalizeFullName(studentPIB);
-        if (normalizedFullName.isBlank()) {
-            throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
+        List<StudentEntity> candidates = studentRepository
+                .findBySurnameIgnoreCaseAndNameIgnoreCaseAndGroup_GroupCodeOrderByIdAsc(parts.surname(), parts.name(), group.getGroupCode());
+
+        if (candidates.isEmpty()) {
+            candidates = studentRepository.findByGroup(group).stream()
+                    .sorted(Comparator.comparing(StudentEntity::getId))
+                    .filter(existing -> normalizeFullNameFromEntity(existing).equalsIgnoreCase(parts.normalizedFullName()))
+                    .toList();
         }
 
-        String[] parts = normalizedFullName.split(" ");
-        if (parts.length >= 3) {
-            String surname = parts[0];
-            String name = parts[1];
-            String patronymic = String.join(" ", Arrays.copyOfRange(parts, 2, parts.length));
-            StudentEntity student = studentRepository.findFirstBySurnameAndNameAndPatronymicAndGroup_GroupCodeOrderByIdAsc(
-                    surname,
-                    name,
-                    patronymic,
-                    group.getGroupCode()
-            );
-            if (student != null) {
-                return student;
-            }
-        }
-
-        String normalizedTarget = normalizedFullName.toLowerCase();
-        return studentRepository.findByGroup(group).stream()
-                .filter(existing -> normalizeFullName(existing.getFullName()).equalsIgnoreCase(normalizedTarget))
-                .findFirst()
+        return selectBestMatch(candidates, parts)
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Студента '" + normalizedFullName + "' у групі '" + group.getGroupCode() + "' не знайдено."
+                        "Студента '" + parts.normalizedFullName() + "' у групі '" + group.getGroupCode() + "' не знайдено."
                 ));
     }
 
@@ -107,6 +99,83 @@ public class StudentService {
     }
 
     public StudentEntity getStudentByFullName(String fullName) {
+        NameParts parts = parseFullName(fullName);
+        StudentEntity student = findStudentByParts(parts);
+
+        if (student == null) {
+            throw new IllegalArgumentException("Студента '" + parts.normalizedFullName() + "' не знайдено.");
+        }
+
+        return student;
+    }
+
+    private StudentEntity findStudentByParts(NameParts parts) {
+        List<StudentEntity> candidates = collectCandidates(parts);
+        return selectBestMatch(candidates, parts).orElse(null);
+    }
+
+    private List<StudentEntity> collectCandidates(NameParts parts) {
+        List<StudentEntity> candidates = studentRepository
+                .findBySurnameIgnoreCaseAndNameIgnoreCaseOrderByIdAsc(parts.surname(), parts.name());
+
+        if (!candidates.isEmpty()) {
+            return candidates;
+        }
+
+        String normalizedTarget = parts.normalizedFullName();
+        return studentRepository.findAll().stream()
+                .sorted(Comparator.comparing(StudentEntity::getId))
+                .filter(existing -> normalizeFullNameFromEntity(existing).equalsIgnoreCase(normalizedTarget))
+                .toList();
+    }
+
+    private static Optional<StudentEntity> selectBestMatch(List<StudentEntity> candidates, NameParts target) {
+        if (candidates == null || candidates.isEmpty()) {
+            return Optional.empty();
+        }
+
+        String targetPatronymic = normalizeNamePart(target.patronymic());
+        boolean targetHasPatronymic = hasText(targetPatronymic);
+        Comparator<StudentEntity> byId = Comparator.comparing(StudentEntity::getId);
+
+        if (targetHasPatronymic) {
+            Optional<StudentEntity> patronymicMatch = candidates.stream()
+                    .filter(student -> hasText(student.getPatronymic()))
+                    .filter(student -> normalizeNamePart(student.getPatronymic()).equalsIgnoreCase(targetPatronymic))
+                    .min(byId);
+
+            if (patronymicMatch.isPresent()) {
+                return patronymicMatch;
+            }
+        }
+
+        Optional<StudentEntity> withoutPatronymic = candidates.stream()
+                .filter(student -> !hasText(student.getPatronymic()))
+                .min(byId);
+
+        if (withoutPatronymic.isPresent()) {
+            return withoutPatronymic;
+        }
+
+        if (!targetHasPatronymic) {
+            return candidates.stream().min(byId);
+        }
+
+        return candidates.stream()
+                .filter(student -> hasText(student.getPatronymic()))
+                .min(byId);
+    }
+
+    private static NameParts buildNameParts(String surname, String name, String patronymic) {
+        String normalizedSurname = normalizeNamePart(surname);
+        String normalizedName = normalizeNamePart(name);
+        String normalizedPatronymic = normalizeNamePart(patronymic);
+        String normalizedFullName = normalizeFullName(String.join(" ",
+                Arrays.asList(normalizedSurname, normalizedName, normalizedPatronymic)));
+        return new NameParts(normalizedSurname, normalizedName, normalizedPatronymic, normalizedFullName);
+    }
+
+    private static NameParts parseFullName(String fullName) {
         if (fullName == null) {
             throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
         }
@@ -117,33 +186,35 @@ public class StudentService {
         }
 
         String[] parts = normalizedFullName.split(" ");
-        if (parts.length < 3) {
+        if (parts.length < 2) {
             throw new IllegalArgumentException("Невірний формат ПІБ студента: '" + normalizedFullName + "'.");
         }
 
         String surname = parts[0];
         String name = parts[1];
-        String patronymic = parts[2];
+        String patronymic = parts.length > 2
+                ? String.join(" ", Arrays.copyOfRange(parts, 2, parts.length))
+                : "";
 
-        StudentEntity student = Optional.ofNullable(getStudentByFullName(surname, name, patronymic))
-                .orElseGet(() -> studentRepository.findAll()
-                        .stream()
-                        .filter(existing -> normalizeFullName(existing.getFullName()).equalsIgnoreCase(normalizedFullName))
-                        .findFirst()
-                        .orElse(null));
-
-        if (student == null) {
-            throw new IllegalArgumentException("Студента '" + normalizedFullName + "' не знайдено.");
-        }
-
-        return student;
+        return new NameParts(surname, name, patronymic, normalizedFullName);
     }
 
     private static String normalizeFullName(String fullName) {
+        if (fullName == null) {
+            return "";
+        }
         return Arrays.stream(fullName.trim().split("\\s+"))
-                .map(StudentService::sanitizeNamePart)
-                .filter(part -> !part.isBlank())
+                .map(StudentService::normalizeNamePart)
+                .filter(StudentService::hasText)
+                .filter(part -> !part.equalsIgnoreCase("null"))
                 .collect(Collectors.joining(" "));
+    }
+
+    private static String normalizeNamePart(String part) {
+        if (part == null) {
+            return "";
+        }
+        return sanitizeNamePart(part).trim();
     }
 
     private static String sanitizeNamePart(String part) {
@@ -151,5 +222,20 @@ public class StudentService {
             return "";
         }
         return part.replaceAll("^[^\\p{L}0-9]+|[^\\p{L}0-9]+$", "");
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private static String normalizeFullNameFromEntity(StudentEntity student) {
+        return normalizeFullName(String.join(" ", Arrays.asList(
+                normalizeNamePart(student.getSurname()),
+                normalizeNamePart(student.getName()),
+                normalizeNamePart(student.getPatronymic())
+        )));
+    }
+
+    private record NameParts(String surname, String name, String patronymic, String normalizedFullName) {
     }
 }

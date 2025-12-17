@@ -5,26 +5,23 @@ import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.entity.StudentPlansEntity;
 import com.esvar.dekanat.entity.StudentPlansPK;
 import com.esvar.dekanat.repository.StudentPlansRepository;
-import com.esvar.dekanat.repository.StudentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 public class StudentPlansService{
 
     private final StudentPlansRepository studentPlansRepository;
-    private final StudentRepository studentRepository;
+    private final StudentService studentService;
 
 
-    public StudentPlansService(StudentPlansRepository studentPlansRepository, StudentRepository studentRepository) {
+    public StudentPlansService(StudentPlansRepository studentPlansRepository, StudentService studentService) {
         this.studentPlansRepository = studentPlansRepository;
-        this.studentRepository = studentRepository;
+        this.studentService = studentService;
     }
 
     /**
@@ -71,7 +68,7 @@ public class StudentPlansService{
         List<StudentEntity> mappedStudents = new ArrayList<>();
         if (students != null) {
             for (String studentName : students) {
-                mappedStudents.add(findStudentByFullName(studentName));
+                mappedStudents.add(studentService.getStudentByFullName(studentName));
             }
         }
 
@@ -150,105 +147,6 @@ public class StudentPlansService{
         }
 
         return targetStudents;
-    }
-
-    private StudentEntity findStudentByFullName(String fullName) {
-        if (fullName == null || fullName.isBlank()) {
-            throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
-        }
-
-        String normalizedFullName = normalizeFullName(fullName);
-        if (normalizedFullName.isBlank()) {
-            throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
-        }
-
-        String[] parts = normalizedFullName.split(" ");
-        if (parts.length < 2) {
-            throw new IllegalArgumentException("Невірний формат ПІБ студента: '" + fullName + "'.");
-        }
-
-        String surname = parts[0];
-        String name = parts[1];
-        String patronymic = parts.length > 2
-                ? String.join(" ", Arrays.copyOfRange(parts, 2, parts.length))
-                : null;
-
-        StudentEntity directMatch = studentRepository.findFirstBySurnameAndNameAndPatronymicOrderByIdAsc(surname, name, patronymic);
-        if (directMatch != null) {
-            return directMatch;
-        }
-
-        String normalizedWithoutPatronymic = patronymic == null ? surname + " " + name : null;
-
-        return studentRepository.findAll().stream()
-                .filter(existing -> matchesFullName(existing, normalizedFullName, normalizedWithoutPatronymic))
-                .sorted((a, b) -> compareByPatronymicPresence(a, b, normalizedWithoutPatronymic != null))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Студент '" + fullName + "' не знайдений."));
-    }
-
-    private static boolean matchesFullName(StudentEntity student,
-                                           String normalizedFullName,
-                                           String normalizedWithoutPatronymic) {
-        String existingNormalized = normalizeFullName(student.getFullName());
-        if (existingNormalized.equalsIgnoreCase(normalizedFullName)) {
-            return true;
-        }
-
-        if (normalizedWithoutPatronymic == null || existingNormalized.isBlank()) {
-            return false;
-        }
-
-        if (existingNormalized.equalsIgnoreCase(normalizedWithoutPatronymic)) {
-            return true;
-        }
-
-        String[] parts = existingNormalized.split(" ");
-        if (parts.length < 2) {
-            return false;
-        }
-
-        String candidateWithoutPatronymic = parts[0] + " " + parts[1];
-        return candidateWithoutPatronymic.equalsIgnoreCase(normalizedWithoutPatronymic);
-    }
-
-    private static int compareByPatronymicPresence(StudentEntity first,
-                                                   StudentEntity second,
-                                                   boolean preferMissingPatronymic) {
-        if (!preferMissingPatronymic) {
-            return 0;
-        }
-
-        boolean firstHasPatronymic = hasText(first.getPatronymic());
-        boolean secondHasPatronymic = hasText(second.getPatronymic());
-
-        if (firstHasPatronymic == secondHasPatronymic) {
-            return 0;
-        }
-        return firstHasPatronymic ? 1 : -1;
-    }
-
-    private static boolean hasText(String value) {
-        return value != null && !value.isBlank();
-    }
-
-    private static String normalizeFullName(String fullName) {
-        if (fullName == null) {
-            return "";
-        }
-        return Arrays.stream(fullName.trim().split("\\s+"))
-                .map(StudentPlansService::sanitizeNamePart)
-                .map(String::trim)
-                .filter(part -> !part.isBlank())
-                .filter(part -> !part.equalsIgnoreCase("null"))
-                .collect(Collectors.joining(" "));
-    }
-
-    private static String sanitizeNamePart(String part) {
-        if (part == null) {
-            return "";
-        }
-        return part.replaceAll("^[^\\p{L}0-9]+|[^\\p{L}0-9]+$", "");
     }
 
 }

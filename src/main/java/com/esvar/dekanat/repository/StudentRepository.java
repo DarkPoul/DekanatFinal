@@ -25,8 +25,13 @@ public interface StudentRepository extends JpaRepository<StudentEntity, Long> {
 
     StudentEntity findFirstBySurnameAndNameAndPatronymicOrderByIdAsc(String studentSurname, String studentName, String studentPatronymic);
 
+    List<StudentEntity> findBySurnameIgnoreCaseAndNameIgnoreCaseOrderByIdAsc(String studentSurname, String studentName);
+
     StudentEntity findFirstBySurnameAndNameAndPatronymicAndGroupIdOrderByIdAsc(String studentSurname, String studentName, String studentPatronymic, long groupId);
 
     List<StudentEntity> findByGroup(StudentGroupEntity group);
 
-    StudentEntity findFirstBySurnameAndNameAndPatronymicAndGroup_GroupCodeOrderByIdAsc(String studentSurname, String studentName, String studentPatronymic, String groupCode);}
+    List<StudentEntity> findBySurnameIgnoreCaseAndNameIgnoreCaseAndGroup_GroupCodeOrderByIdAsc(String studentSurname, String studentName, String groupCode);
+
+    StudentEntity findFirstBySurnameAndNameAndPatronymicAndGroup_GroupCodeOrderByIdAsc(String studentSurname, String studentName, String studentPatronymic, String groupCode);
+}
