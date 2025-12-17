@@ -1495,7 +1495,7 @@ public class EnterMarksView extends Div {
         String gradeTeacher = getCurrentUserFullName();
         FacultyEntity faculty = plansEntity.getFaculty();
         String dean = faculty.getDeanLanding();
-        String departmentName = capitalize(faculty.getDeanI()) + " " + faculty.getDeanP().toUpperCase();
+        String departmentName = formatDepartmentHeadName(faculty);
 
         Map<String, Long> gradeMap = marksService
                 .findMarksByPlanAndTypeControl(plansEntity, controlTypeName)
@@ -1528,6 +1528,14 @@ public class EnterMarksView extends Div {
                 order, day, month, year, disciplineName, semesterNumber, controlTypeName,
                 hours, firstTeacher, secondTeacher, dean, departmentName,
                 a, b, c, d, e, fx, f, gradeTeacher, students);
+    }
+
+    private String formatDepartmentHeadName(FacultyEntity faculty) {
+        String firstName = capitalize(faculty.getDeanI());
+        String surname = Optional.ofNullable(faculty.getDeanB())
+                .map(String::toUpperCase)
+                .orElse("");
+        return (firstName + " " + surname).trim();
     }
 
     private void showAdditionalReportDialog() {
