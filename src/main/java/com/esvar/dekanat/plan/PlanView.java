@@ -10,7 +10,6 @@ import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.mark.EnterMarksView;
 import com.esvar.dekanat.plan.dialog.PlanDialog;
-import com.esvar.dekanat.repository.StudentRepository;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.view.MainLayout;
 import com.vaadin.flow.component.UI;
@@ -64,7 +63,6 @@ public class PlanView extends Div {
     private final ControlPartsService controlPartsService;
     private final StudentService studentService;
     private final MarksInitializerService marksInitializerService;
-    private final StudentRepository studentRepository;
     private final SummaryReportService summaryReportService;
     private static final Logger log = LoggerFactory.getLogger(EnterMarksView.class);
 
@@ -83,7 +81,7 @@ public class PlanView extends Div {
                     ControlMethodService controlMethodService,
                     GroupService groupService, PlanService planService,
                     MarksPartsService marksPartsService, StudentPlansService studentPlansService,
-                    MarksService marksService, ControlPartsService controlPartsService, StudentService studentService, MarksInitializerService marksInitializerService, StudentRepository studentRepository, SummaryReportService summaryReportService) {
+                    MarksService marksService, ControlPartsService controlPartsService, StudentService studentService, MarksInitializerService marksInitializerService, SummaryReportService summaryReportService) {
         // Ініціалізація сервісів
         this.disciplineService = disciplineService;
         this.departmentService = departmentService;
@@ -96,7 +94,6 @@ public class PlanView extends Div {
         this.controlPartsService = controlPartsService;
         this.studentService = studentService;
         this.marksInitializerService = marksInitializerService;
-        this.studentRepository = studentRepository;
         this.summaryReportService = summaryReportService;
 
         // Ініціалізація діалогового вікна
@@ -411,24 +408,6 @@ public class PlanView extends Div {
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-    }
-
-    private StudentEntity findStudentByFullName(String fullName) {
-        if (fullName == null || fullName.isBlank()) {
-            throw new IllegalArgumentException("ПІБ студента не може бути порожнім.");
-        }
-
-        String[] parts = fullName.trim().split("\\s+");
-        if (parts.length < 3) {
-            throw new IllegalArgumentException("Невірний формат ПІБ студента: '" + fullName + "'.");
-        }
-
-        String surname = parts[0];
-        String name = parts[1];
-        String patronymic = String.join(" ", Arrays.copyOfRange(parts, 2, parts.length));
-
-        return Optional.ofNullable(studentRepository.findFirstBySurnameAndNameAndPatronymicOrderByIdAsc(surname, name, patronymic))
-                .orElseThrow(() -> new IllegalArgumentException("Студент '" + fullName + "' не знайдений."));
     }
 
     private void configureReportButtons() {
