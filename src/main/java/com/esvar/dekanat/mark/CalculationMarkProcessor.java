@@ -8,29 +8,24 @@ import com.esvar.dekanat.entity.MarksPartsEntity;
 import com.esvar.dekanat.entity.PlansEntity;
 import com.esvar.dekanat.entity.StudentGroupEntity;
 import com.esvar.dekanat.service.*;
-import com.esvar.dekanat.user.UserRepository;
 import com.esvar.dekanat.security.SecurityService;
 
 import java.sql.Timestamp;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class CalculationMarkProcessor implements MarkProcessor {
 
     private final MarksService marksService;
-    private final UserRepository userRepository;
     private final SecurityService securityService;
     private final StudentService studentService;
     private final MarksPartsService marksPartsService;
     private final ControlMethodService controlMethodService;
     private final ControlPartsService controlPartsService;
-    private int sum = 0;
 
-    public CalculationMarkProcessor(MarksService marksService, UserRepository userRepository, SecurityService securityService,
+    public CalculationMarkProcessor(MarksService marksService, SecurityService securityService,
                                     StudentService studentService, MarksPartsService marksPartsService, ControlMethodService controlMethodService, ControlPartsService controlPartsService) {
         this.marksService = marksService;
-        this.userRepository = userRepository;
         this.securityService = securityService;
         this.studentService = studentService;
         this.marksPartsService = marksPartsService;
@@ -40,51 +35,56 @@ public class CalculationMarkProcessor implements MarkProcessor {
 
     @Override
     public MarksEntity processMark(MarkDTO markDTO, PlansEntity plan, StudentGroupEntity group, String controlType) {
-        MarksEntity marksEntity = new MarksEntity();
+        int sum = 0;
         StudentGroupEntity targetGroup = group != null ? group : plan.getGroup();
         if (targetGroup == null) {
             throw new IllegalArgumentException("Не вдалося визначити групу для студента.");
         }
+        ControlMethodEntity controlMethod = controlMethodService.getControlMethodByName(controlType);
+        Map<Integer, ControlPartsEntity> partsMap =
+                controlPartsService.getOrCreatePartsMap(controlMethod, plan.getParts());
+
+        Map<Integer, Integer> partGrades = partsMap.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> {
+                            String partMarkStr = getPartMarkValue(markDTO, entry.getKey());
+                            if (partMarkStr != null && !partMarkStr.isEmpty()) {
+                                return Integer.parseInt(partMarkStr);
+                            }
+                            return 0;
+                        }
+                ));
+        sum = partGrades.values().stream().mapToInt(Integer::intValue).sum();
+
+        MarksEntity marksEntity = new MarksEntity();
         marksEntity.setStudent(studentService.getStudentByStudentPIB_AndGroup(markDTO.getStudentPIB(), targetGroup));
         marksEntity.setPlan(plan);
-        // Встановіть метод контролю – адаптуйте за потребою, наприклад:
-        marksEntity.setControlMethod(controlMethodService.getControlMethodByName(controlType));
+        marksEntity.setControlMethod(controlMethod);
         marksEntity.setSemester(plan.getSemester());
         marksEntity.setLocked(markDTO.isLocked());
+        marksEntity.setFinalGrade(sum);
         marksEntity.setLastUpdated(new Timestamp(System.currentTimeMillis()));
         marksEntity.setLastUpdatedBy(
                 securityService.getCurrentUserModel()
                         .orElseThrow(() -> new IllegalStateException("No authenticated user"))
         );
 
-        // Зберігаємо MarksEntity і отримуємо managed екземпляр з ID
-        marksEntity = marksService.saveMark(marksEntity);
+        MarksEntity persistedMark = marksService.saveMark(marksEntity);
 
-        Map<Integer, ControlPartsEntity> partsMap =
-                controlPartsService.getOrCreatePartsMap(marksEntity.getControlMethod(), plan.getParts());
+        for (Map.Entry<Integer, Integer> entry : partGrades.entrySet()) {
+            ControlPartsEntity controlPart = partsMap.get(entry.getKey());
+            MarksPartsEntity markPart = marksPartsService.getMarksPartByMarkAndPart(persistedMark, controlPart);
+            if (markPart == null) {
+                markPart = new MarksPartsEntity();
+                markPart.setMark(persistedMark);
+                markPart.setControlPart(controlPart);
+            }
+            markPart.setGrade(entry.getValue());
+            marksPartsService.saveMarksPart(markPart);
+        }
 
-
-        MarksEntity finalMarksEntity = marksEntity;
-        List<MarksPartsEntity> toSave = partsMap.entrySet().stream()
-                .map(entry -> {
-                    int i = entry.getKey();
-                    String partMarkStr = getPartMarkValue(markDTO, i);
-                    int partValue = 0;
-                    if (partMarkStr != null && !partMarkStr.isEmpty()) {
-                        partValue = Integer.parseInt(partMarkStr);
-                    }
-                    sum += partValue;
-                    MarksPartsEntity mpe = new MarksPartsEntity();
-                    mpe.setMark(finalMarksEntity);
-                    mpe.setControlPart(entry.getValue());
-                    mpe.setGrade(partValue);
-                    return mpe;
-                })
-                .collect(Collectors.toList());
-
-        marksPartsService.saveAll(toSave);
-        marksEntity.setFinalGrade(sum);
-        return marksEntity;
+        return persistedMark;
     }
 
     @Override
@@ -105,19 +105,6 @@ public class CalculationMarkProcessor implements MarkProcessor {
             case 8 -> markDTO.getPartMark8();
             default -> "";
         };
-    }
-
-    // Отримуємо ControlPartsEntity через сервіс; якщо не знайдено – створюємо новий об’єкт (значення частини вважається 0)
-    private ControlPartsEntity getControlPartByNumber(int partNumber, com.esvar.dekanat.entity.ControlMethodEntity controlMethod) {
-        ControlPartsEntity cp = controlPartsService.getControlPartByControlMethodAndPartNumber(controlMethod, partNumber);
-        if (cp == null) {
-            cp = new ControlPartsEntity();
-            cp.setControlMethod(controlMethod);
-            cp.setPartNumber(partNumber);
-            // Зберігаємо новостворений об’єкт, щоб він став managed
-            cp = controlPartsService.saveControlPart(cp);
-        }
-        return cp;
     }
 
 }
