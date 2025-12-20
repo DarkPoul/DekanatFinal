@@ -194,15 +194,19 @@ public class ChatService {
     }
 
     private MailpartExtractor.BodyContent resolveBodyText(MailMessageEntity entity) throws MessagingException {
-        if (StringUtils.hasText(entity.getSnippet())) {
-            return new MailpartExtractor.BodyContent("", entity.getSnippet());
+        try {
+            Message message = mailImapClient.getMessage(entity.getFolder(), entity.getUid());
+            MailpartExtractor.BodyContent body = MailpartExtractor.extractBody(message);
+            String sanitizedHtml = MailTextExtractor.sanitizeHtml(body.html());
+            String plain = StringUtils.hasText(body.plain()) ? MailTextExtractor.stripInlinePlaceholders(body.plain())
+                    : MailTextExtractor.toPlainText(sanitizedHtml);
+            return new MailpartExtractor.BodyContent(sanitizedHtml, plain);
+        } catch (MessagingException e) {
+            if (StringUtils.hasText(entity.getSnippet())) {
+                return new MailpartExtractor.BodyContent("", entity.getSnippet());
+            }
+            throw e;
         }
-        Message message = mailImapClient.getMessage(entity.getFolder(), entity.getUid());
-        MailpartExtractor.BodyContent body = MailpartExtractor.extractBody(message);
-        String sanitizedHtml = MailTextExtractor.sanitizeHtml(body.html());
-        String plain = StringUtils.hasText(body.plain()) ? MailTextExtractor.stripInlinePlaceholders(body.plain()) :
-                MailTextExtractor.toPlainText(sanitizedHtml);
-        return new MailpartExtractor.BodyContent(sanitizedHtml, plain);
     }
 
     private AttachmentDto toAttachmentDto(MailAttachmentMetaEntity attachment) {

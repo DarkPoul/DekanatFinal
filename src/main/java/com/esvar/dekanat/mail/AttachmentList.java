@@ -5,7 +5,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
-import com.vaadin.flow.component.Text;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import org.springframework.util.unit.DataSize;
@@ -33,15 +33,25 @@ public class AttachmentList extends VerticalLayout {
         Icon icon = iconForMime(attachment.getMimeType());
         icon.addClassName("attachment-icon");
 
-        Text name = new Text(attachment.getFilename() != null ? attachment.getFilename() : "Вкладення");
-        Text size = new Text(formatSize(attachment.getSizeBytes()));
+        Span name = new Span(attachment.getFilename() != null ? attachment.getFilename() : "Вкладення");
+        name.addClassName("attachment-name");
+
+        Span size = new Span(formatSize(attachment.getSizeBytes()));
+        size.addClassName("attachment-size");
 
         Button download = new Button("Завантажити", new Icon(VaadinIcon.DOWNLOAD_ALT));
         download.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         download.addClickListener(e -> download.getUI().ifPresent(ui -> ui.getPage().open("/mail/attachments/" + attachment.getId())));
 
-        row.add(icon, name, size, download);
-        row.setFlexGrow(1, name);
+        HorizontalLayout textWrapper = new HorizontalLayout(name, size);
+        textWrapper.setAlignItems(Alignment.BASELINE);
+        textWrapper.setSpacing(true);
+        textWrapper.setWidthFull();
+        textWrapper.setFlexGrow(1, name);
+        textWrapper.addClassName("attachment-text");
+
+        row.add(icon, textWrapper, download);
+        row.setFlexGrow(1, textWrapper);
         add(row);
     }
 
