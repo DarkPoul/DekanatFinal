@@ -32,6 +32,16 @@ public final class MailpartExtractor {
         }
     }
 
+    public static BodyContent extractBody(Message message) {
+        BodyCollector collector = new BodyCollector();
+        try {
+            collectBody(message, collector);
+        } catch (Exception e) {
+            return new BodyContent("", "");
+        }
+        return new BodyContent(collector.html, collector.plain);
+    }
+
     private static Optional<Part> findAttachment(Part part, String targetPartId, String currentPartId) throws MessagingException, IOException {
         if (part.isMimeType("multipart/*")) {
             Multipart multipart = (Multipart) part.getContent();
@@ -77,5 +87,44 @@ public final class MailpartExtractor {
             return builder.toString();
         }
         return "";
+    }
+
+    private static void collectBody(Part part, BodyCollector collector) throws MessagingException, IOException {
+        if (part.isMimeType("text/html")) {
+            if (!StringUtils.hasText(collector.html)) {
+                collector.html = part.getContent().toString();
+            }
+            if (!StringUtils.hasText(collector.plain)) {
+                collector.plain = MailTextExtractor.toPlainText(collector.html);
+            }
+            return;
+        }
+        if (part.isMimeType("text/plain")) {
+            if (!StringUtils.hasText(collector.plain)) {
+                collector.plain = part.getContent().toString();
+            }
+            return;
+        }
+        if (part.isMimeType("multipart/alternative")) {
+            Multipart multipart = (Multipart) part.getContent();
+            for (int i = multipart.getCount() - 1; i >= 0; i--) {
+                collectBody(multipart.getBodyPart(i), collector);
+            }
+            return;
+        }
+        if (part.isMimeType("multipart/*")) {
+            Multipart multipart = (Multipart) part.getContent();
+            for (int i = 0; i < multipart.getCount(); i++) {
+                collectBody(multipart.getBodyPart(i), collector);
+            }
+        }
+    }
+
+    private static final class BodyCollector {
+        private String html = "";
+        private String plain = "";
+    }
+
+    public record BodyContent(String html, String plain) {
     }
 }

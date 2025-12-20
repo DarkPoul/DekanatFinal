@@ -15,6 +15,7 @@ public class ChatMessageDto {
     String from;
     String to;
     String subject;
+    String bodyHtml;
     String bodyText;
     Instant sentAt;
     MessageDirection direction;

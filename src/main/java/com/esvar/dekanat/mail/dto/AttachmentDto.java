@@ -10,4 +10,5 @@ public class AttachmentDto {
     String attachmentId;
     String filename;
     Long sizeBytes;
+    String mimeType;
 }

@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.io.InputStream;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -185,7 +184,8 @@ public class ChatService {
                 .from(entity.getFromEmail())
                 .to(entity.getToEmail())
                 .subject(entity.getSubject())
-                .bodyText(bodyText)
+                .bodyHtml(bodyText.html())
+                .bodyText(bodyText.plain())
                 .sentAt(entity.getSentAt())
                 .direction(entity.getDirection())
                 .hasAttachments(entity.isHasAttachments())
@@ -193,16 +193,16 @@ public class ChatService {
                 .build();
     }
 
-    private String fetchPlainBody(MailMessageEntity entity) throws MessagingException {
-        Message message = mailImapClient.getMessage(entity.getFolder(), entity.getUid());
-        return MailpartExtractor.extractPlainText(message);
-    }
-
-    private String resolveBodyText(MailMessageEntity entity) throws MessagingException {
+    private MailpartExtractor.BodyContent resolveBodyText(MailMessageEntity entity) throws MessagingException {
         if (StringUtils.hasText(entity.getSnippet())) {
-            return entity.getSnippet();
+            return new MailpartExtractor.BodyContent("", entity.getSnippet());
         }
-        return fetchPlainBody(entity);
+        Message message = mailImapClient.getMessage(entity.getFolder(), entity.getUid());
+        MailpartExtractor.BodyContent body = MailpartExtractor.extractBody(message);
+        String sanitizedHtml = MailTextExtractor.sanitizeHtml(body.html());
+        String plain = StringUtils.hasText(body.plain()) ? MailTextExtractor.stripInlinePlaceholders(body.plain()) :
+                MailTextExtractor.toPlainText(sanitizedHtml);
+        return new MailpartExtractor.BodyContent(sanitizedHtml, plain);
     }
 
     private AttachmentDto toAttachmentDto(MailAttachmentMetaEntity attachment) {
@@ -211,6 +211,7 @@ public class ChatService {
                 .attachmentId(attachment.getPartId())
                 .filename(attachment.getFilename())
                 .sizeBytes(attachment.getSizeBytes())
+                .mimeType(attachment.getContentType())
                 .build();
     }
 }
