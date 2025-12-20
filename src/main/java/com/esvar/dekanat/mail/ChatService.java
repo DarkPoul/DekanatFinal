@@ -177,15 +177,15 @@ public class ChatService {
     }
 
     private ChatMessageDto toMessageDto(MailMessageEntity entity) throws MessagingException {
-        String bodyText = resolveBodyText(entity);
+        String bodyText = String.valueOf(resolveBodyText(entity));
         return ChatMessageDto.builder()
                 .id(entity.getId())
                 .messageId(entity.getMessageId())
                 .from(entity.getFromEmail())
                 .to(entity.getToEmail())
                 .subject(entity.getSubject())
-                .bodyHtml(bodyText.html())
-                .bodyText(bodyText.plain())
+                .bodyHtml(bodyText)
+                .bodyText(bodyText)
                 .sentAt(entity.getSentAt())
                 .direction(entity.getDirection())
                 .hasAttachments(entity.isHasAttachments())
