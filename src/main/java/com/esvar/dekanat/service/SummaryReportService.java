@@ -5,9 +5,11 @@ import com.esvar.dekanat.entity.ControlMethodEntity;
 import com.esvar.dekanat.entity.DisciplineEntity;
 import com.esvar.dekanat.entity.MarksEntity;
 import com.esvar.dekanat.entity.PlansEntity;
+import com.esvar.dekanat.entity.SpecialtyEntity;
 import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.entity.StudentGroupEntity;
 import com.esvar.dekanat.entity.StudentPlansEntity;
+import com.esvar.dekanat.entity.EduProgramEntity;
 import com.esvar.dekanat.generate.summary.SummaryReportPdfGenerator;
 import com.esvar.dekanat.repository.SessionRepository;
 import com.esvar.dekanat.security.SecurityService;
@@ -311,6 +313,11 @@ public class SummaryReportService {
                     continue;
                 }
 
+                if (!isPlanFromSameProgram(plan, group)) {
+                    System.out.println("[SummaryReportService] Пропускаємо план з іншої освітньої програми");
+                    continue;
+                }
+
                 PlanAssignment assignment = ensurePlanAssignment(assignments, plan, controlMethodCache, controlTypes);
                 if (assignment == null) {
                     System.out.println("[SummaryReportService] Пропускаємо план (не підходить для обраного контролю)");
@@ -358,6 +365,11 @@ public class SummaryReportService {
             for (StudentPlansEntity studentPlan : studentPlans) {
                 PlansEntity plan = studentPlan.getPlan();
                 if (plan == null || plan.getSemester() != semester) {
+                    continue;
+                }
+
+                if (!isPlanFromSameProgram(plan, group)) {
+                    System.out.println("[SummaryReportService] Пропускаємо план з іншої освітньої програми (2 модулі)");
                     continue;
                 }
 
@@ -723,6 +735,27 @@ public class SummaryReportService {
             return "<без назви>";
         }
         return discipline.getTitle();
+    }
+
+    private boolean isPlanFromSameProgram(PlansEntity plan, StudentGroupEntity group) {
+        if (plan == null || group == null) {
+            return false;
+        }
+
+        SpecialtyEntity planSpecialty = plan.getSpecialty();
+        SpecialtyEntity groupSpecialty = group.getSpecialty();
+        if (planSpecialty == null || groupSpecialty == null) {
+            return false;
+        }
+
+        EduProgramEntity planProgram = planSpecialty.getEduProgram();
+        EduProgramEntity groupProgram = groupSpecialty.getEduProgram();
+
+        if (planProgram != null && groupProgram != null) {
+            return Objects.equals(planProgram.getId(), groupProgram.getId());
+        }
+
+        return Objects.equals(planSpecialty.getId(), groupSpecialty.getId());
     }
 
     public record SummaryReportResult(String groupCode, byte[] pdfBytes) {
