@@ -1,16 +1,15 @@
 package com.esvar.dekanat.generate.pdf;
 
 import com.esvar.dekanat.generate.DataModelForZalik;
-import com.esvar.dekanat.generate.ZalikGenerator;
 import org.springframework.stereotype.Component;
 
 /**
- * PDF generator for "Відомість обліку успішності" (залік).
+ * PDF generator for course work control statements.
  */
 @Component
-public class ZalikPdfGenerator extends BaseZalikStylePdfGenerator {
+public class CourseWorkPdfGenerator extends BaseZalikStylePdfGenerator {
 
-    public static final String NAME = ZalikGenerator.NAME;
+    public static final String NAME = "course-work";
 
     @Override
     public String getName() {
@@ -19,6 +18,6 @@ public class ZalikPdfGenerator extends BaseZalikStylePdfGenerator {
 
     @Override
     protected String outputSuffix(DataModelForZalik data) {
-        return "zalik";
+        return "course-work";
     }
 }

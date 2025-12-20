@@ -18,6 +18,16 @@ public interface DocumentGenerator {
     String getTemplatePath();
 
     /**
+     * Resolve template path for the provided data. By default returns {@link #getTemplatePath()}.
+     *
+     * @param data source object with generation data
+     * @return path to template
+     */
+    default String resolveTemplatePath(Object data) {
+        return getTemplatePath();
+    }
+
+    /**
      * Prepare context variables used in template.
      *
      * @param data source object with generation data

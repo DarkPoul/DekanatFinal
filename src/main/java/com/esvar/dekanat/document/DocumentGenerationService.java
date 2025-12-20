@@ -50,6 +50,7 @@ public class DocumentGenerationService {
         Map<String, Object> context = generator.prepareContext(data);
         log.info("Generating document {}", name);
 
-        return engine.generate(generator.getTemplatePath(), context);
+        String templatePath = generator.resolveTemplatePath(data);
+        return engine.generate(templatePath, context);
     }
 }
