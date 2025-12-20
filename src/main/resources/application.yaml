@@ -1,26 +1,31 @@
 spring:
   application:
     name: Dekanat
+
   datasource:
     url: ${DB_URL}
     username: ${MYSQL_ROOT_USER}
     password: ${MYSQL_ROOT_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+
   sql:
     init:
       mode: always
+
+  # SMTP (відправка листів)
   mail:
-    host: ${MAIL_HOST:}
-    port: ${MAIL_PORT:}
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
-          auth: true
+          auth: ${MAIL_SMTP_AUTH:true}
           starttls:
-            enable: true
+            enable: ${MAIL_STARTTLS_ENABLE:true}
             required: true
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -36,23 +41,25 @@ vaadin:
 upload:
   dir: uploads
 
+# Твої кастомні налаштування (IMAP + синхронізація)
 mail:
   default-from: ${MAIL_DEFAULT_FROM:}
+
   imap:
-    host: ${MAIL_IMAP_HOST:}
+    host: ${MAIL_IMAP_HOST:imap.gmail.com}
     port: ${MAIL_IMAP_PORT:993}
-    username: ${MAIL_IMAP_USERNAME:}
+    username: ${MAIL_IMAP_USERNAME:${MAIL_USERNAME:}}
     password: ${MAIL_IMAP_PASSWORD:}
     inbox-folder: ${MAIL_IMAP_INBOX:INBOX}
-    sent-folder: ${MAIL_IMAP_SENT:Sent}
+    sent-folder: ${MAIL_IMAP_SENT:[Gmail]/Надіслані}
     use-ssl: ${MAIL_IMAP_SSL:true}
+
   sync:
     interval-ms: ${MAIL_SYNC_INTERVAL_MS:60000}
 
+# Якщо треба довіряти заголовкам проксі (nginx/cloudflare)
 #server:
-#  # Порт береться із змінної оточення SERVER_PORT (за замовчуванням 8080)
 #  port: ${SERVER_PORT:8080}
-#  # Довіряємо заголовкам від проксі (nginx)
 #  forward-headers-strategy: framework
 
 logging:

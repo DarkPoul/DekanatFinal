@@ -7,6 +7,7 @@ import com.esvar.dekanat.mail.dto.ChatFilter;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.mail.MailProperties;
 import org.springframework.data.domain.Page;
@@ -74,7 +75,13 @@ public class ChatService {
     @Transactional(readOnly = true)
     public Page<ChatMessageDto> findMessages(Long chatId, Pageable pageable) {
         Page<MailMessageEntity> page = mailMessageRepository.findByChatId(chatId, pageable);
-        return page.map(this::toMessageDto);
+        return page.map(entity -> {
+            try {
+                return toMessageDto(entity);
+            } catch (MessagingException e) {
+                throw new IllegalStateException("Failed to map mail message", e);
+            }
+        });
     }
 
     public void updateStatus(Long chatId, ChatStatus status) {
@@ -91,7 +98,7 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
-    public InputStream loadAttachment(String messageId, String attachmentId) {
+    public InputStream loadAttachment(String messageId, String attachmentId) throws MessagingException {
         MailAttachmentMetaEntity meta = attachmentRepository.findByMessage_MessageIdAndPartId(messageId, attachmentId);
         if (meta == null) {
             throw new IllegalArgumentException("Attachment not found");
@@ -117,8 +124,20 @@ public class ChatService {
                 helper.setSubject(subjectOverride != null ? subjectOverride : "Re:");
             }
             helper.setText(body, false);
-            lastMessage.map(MailMessageEntity::getMessageId).ifPresent(id -> mimeMessage.setHeader("In-Reply-To", id));
-            lastMessage.map(MailMessageEntity::getMessageId).ifPresent(id -> mimeMessage.setHeader("References", id));
+            lastMessage.map(MailMessageEntity::getMessageId).ifPresent(id -> {
+                try {
+                    mimeMessage.setHeader("In-Reply-To", id);
+                } catch (MessagingException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            lastMessage.map(MailMessageEntity::getMessageId).ifPresent(id -> {
+                try {
+                    mimeMessage.setHeader("References", id);
+                } catch (MessagingException e) {
+                    throw new RuntimeException(e);
+                }
+            });
             mailSender.send(mimeMessage);
         } catch (MessagingException e) {
             throw new IllegalStateException("Failed to send reply: " + e.getMessage(), e);
@@ -147,7 +166,7 @@ public class ChatService {
                 .build();
     }
 
-    private ChatMessageDto toMessageDto(MailMessageEntity entity) {
+    private ChatMessageDto toMessageDto(MailMessageEntity entity) throws MessagingException {
         String bodyText = fetchPlainBody(entity);
         return ChatMessageDto.builder()
                 .id(entity.getId())
@@ -163,7 +182,7 @@ public class ChatService {
                 .build();
     }
 
-    private String fetchPlainBody(MailMessageEntity entity) {
+    private String fetchPlainBody(MailMessageEntity entity) throws MessagingException {
         Message message = mailImapClient.getMessage(entity.getFolder(), entity.getUid());
         return MailpartExtractor.extractPlainText(message);
     }
