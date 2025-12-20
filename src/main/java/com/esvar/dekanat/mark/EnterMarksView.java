@@ -5,9 +5,16 @@ import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
+import com.esvar.dekanat.generate.pdf.BasicControlPdfGenerator;
+import com.esvar.dekanat.generate.pdf.CalculationGraphicWorkPdfGenerator;
+import com.esvar.dekanat.generate.pdf.CalculationWorkPdfGenerator;
+import com.esvar.dekanat.generate.pdf.ControlWorkPdfGenerator;
+import com.esvar.dekanat.generate.pdf.CourseProjectPdfGenerator;
+import com.esvar.dekanat.generate.pdf.CourseWorkPdfGenerator;
+import com.esvar.dekanat.generate.pdf.DifferentialZalikPdfGenerator;
+import com.esvar.dekanat.generate.pdf.ExamPdfGenerator;
 import com.esvar.dekanat.generate.pdf.FirstModulePdfGenerator;
 import com.esvar.dekanat.generate.pdf.SecondModulePdfGenerator;
-import com.esvar.dekanat.generate.pdf.BasicControlPdfGenerator;
 import com.esvar.dekanat.generate.pdf.ZalikPdfGenerator;
 import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.security.SecurityService;
@@ -1250,27 +1257,27 @@ public class EnterMarksView extends Div {
 
     private ReportGenerationResult generateReportFile(String controlType, String secondTeacher) throws Exception {
         return switch (controlType) {
-            case CONTROL_TYPE_FIRST_MODULE -> {
-                DataModelForMC1 data = buildDataModelForMC1(secondTeacher);
-                Path path = documentGenerationService.generate(FirstModulePdfGenerator.NAME, data);
-                yield new ReportGenerationResult(path.toString(), null, null);
-            }
-            case CONTROL_TYPE_SECOND_MODULE -> {
-                DataModelForMC2 data = buildDataModelForMC2(secondTeacher);
-                Path path = documentGenerationService.generate(SecondModulePdfGenerator.NAME, data);
-                yield new ReportGenerationResult(path.toString(), null, null);
-            }
-            case "Залік", "Екзамен", "Диференційний залік", "Курсова робота", "Курсовий проєкт" -> {
-                DataModelForZalik data = buildDataModelForZalik(secondTeacher);
-                Path path = documentGenerationService.generate(ZalikPdfGenerator.NAME, data);
-                yield new ReportGenerationResult(path.toString(), null, null);
-            }
+            case CONTROL_TYPE_FIRST_MODULE -> generateReportWithModel(FirstModulePdfGenerator.NAME, buildDataModelForMC1(secondTeacher));
+            case CONTROL_TYPE_SECOND_MODULE -> generateReportWithModel(SecondModulePdfGenerator.NAME, buildDataModelForMC2(secondTeacher));
+            case "Залік" -> generateReportWithModel(ZalikPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
+            case "Екзамен" -> generateReportWithModel(ExamPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
+            case "Диференційний залік" -> generateReportWithModel(DifferentialZalikPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
+            case "Курсова робота" -> generateReportWithModel(CourseWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
+            case "Курсовий проєкт" -> generateReportWithModel(CourseProjectPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
+            case "Контрольна робота" -> generateReportWithModel(ControlWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
+            case "Розрахункова робота" -> generateReportWithModel(CalculationWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
+            case "Розрахунково-графічна робота" -> generateReportWithModel(CalculationGraphicWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
             default -> {
                 BasicControlPdfData data = new BasicControlPdfData(controlType);
                 Path path = documentGenerationService.generate(BasicControlPdfGenerator.NAME, data);
                 yield new ReportGenerationResult(path.toString(), null, null);
             }
         };
+    }
+
+    private ReportGenerationResult generateReportWithModel(String generatorName, Object dataModel) {
+        Path path = documentGenerationService.generate(generatorName, dataModel);
+        return new ReportGenerationResult(path.toString(), null, null);
     }
 
     private void configureReportControls() {
@@ -1373,22 +1380,22 @@ public class EnterMarksView extends Div {
     }
 
     private void showReport(String finalFilePath) {
-        File pdfFile = new File(finalFilePath);
-        if (!pdfFile.exists()) {
-            Notification.show("PDF файл не знайдено.");
+        File generatedFile = new File(finalFilePath);
+        if (!generatedFile.exists()) {
+            Notification.show("Файл не знайдено.");
             return;
         }
 
-        String fileName = pdfFile.getName();
+        String fileName = generatedFile.getName();
         StreamResource resource = new StreamResource(fileName, () -> {
             try {
-                return new FileInputStream(pdfFile);
+                return new FileInputStream(generatedFile);
             } catch (IOException e) {
                 Notification.show("Помилка при завантаженні файлу");
                 return null;
             }
         });
-        resource.setContentType("application/pdf");
+        resource.setContentType(resolveContentType(fileName));
         resource.setCacheTime(0);
         resource.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"");
 
@@ -1404,6 +1411,17 @@ public class EnterMarksView extends Div {
         String resourceUrl = registration.getResourceUri().toString();
 
         ui.getPage().open(resourceUrl, "_blank");
+    }
+
+    private String resolveContentType(String fileName) {
+        String lowerName = fileName.toLowerCase(Locale.ROOT);
+        if (lowerName.endsWith(".pdf")) {
+            return "application/pdf";
+        }
+        if (lowerName.endsWith(".docx")) {
+            return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        }
+        return "application/octet-stream";
     }
 
     private void configureLoadingOverlay() {
