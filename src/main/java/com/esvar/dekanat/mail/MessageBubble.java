@@ -3,8 +3,8 @@ package com.esvar.dekanat.mail;
 import com.esvar.dekanat.mail.dto.AttachmentDto;
 import com.esvar.dekanat.mail.dto.ChatMessageDto;
 import com.vaadin.flow.component.Component;
-import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -58,7 +58,10 @@ public class MessageBubble extends Div {
 
         Div bodyWrapper = new Div();
         bodyWrapper.addClassName("bubble-body");
-        bodyWrapper.add(new Html("<div class='message-body-html'>" + mainHtml + "</div>"));
+        Span body = new Span();
+        body.addClassName("message-body-html");
+        body.getElement().setProperty("innerHTML", mainHtml);
+        bodyWrapper.add(body);
 
         if (hasQuote) {
             bodyWrapper.add(new QuoteCollapsePanel(toSafeHtml(extraction.quote())));
