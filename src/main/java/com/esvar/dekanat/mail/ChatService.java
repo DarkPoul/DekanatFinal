@@ -103,9 +103,20 @@ public class ChatService {
         if (meta == null) {
             throw new IllegalArgumentException("Attachment not found");
         }
+        return loadAttachment(meta);
+    }
+
+    @Transactional(readOnly = true)
+    public InputStream loadAttachment(Long attachmentMetaId) throws MessagingException {
+        MailAttachmentMetaEntity meta = attachmentRepository.findById(attachmentMetaId)
+                .orElseThrow(() -> new IllegalArgumentException("Attachment not found"));
+        return loadAttachment(meta);
+    }
+
+    private InputStream loadAttachment(MailAttachmentMetaEntity meta) throws MessagingException {
         MailMessageEntity message = meta.getMessage();
         Message mimeMessage = mailImapClient.getMessage(message.getFolder(), message.getUid());
-        return MailpartExtractor.extractAttachmentStream(mimeMessage, attachmentId);
+        return MailpartExtractor.extractAttachmentStream(mimeMessage, meta.getPartId());
     }
 
     public void replyToChat(Long chatId, String body, String subjectOverride) {
