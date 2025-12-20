@@ -40,7 +40,7 @@ import java.util.Optional;
 @Route(value = "mail", layout = MainLayout.class)
 @PageTitle("Пошта як месенджер")
 @RolesAllowed({"ROLE_ADMIN", "ROLE_DEKANAT"})
-@CssImport(value = "./styles/mail-view.css", themeFor = "vaadin-grid")
+@CssImport("./styles/mail-view.css")
 public class MailInboxView extends VerticalLayout {
 
     private final ChatService chatService;
@@ -269,7 +269,7 @@ public class MailInboxView extends VerticalLayout {
             message.getAttachments().forEach(att -> {
                 Button download = new Button(att.getFilename() != null ? att.getFilename() : "Вкладення");
                 download.addClickListener(e -> download.getUI().ifPresent(ui ->
-                        ui.getPage().open("/mail/messages/" + message.getMessageId() + "/attachments/" + att.getAttachmentId())));
+                        ui.getPage().open("/mail/attachments/" + att.getId())));
                 download.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
                 attachments.add(download);
             });

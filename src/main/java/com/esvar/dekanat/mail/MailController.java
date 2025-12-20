@@ -62,10 +62,20 @@ public class MailController {
         chatService.replyToChat(chatId, request.getBody(), request.getSubject());
     }
 
+    @GetMapping("/attachments/{attachmentId}")
+    public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable Long attachmentId) throws MessagingException {
+        InputStream stream = chatService.loadAttachment(attachmentId);
+        return buildAttachmentResponse(stream);
+    }
+
     @GetMapping("/messages/{messageId}/attachments/{attachmentId}")
     public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable String messageId,
                                                                   @PathVariable String attachmentId) throws MessagingException {
         InputStream stream = chatService.loadAttachment(messageId, attachmentId);
+        return buildAttachmentResponse(stream);
+    }
+
+    private ResponseEntity<InputStreamResource> buildAttachmentResponse(InputStream stream) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
