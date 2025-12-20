@@ -224,7 +224,7 @@ public class MailInboxView extends VerticalLayout {
         if (selectedChat == null) {
             return;
         }
-        Pageable pageable = PageRequest.of(page, 50, Sort.by(Sort.Direction.ASC, "sentAt"));
+        Pageable pageable = PageRequest.of(page, 50, Sort.by(Sort.Direction.DESC, "sentAt"));
         Page<ChatMessageDto> messages = chatService.findMessages(selectedChat.getId(), pageable);
         if (!append) {
             messagePanel.removeAll();
@@ -250,8 +250,8 @@ public class MailInboxView extends VerticalLayout {
 
         Div addresses = new Div();
         addresses.addClassName("message-addresses");
-        addresses.add(new Span("Від: " + Optional.ofNullable(message.getFrom()).orElse("")));
-        addresses.add(new Span("Кому: " + Optional.ofNullable(message.getTo()).orElse("")));
+        addresses.add(buildAddressRow("Від", message.getFrom(), "from"));
+        addresses.add(buildAddressRow("Кому", message.getTo(), "to"));
 
         Paragraph body = new Paragraph(Optional.ofNullable(message.getBodyText()).orElse(""));
         body.addClassName("message-body");
@@ -281,6 +281,20 @@ public class MailInboxView extends VerticalLayout {
 
     private String metaText(ChatMessageDto message) {
         return message.getSentAt() != null ? dateTimeFormatter.format(message.getSentAt()) : "";
+    }
+
+    private Div buildAddressRow(String labelText, String value, String modifier) {
+        Div row = new Div();
+        row.addClassNames("address-row", modifier + "-address");
+
+        Span label = new Span(labelText);
+        label.addClassName("address-label");
+
+        Span valueSpan = new Span(Optional.ofNullable(value).orElse(""));
+        valueSpan.addClassName("address-value");
+
+        row.add(label, valueSpan);
+        return row;
     }
 
     private java.util.stream.Stream<ChatListItemDto> fetchChats(Query<ChatListItemDto, Void> query) {
