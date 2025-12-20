@@ -167,7 +167,7 @@ public class ChatService {
     }
 
     private ChatMessageDto toMessageDto(MailMessageEntity entity) throws MessagingException {
-        String bodyText = fetchPlainBody(entity);
+        String bodyText = resolveBodyText(entity);
         return ChatMessageDto.builder()
                 .id(entity.getId())
                 .messageId(entity.getMessageId())
@@ -185,6 +185,13 @@ public class ChatService {
     private String fetchPlainBody(MailMessageEntity entity) throws MessagingException {
         Message message = mailImapClient.getMessage(entity.getFolder(), entity.getUid());
         return MailpartExtractor.extractPlainText(message);
+    }
+
+    private String resolveBodyText(MailMessageEntity entity) throws MessagingException {
+        if (StringUtils.hasText(entity.getSnippet())) {
+            return entity.getSnippet();
+        }
+        return fetchPlainBody(entity);
     }
 
     private AttachmentDto toAttachmentDto(MailAttachmentMetaEntity attachment) {
