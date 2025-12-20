@@ -1,0 +1,13 @@
+.incoming {
+    background-color: var(--lumo-contrast-5pct);
+    padding: var(--lumo-space-m);
+    border-radius: var(--lumo-border-radius-l);
+    margin-bottom: var(--lumo-space-m);
+}
+
+.outgoing {
+    background-color: var(--lumo-primary-color-10pct);
+    padding: var(--lumo-space-m);
+    border-radius: var(--lumo-border-radius-l);
+    margin-bottom: var(--lumo-space-m);
+}

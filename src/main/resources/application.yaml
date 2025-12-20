@@ -38,6 +38,16 @@ upload:
 
 mail:
   default-from: ${MAIL_DEFAULT_FROM:}
+  imap:
+    host: ${MAIL_IMAP_HOST:}
+    port: ${MAIL_IMAP_PORT:993}
+    username: ${MAIL_IMAP_USERNAME:}
+    password: ${MAIL_IMAP_PASSWORD:}
+    inbox-folder: ${MAIL_IMAP_INBOX:INBOX}
+    sent-folder: ${MAIL_IMAP_SENT:Sent}
+    use-ssl: ${MAIL_IMAP_SSL:true}
+  sync:
+    interval-ms: ${MAIL_SYNC_INTERVAL_MS:60000}
 
 #server:
 #  # Порт береться із змінної оточення SERVER_PORT (за замовчуванням 8080)
