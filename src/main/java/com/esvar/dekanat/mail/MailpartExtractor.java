@@ -60,6 +60,9 @@ public final class MailpartExtractor {
         if (part.isMimeType("text/html")) {
             return MailTextExtractor.toPlainText(part.getContent().toString());
         }
+        if (part.isMimeType("multipart/alternative")) {
+            return extractAlternativeText((Multipart) part.getContent(), partId);
+        }
         if (part.isMimeType("multipart/*")) {
             Multipart multipart = (Multipart) part.getContent();
             StringBuilder builder = new StringBuilder();
@@ -75,6 +78,34 @@ public final class MailpartExtractor {
                 }
             }
             return builder.toString();
+        }
+        return "";
+    }
+
+    private static String extractAlternativeText(Multipart multipart, String partId) throws MessagingException, IOException {
+        String plainCandidate = null;
+        String htmlCandidate = null;
+        for (int i = 0; i < multipart.getCount(); i++) {
+            BodyPart bodyPart = multipart.getBodyPart(i);
+            String childPartId = partId.isEmpty() ? String.valueOf(i + 1) : partId + "." + (i + 1);
+            if (bodyPart.isMimeType("text/plain") && !StringUtils.hasText(plainCandidate)) {
+                plainCandidate = extractText(bodyPart, childPartId);
+                continue;
+            }
+            if (bodyPart.isMimeType("text/html") && !StringUtils.hasText(htmlCandidate)) {
+                htmlCandidate = extractText(bodyPart, childPartId);
+                continue;
+            }
+            String nested = extractText(bodyPart, childPartId);
+            if (!StringUtils.hasText(plainCandidate)) {
+                plainCandidate = nested;
+            }
+        }
+        if (StringUtils.hasText(plainCandidate)) {
+            return plainCandidate;
+        }
+        if (StringUtils.hasText(htmlCandidate)) {
+            return htmlCandidate;
         }
         return "";
     }
