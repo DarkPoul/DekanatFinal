@@ -2,6 +2,7 @@ package com.esvar.dekanat.mail;
 
 
 import jakarta.mail.Address;
+import jakarta.mail.BodyPart;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Multipart;
@@ -10,14 +11,12 @@ import jakarta.mail.internet.InternetAddress;
 import org.eclipse.angus.mail.imap.IMAPFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
@@ -151,6 +150,9 @@ public class MailSyncService {
         if (part.isMimeType("text/html")) {
             return MailTextExtractor.toPlainText(part.getContent().toString());
         }
+        if (part.isMimeType("multipart/alternative")) {
+            return extractAlternativeText((Multipart) part.getContent(), partId, attachments);
+        }
         if (part.isMimeType("multipart/*")) {
             Multipart multipart = (Multipart) part.getContent();
             StringBuilder builder = new StringBuilder();
@@ -174,6 +176,34 @@ public class MailSyncService {
                     .contentType(part.getContentType())
                     .sizeBytes(part.getSize() >= 0 ? (long) part.getSize() : null)
                     .build());
+        }
+        return "";
+    }
+
+    private String extractAlternativeText(Multipart multipart, String partId, List<MailAttachmentMetaEntity> attachments) throws MessagingException, IOException {
+        String plainCandidate = null;
+        String htmlCandidate = null;
+        for (int i = 0; i < multipart.getCount(); i++) {
+            BodyPart bodyPart = multipart.getBodyPart(i);
+            String childPartId = partId.isEmpty() ? String.valueOf(i + 1) : partId + "." + (i + 1);
+            if (bodyPart.isMimeType("text/plain") && !StringUtils.hasText(plainCandidate)) {
+                plainCandidate = extractText(bodyPart, childPartId, attachments);
+                continue;
+            }
+            if (bodyPart.isMimeType("text/html") && !StringUtils.hasText(htmlCandidate)) {
+                htmlCandidate = extractText(bodyPart, childPartId, attachments);
+                continue;
+            }
+            String nested = extractText(bodyPart, childPartId, attachments);
+            if (!StringUtils.hasText(plainCandidate)) {
+                plainCandidate = nested;
+            }
+        }
+        if (StringUtils.hasText(plainCandidate)) {
+            return plainCandidate;
+        }
+        if (StringUtils.hasText(htmlCandidate)) {
+            return htmlCandidate;
         }
         return "";
     }

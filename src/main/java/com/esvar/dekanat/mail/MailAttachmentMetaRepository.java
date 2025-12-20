@@ -8,7 +8,7 @@ import java.util.List;
 @Repository
 public interface MailAttachmentMetaRepository extends JpaRepository<MailAttachmentMetaEntity, Long> {
 
-    List<MailAttachmentMetaEntity> findByMessageId(Long messageId);
+    List<MailAttachmentMetaEntity> findByMessage_Id(Long messageId);
 
     MailAttachmentMetaEntity findByMessage_MessageIdAndPartId(String messageId, String partId);
 }
