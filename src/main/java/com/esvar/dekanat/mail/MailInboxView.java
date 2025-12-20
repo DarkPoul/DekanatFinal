@@ -1,5 +1,6 @@
 package com.esvar.dekanat.mail;
 
+import com.esvar.dekanat.mail.dto.ChatFilter;
 import com.esvar.dekanat.mail.dto.ChatListItemDto;
 import com.esvar.dekanat.mail.dto.ChatMessageDto;
 import com.esvar.dekanat.view.MainLayout;
@@ -15,8 +16,9 @@ import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
-import com.vaadin.flow.component.orderedlayout.SplitLayout;
+
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.CallbackDataProvider;

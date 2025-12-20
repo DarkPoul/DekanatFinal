@@ -4,6 +4,7 @@ import com.esvar.dekanat.mail.dto.ChatFilter;
 import com.esvar.dekanat.mail.dto.ChatListItemDto;
 import com.esvar.dekanat.mail.dto.ChatMessageDto;
 import com.esvar.dekanat.mail.dto.ReplyRequest;
+import jakarta.mail.MessagingException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -63,7 +64,7 @@ public class MailController {
 
     @GetMapping("/messages/{messageId}/attachments/{attachmentId}")
     public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable String messageId,
-                                                                  @PathVariable String attachmentId) {
+                                                                  @PathVariable String attachmentId) throws MessagingException {
         InputStream stream = chatService.loadAttachment(messageId, attachmentId);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment")

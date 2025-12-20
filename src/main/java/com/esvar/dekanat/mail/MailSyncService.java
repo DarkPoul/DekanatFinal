@@ -1,12 +1,13 @@
 package com.esvar.dekanat.mail;
 
-import com.sun.mail.imap.IMAPFolder;
+
 import jakarta.mail.Address;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Multipart;
 import jakarta.mail.Part;
 import jakarta.mail.internet.InternetAddress;
+import org.eclipse.angus.mail.imap.IMAPFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Sort;
@@ -54,12 +55,12 @@ public class MailSyncService {
 
     @Scheduled(fixedDelayString = "${mail.sync.interval-ms:60000}")
     @Transactional
-    public void scheduledSync() {
+    public void scheduledSync() throws MessagingException {
         syncFolder(properties.getImap().getInboxFolder(), MessageDirection.IN);
         syncFolder(properties.getImap().getSentFolder(), MessageDirection.OUT);
     }
 
-    protected void syncFolder(String folderName, MessageDirection direction) {
+    protected void syncFolder(String folderName, MessageDirection direction) throws MessagingException {
         mailImapClient.withFolder(folderName, folder -> {
             try {
                 Long lastSyncedUid = syncStateRepository.findById(folderName).map(MailSyncStateEntity::getLastUid).orElse(0L);
