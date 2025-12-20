@@ -1,0 +1,104 @@
+.conversation-header {
+    border-bottom: 1px solid var(--lumo-contrast-10pct);
+    background: var(--lumo-base-color);
+}
+
+.conversation-title {
+    margin: 0;
+}
+
+.conversation-meta {
+    color: var(--lumo-secondary-text-color);
+    font-size: var(--lumo-font-size-s);
+}
+
+.conversation-messages {
+    height: calc(100% - 48px);
+    overflow-y: auto;
+    padding: var(--lumo-space-m);
+    background: var(--lumo-contrast-5pct);
+    display: flex;
+    flex-direction: column;
+    gap: var(--lumo-space-m);
+}
+
+.conversation-load-more {
+    padding: var(--lumo-space-s) var(--lumo-space-m);
+    background: var(--lumo-base-color);
+    border-top: 1px solid var(--lumo-contrast-10pct);
+}
+
+.message-date-divider {
+    text-align: center;
+    font-size: var(--lumo-font-size-s);
+    color: var(--lumo-secondary-text-color);
+    margin: var(--lumo-space-xs) 0;
+}
+
+.message-bubble {
+    max-width: 80%;
+    border-radius: var(--lumo-border-radius-l);
+    padding: var(--lumo-space-m);
+    box-shadow: var(--lumo-box-shadow-s);
+    background: var(--lumo-base-color);
+}
+
+.message-bubble.incoming {
+    margin-right: auto;
+    background: var(--lumo-base-color);
+}
+
+.message-bubble.outgoing {
+    margin-left: auto;
+    background: var(--lumo-primary-color-5pct);
+}
+
+.message-header {
+    justify-content: space-between;
+    margin-bottom: var(--lumo-space-xs);
+}
+
+.bubble-address {
+    color: var(--lumo-secondary-text-color);
+    font-size: var(--lumo-font-size-s);
+}
+
+.message-time {
+    color: var(--lumo-secondary-text-color);
+    font-size: var(--lumo-font-size-s);
+}
+
+.bubble-body {
+    margin-top: var(--lumo-space-s);
+    color: var(--lumo-body-text-color);
+    font-size: var(--lumo-font-size-m);
+    line-height: 1.5;
+}
+
+.message-body-html {
+    word-break: break-word;
+}
+
+.quote-collapse {
+    margin-top: var(--lumo-space-s);
+}
+
+.quote-content {
+    color: var(--lumo-secondary-text-color);
+    font-size: var(--lumo-font-size-s);
+}
+
+.attachment-list {
+    margin-top: var(--lumo-space-s);
+    border-top: 1px solid var(--lumo-contrast-10pct);
+    padding-top: var(--lumo-space-s);
+    gap: var(--lumo-space-xs);
+}
+
+.attachment-row {
+    gap: var(--lumo-space-s);
+}
+
+.attachment-icon {
+    color: var(--lumo-primary-text-color);
+}
