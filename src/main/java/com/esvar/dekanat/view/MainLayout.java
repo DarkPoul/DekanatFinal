@@ -2,6 +2,7 @@ package com.esvar.dekanat.view;
 
 import com.esvar.dekanat.entity.SessionEntity;
 import com.esvar.dekanat.mark.EnterMarksView;
+import com.esvar.dekanat.mail.MailInboxView;
 import com.esvar.dekanat.plan.PlanView;
 import com.esvar.dekanat.card.CardView;
 import com.esvar.dekanat.progress.SuccessView;
@@ -119,7 +120,8 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
                     createTab(VaadinIcon.USER_CARD, "Перегляд карток", CardView.class),
                     createTab(VaadinIcon.PENCIL, "Введення оцінок", EnterMarksView.class, seasonIcon),
                     createTab(VaadinIcon.BAR_CHART, "Рейтинг", RatingView.class),
-                    createTab(VaadinIcon.BOOK, "Успішність", SuccessView.class)
+                    createTab(VaadinIcon.BOOK, "Успішність", SuccessView.class),
+                    createTab(VaadinIcon.ENVELOPE, "Пошта", MailInboxView.class)
             );
 
             if (isAdmin) {
