@@ -11,3 +11,57 @@
     border-radius: var(--lumo-border-radius-l);
     margin-bottom: var(--lumo-space-m);
 }
+
+.message-header {
+    align-items: center;
+    justify-content: space-between;
+}
+
+.direction-badge {
+    font-size: var(--lumo-font-size-s);
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+.incoming-badge {
+    background-color: var(--lumo-success-color-10pct);
+    color: var(--lumo-success-text-color);
+}
+
+.outgoing-badge {
+    background-color: var(--lumo-primary-color-20pct);
+    color: var(--lumo-primary-text-color);
+}
+
+.message-time {
+    color: var(--lumo-secondary-text-color);
+    font-size: var(--lumo-font-size-xs);
+}
+
+.message-addresses {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--lumo-secondary-text-color);
+    font-size: var(--lumo-font-size-s);
+    margin-top: var(--lumo-space-xs);
+}
+
+.message-body {
+    white-space: pre-wrap;
+    margin: var(--lumo-space-s) 0;
+}
+
+.message-attachments {
+    border-top: 1px solid var(--lumo-contrast-10pct);
+    padding-top: var(--lumo-space-xs);
+    margin-top: var(--lumo-space-xs);
+    gap: 4px;
+}
+
+.attachments-label {
+    font-size: var(--lumo-font-size-s);
+    color: var(--lumo-secondary-text-color);
+    font-weight: 600;
+}

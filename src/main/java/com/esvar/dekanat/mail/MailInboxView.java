@@ -13,6 +13,7 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -237,20 +238,34 @@ public class MailInboxView extends VerticalLayout {
         Div bubble = new Div();
         bubble.addClassName(message.getDirection() == MessageDirection.IN ? "incoming" : "outgoing");
 
-        Span meta = new Span(metaText(message));
-        meta.getStyle().set("font-size", "12px");
-        meta.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        HorizontalLayout header = new HorizontalLayout();
+        header.addClassName("message-header");
+        Span directionBadge = new Span(message.getDirection() == MessageDirection.IN ? "Вхідне" : "Вихідне");
+        directionBadge.addClassNames("direction-badge",
+                message.getDirection() == MessageDirection.IN ? "incoming-badge" : "outgoing-badge");
+        Span time = new Span(metaText(message));
+        time.addClassName("message-time");
+        header.add(directionBadge, time);
+        header.setWidthFull();
 
-        Span body = new Span(Optional.ofNullable(message.getBodyText()).orElse(""));
-        body.getStyle().set("white-space", "pre-wrap");
+        Div addresses = new Div();
+        addresses.addClassName("message-addresses");
+        addresses.add(new Span("Від: " + Optional.ofNullable(message.getFrom()).orElse("")));
+        addresses.add(new Span("Кому: " + Optional.ofNullable(message.getTo()).orElse("")));
 
-        bubble.add(meta, body);
+        Paragraph body = new Paragraph(Optional.ofNullable(message.getBodyText()).orElse(""));
+        body.addClassName("message-body");
+
+        bubble.add(header, addresses, body);
 
         if (message.isHasAttachments() && message.getAttachments() != null && !message.getAttachments().isEmpty()) {
             VerticalLayout attachments = new VerticalLayout();
+            attachments.addClassName("message-attachments");
             attachments.setPadding(false);
             attachments.setSpacing(false);
-            attachments.getStyle().set("margin-top", "8px");
+            Span label = new Span("Вкладення");
+            label.addClassName("attachments-label");
+            attachments.add(label);
             message.getAttachments().forEach(att -> {
                 Button download = new Button(att.getFilename() != null ? att.getFilename() : "Вкладення");
                 download.addClickListener(e -> download.getUI().ifPresent(ui ->
@@ -265,8 +280,7 @@ public class MailInboxView extends VerticalLayout {
     }
 
     private String metaText(ChatMessageDto message) {
-        String time = message.getSentAt() != null ? dateTimeFormatter.format(message.getSentAt()) : "";
-        return "%s • %s".formatted(message.getDirection() == MessageDirection.IN ? "Вхідне" : "Вихідне", time);
+        return message.getSentAt() != null ? dateTimeFormatter.format(message.getSentAt()) : "";
     }
 
     private java.util.stream.Stream<ChatListItemDto> fetchChats(Query<ChatListItemDto, Void> query) {
