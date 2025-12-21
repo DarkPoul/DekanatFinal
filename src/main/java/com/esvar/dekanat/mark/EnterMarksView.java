@@ -1011,7 +1011,7 @@ public class EnterMarksView extends Div {
         StudentGroupEntity group = requireCurrentGroup();
         String courseNumber = String.valueOf(group.getCourse());
         String groupName = group.getGroupCode();
-        String studyYear = String.valueOf(group.getYear());
+        String studyYear = getCurrentAcademicYear();
         // Використовуємо поточну дату
         LocalDate today = LocalDate.now();
         String day = today.format(DateTimeFormatter.ofPattern("dd"));
@@ -1148,7 +1148,7 @@ public class EnterMarksView extends Div {
         StudentGroupEntity group = requireCurrentGroup();
         String courseNumber = String.valueOf(group.getCourse());
         String groupName = group.getGroupCode();
-        String studyYear = String.valueOf(group.getYear());
+        String studyYear = getCurrentAcademicYear();
         LocalDate today = LocalDate.now();
         String day = today.format(DateTimeFormatter.ofPattern("dd"));
         String month = today.format(DateTimeFormatter.ofPattern("MM"));
@@ -1197,6 +1197,13 @@ public class EnterMarksView extends Div {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    private String getCurrentAcademicYear() {
+        LocalDate today = LocalDate.now();
+        int currentYear = today.getYear() % 100;
+        int nextYear = today.plusYears(1).getYear() % 100;
+        return String.format("%02d-%02d", currentYear, nextYear);
     }
 
     private void generateReportWithLoading(String secondTeacher) {
