@@ -14,12 +14,14 @@ public interface ChatRepository extends JpaRepository<ChatEntity, Long> {
 
     Optional<ChatEntity> findByPeerEmail(String peerEmail);
 
+    Optional<ChatEntity> findByContactEmail(String contactEmail);
+
     Optional<ChatEntity> findByThreadKey(String threadKey);
 
     @Query("""
             select c from ChatEntity c
             where (:statusesEmpty = true or c.status in :statuses)
-              and (lower(c.peerEmail) like lower(concat('%', :query, '%'))
+              and (lower(c.contactEmail) like lower(concat('%', :query, '%'))
                 or lower(coalesce(c.displayName,'')) like lower(concat('%', :query, '%'))
                 or lower(coalesce(c.title,'')) like lower(concat('%', :query, '%')))
             """)

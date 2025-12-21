@@ -13,6 +13,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "mail_chat", indexes = {
         @Index(name = "idx_mail_chat_peer_email", columnList = "peer_email"),
+        @Index(name = "idx_mail_chat_contact_email", columnList = "contact_email"),
         @Index(name = "idx_mail_chat_thread_key", columnList = "thread_key", unique = true),
         @Index(name = "idx_mail_chat_last_message_at", columnList = "last_message_at")
 })
@@ -38,6 +39,9 @@ public class ChatEntity {
 
     @Column(name = "peer_email", nullable = false, length = 320)
     private String peerEmail;
+
+    @Column(name = "contact_email", nullable = false, length = 320)
+    private String contactEmail;
 
     @Column(name = "display_name", length = 255)
     private String displayName;

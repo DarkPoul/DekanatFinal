@@ -32,7 +32,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -82,14 +81,11 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
-    public List<ChatMessageDetailDto> findThreadMessages(String threadKey, int limit, Instant before) throws MessagingException {
-        Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "sentAt"));
-        Page<MailMessageEntity> page = before != null
-                ? mailMessageRepository.findByThreadKeyAndSentAtBefore(threadKey, before, pageable)
-                : mailMessageRepository.findByThreadKey(threadKey, pageable);
-        List<MailMessageEntity> messages = new ArrayList<>(page.getContent());
-        messages.sort(Comparator.comparing(MailMessageEntity::getSentAt, Comparator.nullsLast(Comparator.naturalOrder())));
-
+    public List<ChatMessageDetailDto> findChatMessages(String contactEmail, Instant before) throws MessagingException {
+        String normalizedContact = StringUtils.hasText(contactEmail) ? contactEmail.trim().toLowerCase() : contactEmail;
+        List<MailMessageEntity> messages = before != null
+                ? mailMessageRepository.findByContactEmailAndSentAtBeforeOrderBySentAtDesc(normalizedContact, before)
+                : mailMessageRepository.findByContactEmailOrderBySentAtDesc(normalizedContact);
         List<ChatMessageDetailDto> details = new ArrayList<>();
         for (MailMessageEntity message : messages) {
             details.add(toDetailDto(message));
@@ -112,24 +108,8 @@ public class ChatService {
         });
     }
 
-    public void updateStatus(String threadKey, ChatStatus status) {
-        chatRepository.findByThreadKey(threadKey).ifPresent(chat -> {
-            chat.setStatus(status);
-            chat.setHasUnprocessed(false);
-            chatRepository.save(chat);
-        });
-    }
-
     public void markProcessed(Long chatId) {
         chatRepository.findById(chatId).ifPresent(chat -> {
-            chat.setHasUnprocessed(false);
-            chat.setUnreadCount(0);
-            chatRepository.save(chat);
-        });
-    }
-
-    public void markProcessed(String threadKey) {
-        chatRepository.findByThreadKey(threadKey).ifPresent(chat -> {
             chat.setHasUnprocessed(false);
             chat.setUnreadCount(0);
             chatRepository.save(chat);
@@ -188,7 +168,7 @@ public class ChatService {
 
     public void replyToChat(Long chatId, String body, String subjectOverride) {
         ChatEntity chat = chatRepository.findById(chatId).orElseThrow();
-        String to = chat.getPeerEmail();
+        String to = chat.getContactEmail();
         Optional<MailMessageEntity> lastMessage = mailMessageRepository.findTop1ByChatIdOrderBySentAtDesc(chatId);
 
         MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -227,14 +207,12 @@ public class ChatService {
     }
 
     private ChatListItemDto toDto(ChatEntity chat) {
-        String resolvedTitle = StringUtils.hasText(chat.getTitle()) ? chat.getTitle() : MailThreadUtils.stripPrefixes(chat.getNormalizedSubject());
+        String contact = StringUtils.hasText(chat.getContactEmail()) ? chat.getContactEmail() : chat.getPeerEmail();
+        String display = StringUtils.hasText(chat.getDisplayName()) ? chat.getDisplayName() : contact;
         return ChatListItemDto.builder()
                 .id(chat.getId())
-                .threadKey(chat.getThreadKey())
-                .title(resolvedTitle)
-                .displayName(StringUtils.hasText(chat.getDisplayName()) ? chat.getDisplayName() : chat.getPeerEmail())
-                .peerEmail(chat.getPeerEmail())
-                .orgUnit(chat.getOrgUnit())
+                .contactEmail(contact)
+                .displayName(display)
                 .status(chat.getStatus())
                 .hasUnprocessed(chat.isHasUnprocessed())
                 .unreadCount(chat.getUnreadCount())

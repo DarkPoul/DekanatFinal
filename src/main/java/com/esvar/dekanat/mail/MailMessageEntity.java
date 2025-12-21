@@ -14,6 +14,7 @@ import java.util.List;
 @Entity
 @Table(name = "mail_message", indexes = {
         @Index(name = "idx_mail_message_peer_email_date", columnList = "peer_email, sent_at"),
+        @Index(name = "idx_mail_message_contact_email_date", columnList = "contact_email, sent_at"),
         @Index(name = "idx_mail_message_folder_uid", columnList = "folder, uid"),
         @Index(name = "idx_mail_message_thread_key_date", columnList = "thread_key, sent_at")
 })
@@ -43,6 +44,9 @@ public class MailMessageEntity {
 
     @Column(name = "peer_email", nullable = false, length = 320)
     private String peerEmail;
+
+    @Column(name = "contact_email", nullable = false, length = 320)
+    private String contactEmail;
 
     @Column(name = "folder", nullable = false, length = 64)
     private String folder;
