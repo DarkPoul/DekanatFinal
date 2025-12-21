@@ -173,6 +173,7 @@ public class ChatService {
                 .build();
     }
 
+    @Transactional
     public ChatMessageDetailDto getMessageDetails(Long messageId) throws MessagingException {
         MailMessageEntity entity = mailMessageRepository.findById(messageId)
                 .orElseThrow(() -> new IllegalArgumentException("Message not found"));
@@ -232,6 +233,7 @@ public class ChatService {
 
     private MailpartExtractor.BodyContent ensureContentCached(MailMessageEntity entity) throws MessagingException {
         if (entity.getContentLoadedAt() != null && (StringUtils.hasText(entity.getCachedPlainBody()) || StringUtils.hasText(entity.getCachedHtmlBody()))) {
+            initializeAttachments(entity);
             return new MailpartExtractor.BodyContent(entity.getCachedHtmlBody(), entity.getCachedPlainBody());
         }
 
@@ -282,11 +284,18 @@ public class ChatService {
         List<MailAttachmentMetaEntity> attachments = new ArrayList<>();
         collectAttachments(message, "", attachments);
         attachments.forEach(a -> a.setMessage(entity));
+        initializeAttachments(entity);
         entity.getAttachments().clear();
         entity.getAttachments().addAll(attachments);
-        entity.setHasAttachments(!attachments.isEmpty());
+        entity.setHasAttachments(!entity.getAttachments().isEmpty());
         entity.setContentLoadedAt(Instant.now());
         mailMessageRepository.save(entity);
+    }
+
+    private void initializeAttachments(MailMessageEntity entity) {
+        if (entity.getAttachments() != null) {
+            entity.getAttachments().size();
+        }
     }
 
     private void collectAttachments(Part part, String partId, List<MailAttachmentMetaEntity> attachments) throws MessagingException, IOException {
