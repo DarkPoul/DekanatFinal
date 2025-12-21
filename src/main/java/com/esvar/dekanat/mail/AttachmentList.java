@@ -5,6 +5,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -58,7 +59,9 @@ public class AttachmentList extends VerticalLayout {
 
         row.add(icon, textWrapper, download);
         row.setFlexGrow(1, textWrapper);
+
         add(row);
+        maybeAddPreview(attachment);
     }
 
     private Icon iconForMime(String mime) {
@@ -72,6 +75,24 @@ public class AttachmentList extends VerticalLayout {
             return VaadinIcon.ARCHIVE.create();
         }
         return VaadinIcon.FILE_TEXT.create();
+    }
+
+    private void maybeAddPreview(AttachmentDto attachment) {
+        if (attachment.getMimeType() == null || !attachment.getMimeType().toLowerCase().startsWith("image/")) {
+            return;
+        }
+        String url;
+        if (attachment.getId() != null) {
+            url = "/api/mail/attachments/" + attachment.getId() + "?inline=true";
+        } else {
+            url = "/api/mail/messages/" + attachment.getMessageId() + "/attachments/" + attachment.getAttachmentId() + "?inline=true";
+        }
+        Image preview = new Image(url, attachment.getFilename() != null ? attachment.getFilename() : "зображення");
+        preview.addClassName("attachment-preview");
+        preview.setMaxWidth("320px");
+        preview.setMaxHeight("320px");
+        preview.setAlt(attachment.getFilename());
+        add(preview);
     }
 
     private String formatSize(Long sizeBytes) {

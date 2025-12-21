@@ -102,3 +102,11 @@
 .attachment-icon {
     color: var(--lumo-primary-text-color);
 }
+
+.attachment-preview {
+    margin-top: var(--lumo-space-xs);
+    border: 1px solid var(--lumo-contrast-10pct);
+    border-radius: var(--lumo-border-radius-m);
+    box-shadow: var(--lumo-box-shadow-xs);
+    object-fit: contain;
+}
