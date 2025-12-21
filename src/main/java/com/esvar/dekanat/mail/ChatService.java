@@ -88,6 +88,16 @@ public class ChatService {
         List<MailMessageEntity> messages = before != null
                 ? mailMessageRepository.findByChatIdAndSentAtBeforeOrderBySentAtDesc(chatId, before)
                 : mailMessageRepository.findByChatIdOrderBySentAtDesc(chatId);
+
+        if (messages.isEmpty()) {
+            Optional<ChatEntity> chat = chatRepository.findById(chatId);
+            if (chat.isPresent() && StringUtils.hasText(chat.get().getContactEmail())) {
+                String normalized = chat.get().getContactEmail().trim().toLowerCase();
+                messages = before != null
+                        ? mailMessageRepository.findByContactEmailAndSentAtBeforeOrderBySentAtDesc(normalized, before)
+                        : mailMessageRepository.findByContactEmailOrderBySentAtDesc(normalized);
+            }
+        }
         List<ChatMessageDetailDto> details = new ArrayList<>();
         for (MailMessageEntity message : messages) {
             details.add(toDetailDto(message));
