@@ -17,6 +17,7 @@ import jakarta.mail.MessagingException;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -33,13 +34,17 @@ public class ConversationView extends VerticalLayout {
     private final ComboBox<ChatStatus> statusComboBox = new ComboBox<>("Статус");
     private final Button markProcessedButton = new Button("Позначити опрацьованим");
     private final Button closeButton = new Button("Закрити");
+    private final Button loadMoreButton = new Button("Показати більше");
     private final Span metaInfo = new Span();
     private final Div messagesContainer = new Div();
     private final H3 title = new H3("Діалог");
 
     private ChatListItemDto currentChat;
     private final List<ChatMessageDetailDto> loadedMessages = new ArrayList<>();
+    private Instant nextPageBefore;
+    private boolean loadingMessages = false;
     private Consumer<ChatListItemDto> chatUpdateListener;
+    private static final int PAGE_SIZE = 20;
 
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
@@ -102,6 +107,10 @@ public class ConversationView extends VerticalLayout {
         metaInfo.addClassName("conversation-meta");
         title.addClassName("conversation-title");
 
+        loadMoreButton.addClickListener(e -> loadNextPage());
+        loadMoreButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        loadMoreButton.setVisible(false);
+
         HorizontalLayout left = new HorizontalLayout(title, statusComboBox, markProcessedButton, closeButton);
         left.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         left.setSpacing(true);
@@ -153,21 +162,55 @@ public class ConversationView extends VerticalLayout {
         if (currentChat == null) {
             return;
         }
-        messagesContainer.removeAll();
-        messagesContainer.add(new Span("Завантаження..."));
+        nextPageBefore = null;
+        loadedMessages.clear();
+        renderLoadingState();
+        loadPage(true);
+    }
+
+    private void loadNextPage() {
+        loadPage(false);
+    }
+
+    private void loadPage(boolean initial) {
+        if (currentChat == null || loadingMessages) {
+            return;
+        }
+        loadingMessages = true;
+        loadMoreButton.setEnabled(false);
         try {
-            List<ChatMessageDetailDto> batch = chatService.findChatMessages(currentChat.getId(), null);
-            loadedMessages.clear();
+            List<ChatMessageDetailDto> batch = chatService.findChatMessages(currentChat.getId(), nextPageBefore, PAGE_SIZE);
+            if (initial) {
+                loadedMessages.clear();
+            }
             loadedMessages.addAll(batch);
-            renderMessages();
+            nextPageBefore = calculateNextBefore(batch);
+            boolean hasMore = batch.size() == PAGE_SIZE && nextPageBefore != null;
+            renderMessages(hasMore);
             metaInfo.setText(buildMetaText());
         } catch (MessagingException e) {
             messagesContainer.removeAll();
             messagesContainer.add(new Span("Не вдалося завантажити тему."));
+        } finally {
+            loadingMessages = false;
+            loadMoreButton.setEnabled(true);
         }
     }
 
-    private void renderMessages() {
+    private Instant calculateNextBefore(List<ChatMessageDetailDto> batch) {
+        if (batch == null || batch.isEmpty()) {
+            return null;
+        }
+        ChatMessageDetailDto last = batch.get(batch.size() - 1);
+        return last.getSentAt() != null ? last.getSentAt().minusMillis(1) : null;
+    }
+
+    private void renderLoadingState() {
+        messagesContainer.removeAll();
+        messagesContainer.add(new Span("Завантаження..."));
+    }
+
+    private void renderMessages(boolean hasMore) {
         messagesContainer.removeAll();
         if (loadedMessages.isEmpty()) {
             messagesContainer.add(new Span("Немає повідомлень у темі"));
@@ -183,6 +226,10 @@ public class ConversationView extends VerticalLayout {
                 lastDate = date;
             }
             messagesContainer.add(new MessageBubble(message));
+        }
+        loadMoreButton.setVisible(hasMore);
+        if (hasMore) {
+            messagesContainer.add(loadMoreButton);
         }
     }
 
