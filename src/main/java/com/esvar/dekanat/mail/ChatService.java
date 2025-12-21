@@ -2,11 +2,11 @@ package com.esvar.dekanat.mail;
 
 import com.esvar.dekanat.mail.dto.AttachmentDto;
 import com.esvar.dekanat.mail.dto.ChatListItemDto;
-import com.esvar.dekanat.mail.dto.ChatMessageDto;
+import com.esvar.dekanat.mail.dto.ChatMessageDetailDto;
+import com.esvar.dekanat.mail.dto.ChatMessageHeaderDto;
 import com.esvar.dekanat.mail.dto.ChatFilter;
 import jakarta.mail.*;
 import jakarta.mail.internet.MimeMessage;
-import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.mail.MailProperties;
 import org.springframework.data.domain.Page;
@@ -19,12 +19,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-import static org.reflections.Reflections.log;
 
 @Service
 public class ChatService {
@@ -73,15 +75,9 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ChatMessageDto> findMessages(Long chatId, Pageable pageable) {
+    public Page<ChatMessageHeaderDto> findMessageHeaders(Long chatId, Pageable pageable) {
         Page<MailMessageEntity> page = mailMessageRepository.findByChatId(chatId, pageable);
-        return page.map(entity -> {
-            try {
-                return toMessageDto(entity);
-            } catch (MessagingException e) {
-                throw new IllegalStateException("Failed to map mail message", e);
-            }
-        });
+        return page.map(this::toHeaderDto);
     }
 
     public void updateStatus(Long chatId, ChatStatus status) {
@@ -177,17 +173,20 @@ public class ChatService {
                 .build();
     }
 
-    private ChatMessageDto toMessageDto(MailMessageEntity entity) throws MessagingException {
-        MailpartExtractor.BodyContent body = resolveBodyText(entity);
+    @Transactional
+    public ChatMessageDetailDto getMessageDetails(Long messageId) throws MessagingException {
+        MailMessageEntity entity = mailMessageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found"));
 
-        String htmlText  = body != null && body.html()  != null ? body.html()  : "";
+        MailpartExtractor.BodyContent body = ensureContentCached(entity);
+
+        String htmlText = body != null && body.html() != null ? body.html() : "";
         String plainText = body != null && body.plain() != null ? body.plain() : "";
 
         MailReplySplitter.SplitResult split = MailReplySplitter.split(plainText);
         String replyText = split.reply();
         String quotedText = split.quoted();
 
-        // якщо ти хочеш quoted ще й як html (просто для простого відображення)
         String quotedHtml = "";
         if (StringUtils.hasText(quotedText)) {
             quotedHtml = "<pre style=\"white-space:pre-wrap;\">" +
@@ -195,7 +194,7 @@ public class ChatService {
                     "</pre>";
         }
 
-        return ChatMessageDto.builder()
+        return ChatMessageDetailDto.builder()
                 .id(entity.getId())
                 .messageId(entity.getMessageId())
                 .from(entity.getFromEmail())
@@ -203,8 +202,9 @@ public class ChatService {
                 .subject(entity.getSubject())
                 .bodyHtml(htmlText)
                 .bodyText(replyText)
-                .quotedText(quotedText)     // <-- нове поле
-                .quotedHtml(quotedHtml)     // <-- опційно
+                .quotedText(quotedText)
+                .quotedHtml(quotedHtml)
+                .snippet(entity.getSnippet())
                 .sentAt(entity.getSentAt())
                 .direction(entity.getDirection())
                 .hasAttachments(entity.isHasAttachments())
@@ -212,31 +212,38 @@ public class ChatService {
                 .build();
     }
 
-    private static String escapeHtml(String s) {
-        if (s == null) return "";
-        return s.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#39;");
+    private ChatMessageHeaderDto toHeaderDto(MailMessageEntity entity) {
+        String snippet = entity.getSnippet();
+        if (!StringUtils.hasText(snippet) && StringUtils.hasText(entity.getCachedPlainBody())) {
+            snippet = MailTextExtractor.sanitizeSnippet(entity.getCachedPlainBody(), 500);
+        }
+
+        return ChatMessageHeaderDto.builder()
+                .id(entity.getId())
+                .messageId(entity.getMessageId())
+                .from(entity.getFromEmail())
+                .to(entity.getToEmail())
+                .subject(entity.getSubject())
+                .snippet(snippet)
+                .sentAt(entity.getSentAt())
+                .direction(entity.getDirection())
+                .hasAttachments(entity.isHasAttachments())
+                .build();
     }
 
+    private MailpartExtractor.BodyContent ensureContentCached(MailMessageEntity entity) throws MessagingException {
+        if (entity.getContentLoadedAt() != null && (StringUtils.hasText(entity.getCachedPlainBody()) || StringUtils.hasText(entity.getCachedHtmlBody()))) {
+            initializeAttachments(entity);
+            return new MailpartExtractor.BodyContent(entity.getCachedHtmlBody(), entity.getCachedPlainBody());
+        }
 
-
-
-    private MailpartExtractor.BodyContent resolveBodyText(MailMessageEntity entity) throws MessagingException {
         try {
             Message message = mailImapClient.getMessage(entity.getFolder(), entity.getUid());
-
-            // force load content (інколи критично для IMAP)
-            // message.getContent();
-
             MailpartExtractor.BodyContent body = MailpartExtractor.extractBody(message);
 
             String html = body != null ? body.html() : null;
             String plain = body != null ? body.plain() : null;
 
-            // Фолбек, якщо витяг не дав нічого
             if (!StringUtils.hasText(html) && !StringUtils.hasText(plain)) {
                 Extracted ex = extractTextFallback(message);
                 html = ex.html;
@@ -248,10 +255,11 @@ public class ChatService {
                     ? MailTextExtractor.stripInlinePlaceholders(plain)
                     : (StringUtils.hasText(sanitizedHtml) ? MailTextExtractor.toPlainText(sanitizedHtml) : "");
 
-            // останній фолбек — snippet
             if (!StringUtils.hasText(finalPlain) && StringUtils.hasText(entity.getSnippet())) {
                 finalPlain = entity.getSnippet();
             }
+
+            persistContent(entity, sanitizedHtml, finalPlain, message);
 
             return new MailpartExtractor.BodyContent(sanitizedHtml, finalPlain);
         } catch (MessagingException e) {
@@ -259,7 +267,65 @@ public class ChatService {
                 return new MailpartExtractor.BodyContent("", entity.getSnippet());
             }
             throw e;
+        } catch (IOException e) {
+            throw new MessagingException("Failed to load message content", e);
         }
+    }
+
+    private void persistContent(MailMessageEntity entity, String html, String plain, Message message) throws MessagingException, IOException {
+        String sanitizedPlain = StringUtils.hasText(plain) ? plain : "";
+        entity.setCachedHtmlBody(html);
+        entity.setCachedPlainBody(sanitizedPlain);
+
+        if (!StringUtils.hasText(entity.getSnippet())) {
+            entity.setSnippet(MailTextExtractor.sanitizeSnippet(sanitizedPlain, 500));
+        }
+
+        List<MailAttachmentMetaEntity> attachments = new ArrayList<>();
+        collectAttachments(message, "", attachments);
+        attachments.forEach(a -> a.setMessage(entity));
+        initializeAttachments(entity);
+        entity.getAttachments().clear();
+        entity.getAttachments().addAll(attachments);
+        entity.setHasAttachments(!entity.getAttachments().isEmpty());
+        entity.setContentLoadedAt(Instant.now());
+        mailMessageRepository.save(entity);
+    }
+
+    private void initializeAttachments(MailMessageEntity entity) {
+        if (entity.getAttachments() != null) {
+            entity.getAttachments().size();
+        }
+    }
+
+    private void collectAttachments(Part part, String partId, List<MailAttachmentMetaEntity> attachments) throws MessagingException, IOException {
+        if (part.isMimeType("multipart/*")) {
+            Multipart multipart = (Multipart) part.getContent();
+            for (int i = 0; i < multipart.getCount(); i++) {
+                Part bodyPart = multipart.getBodyPart(i);
+                String childPartId = partId.isEmpty() ? String.valueOf(i + 1) : partId + "." + (i + 1);
+                collectAttachments(bodyPart, childPartId, attachments);
+            }
+            return;
+        }
+
+        if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition()) || StringUtils.hasText(part.getFileName())) {
+            attachments.add(MailAttachmentMetaEntity.builder()
+                    .partId(partId.isEmpty() ? "part" : partId)
+                    .filename(part.getFileName())
+                    .contentType(part.getContentType())
+                    .sizeBytes(part.getSize() >= 0 ? (long) part.getSize() : null)
+                    .build());
+        }
+    }
+
+    private static String escapeHtml(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     private static class Extracted {
@@ -372,8 +438,6 @@ public class ChatService {
 
         return c.toString();
     }
-
-
 
     private AttachmentDto toAttachmentDto(MailAttachmentMetaEntity attachment) {
         return AttachmentDto.builder()
