@@ -7,6 +7,7 @@ import lombok.Value;
 @Builder
 public class AttachmentDto {
     Long id;
+    String messageId;
     String attachmentId;
     String filename;
     Long sizeBytes;

@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.util.UriUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -138,10 +139,19 @@ public class ChatService {
     @Transactional(readOnly = true)
     public AttachmentContent loadAttachment(String messageId, String attachmentId) throws MessagingException {
         MailAttachmentMetaEntity meta = attachmentRepository.findByMessage_MessageIdAndPartId(messageId, attachmentId);
-        if (meta == null) {
-            throw new IllegalArgumentException("Attachment not found");
+        if (meta != null) {
+            return loadAttachment(meta);
         }
-        return loadAttachment(meta);
+        MailMessageEntity entity = mailMessageRepository.findByMessageId(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found"));
+        Message mimeMessage = mailImapClient.getMessage(entity.getFolder(), entity.getUid());
+        List<MailAttachmentMetaEntity> transientAttachments = collectTransientAttachments(mimeMessage, "", entity);
+        MailAttachmentMetaEntity transientMeta = transientAttachments.stream()
+                .filter(a -> attachmentId.equals(a.getPartId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Attachment not found"));
+        InputStream stream = MailpartExtractor.extractAttachmentStream(mimeMessage, attachmentId);
+        return new AttachmentContent(stream, transientMeta.getContentType(), transientMeta.getFilename());
     }
 
     @Transactional(readOnly = true)
@@ -235,10 +245,10 @@ public class ChatService {
     }
 
     private ChatMessageDetailDto toDetailDto(MailMessageEntity entity) throws MessagingException {
-        MailpartExtractor.BodyContent body = ensureContentCached(entity);
+        ContentPayload content = ensureContentPayload(entity);
 
-        String htmlText = body != null && body.html() != null ? body.html() : "";
-        String plainText = body != null && body.plain() != null ? body.plain() : "";
+        String htmlText = content.html();
+        String plainText = content.plain();
         if (!StringUtils.hasText(plainText) && StringUtils.hasText(htmlText)) {
             plainText = MailTextExtractor.toPlainText(htmlText);
         }
@@ -257,8 +267,8 @@ public class ChatService {
             cleanHtmlWithInline = toSimpleHtml(bodyTextClean);
         }
 
-        String snippet = StringUtils.hasText(entity.getSnippet())
-                ? entity.getSnippet()
+        String snippet = StringUtils.hasText(content.snippet())
+                ? content.snippet()
                 : MailTextExtractor.sanitizeSnippet(bodyTextClean, 500);
 
         return ChatMessageDetailDto.builder()
@@ -276,19 +286,23 @@ public class ChatService {
                 .snippet(snippet)
                 .sentAt(entity.getSentAt())
                 .direction(entity.getDirection())
-                .hasAttachments(entity.isHasAttachments())
-                .attachments(entity.getAttachments().stream()
+                .hasAttachments(content.attachments().stream().anyMatch(att -> !att.isInline()))
+                .attachments(content.attachments().stream()
                         .filter(att -> !att.isInline())
-                        .map(this::toAttachmentDto)
+                        .map(att -> toAttachmentDto(att, entity.getMessageId()))
                         .collect(Collectors.toList()))
                 .build();
     }
 
-    private MailpartExtractor.BodyContent ensureContentCached(MailMessageEntity entity) throws MessagingException {
-        if (entity.getContentLoadedAt() != null && (StringUtils.hasText(entity.getCachedPlainBody()) || StringUtils.hasText(entity.getCachedHtmlBody()))) {
+    private ContentPayload ensureContentPayload(MailMessageEntity entity) throws MessagingException {
+        boolean hasCache = entity.getContentLoadedAt() != null && (StringUtils.hasText(entity.getCachedPlainBody()) || StringUtils.hasText(entity.getCachedHtmlBody()));
+        if (hasCache) {
             initializeAttachments(entity);
-            return new MailpartExtractor.BodyContent(entity.getCachedHtmlBody(), entity.getCachedPlainBody());
+            String snippet = StringUtils.hasText(entity.getSnippet()) ? entity.getSnippet() : MailTextExtractor.sanitizeSnippet(entity.getCachedPlainBody(), 500);
+            return new ContentPayload(entity.getCachedHtmlBody(), entity.getCachedPlainBody(), snippet, entity.getAttachments(), true);
         }
+
+        boolean readOnly = TransactionSynchronizationManager.isCurrentTransactionReadOnly();
 
         try {
             Message message = mailImapClient.getMessage(entity.getFolder(), entity.getUid());
@@ -313,13 +327,21 @@ public class ChatService {
             }
 
             String cleanPlain = MailQuotedStripper.stripQuotedPlain(finalPlain);
+            String snippet = StringUtils.hasText(cleanPlain)
+                    ? MailTextExtractor.sanitizeSnippet(cleanPlain, 500)
+                    : MailTextExtractor.sanitizeSnippet(finalPlain, 500);
+
+            if (readOnly) {
+                List<MailAttachmentMetaEntity> transientAttachments = collectTransientAttachments(message, "", entity);
+                return new ContentPayload(sanitizedHtml, finalPlain, snippet, transientAttachments, false);
+            }
 
             persistContent(entity, sanitizedHtml, finalPlain, cleanPlain, message);
-
-            return new MailpartExtractor.BodyContent(sanitizedHtml, finalPlain);
+            initializeAttachments(entity);
+            return new ContentPayload(sanitizedHtml, finalPlain, entity.getSnippet(), entity.getAttachments(), false);
         } catch (MessagingException e) {
             if (StringUtils.hasText(entity.getSnippet())) {
-                return new MailpartExtractor.BodyContent("", entity.getSnippet());
+                return new ContentPayload("", entity.getSnippet(), entity.getSnippet(), entity.getAttachments(), true);
             }
             throw e;
         } catch (IOException e) {
@@ -377,14 +399,15 @@ public class ChatService {
         boolean downloadable = Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition()) || StringUtils.hasText(part.getFileName());
 
         if (inline || downloadable) {
-            attachments.add(MailAttachmentMetaEntity.builder()
+            MailAttachmentMetaEntity meta = MailAttachmentMetaEntity.builder()
                     .partId(partId.isEmpty() ? "part" : partId)
                     .filename(part.getFileName())
                     .contentType(part.getContentType())
                     .sizeBytes(part.getSize() >= 0 ? (long) part.getSize() : null)
                     .contentId(contentId)
                     .inline(inline)
-                    .build());
+                    .build();
+            attachments.add(meta);
         }
     }
 
@@ -477,9 +500,10 @@ public class ChatService {
         return c.toString();
     }
 
-    private AttachmentDto toAttachmentDto(MailAttachmentMetaEntity attachment) {
+    private AttachmentDto toAttachmentDto(MailAttachmentMetaEntity attachment, String messageId) {
         return AttachmentDto.builder()
                 .id(attachment.getId())
+                .messageId(messageId)
                 .attachmentId(attachment.getPartId())
                 .filename(attachment.getFilename())
                 .sizeBytes(attachment.getSizeBytes())
@@ -517,5 +541,18 @@ public class ChatService {
             cleaned = cleaned.substring(4);
         }
         return cleaned;
+    }
+
+    private List<MailAttachmentMetaEntity> collectTransientAttachments(Part part, String partId, MailMessageEntity entity) throws MessagingException, IOException {
+        List<MailAttachmentMetaEntity> attachments = new ArrayList<>();
+        collectAttachments(part, partId, attachments);
+        attachments.forEach(a -> {
+            a.setMessage(entity);
+            a.setId(null);
+        });
+        return attachments;
+    }
+
+    private record ContentPayload(String html, String plain, String snippet, List<MailAttachmentMetaEntity> attachments, boolean cached) {
     }
 }
