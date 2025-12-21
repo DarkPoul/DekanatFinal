@@ -20,7 +20,10 @@ public class SecurityConfiguration extends VaadinWebSecurity {
     protected void configure(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(new AntPathRequestMatcher("/public/**")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/api/mail/**")).authenticated()
         );
+
+        http.csrf(csrf -> csrf.ignoringRequestMatchers(new AntPathRequestMatcher("/api/mail/**")));
 
         super.configure(http);
         setLoginView(http, LoginView.class);

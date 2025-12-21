@@ -69,16 +69,18 @@ public class MailController {
     }
 
     @GetMapping("/attachments/{attachmentId}")
-    public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable Long attachmentId) throws MessagingException {
+    public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable Long attachmentId,
+                                                                  @RequestParam(name = "inline", defaultValue = "false") boolean inline) throws MessagingException {
         ChatService.AttachmentContent content = chatService.loadAttachment(attachmentId);
-        return buildAttachmentResponse(content);
+        return buildAttachmentResponse(content, inline);
     }
 
     @GetMapping("/messages/{messageId}/attachments/{attachmentId}")
     public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable String messageId,
-                                                                  @PathVariable String attachmentId) throws MessagingException, IOException {
+                                                                  @PathVariable String attachmentId,
+                                                                  @RequestParam(name = "inline", defaultValue = "false") boolean inline) throws MessagingException, IOException {
         ChatService.AttachmentContent content = chatService.loadAttachment(messageId, attachmentId);
-        return buildAttachmentResponse(content);
+        return buildAttachmentResponse(content, inline);
     }
 
     @GetMapping("/messages/{messageId}/inline/{cid}")
@@ -90,8 +92,8 @@ public class MailController {
                 .body(new InputStreamResource(content.stream()));
     }
 
-    private ResponseEntity<InputStreamResource> buildAttachmentResponse(ChatService.AttachmentContent content) {
-        String disposition = "attachment";
+    private ResponseEntity<InputStreamResource> buildAttachmentResponse(ChatService.AttachmentContent content, boolean inline) {
+        String disposition = inline ? "inline" : "attachment";
         if (content.filename() != null) {
             disposition += "; filename=\"" + content.filename() + "\"";
         }
