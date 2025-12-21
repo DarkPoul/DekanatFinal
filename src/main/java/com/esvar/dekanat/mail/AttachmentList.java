@@ -41,7 +41,7 @@ public class AttachmentList extends VerticalLayout {
 
         Button download = new Button("Завантажити", new Icon(VaadinIcon.DOWNLOAD_ALT));
         download.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        download.addClickListener(e -> download.getUI().ifPresent(ui -> ui.getPage().open("/mail/attachments/" + attachment.getId())));
+        download.addClickListener(e -> download.getUI().ifPresent(ui -> ui.getPage().open("/api/mail/attachments/" + attachment.getId())));
 
         HorizontalLayout textWrapper = new HorizontalLayout(name, size);
         textWrapper.setAlignItems(Alignment.BASELINE);

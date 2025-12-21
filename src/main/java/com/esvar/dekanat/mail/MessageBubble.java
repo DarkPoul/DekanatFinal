@@ -2,7 +2,6 @@ package com.esvar.dekanat.mail;
 
 import com.esvar.dekanat.mail.dto.AttachmentDto;
 import com.esvar.dekanat.mail.dto.ChatMessageDetailDto;
-import com.esvar.dekanat.mail.dto.ChatMessageHeaderDto;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
@@ -23,16 +22,12 @@ public class MessageBubble extends Div {
 
     private final Div bodyWrapper = new Div();
     private final Div attachmentsWrapper = new Div();
-    private final MessageDetailLoader detailLoader;
+    private final ChatMessageDetailDto detail;
 
-    private ChatMessageHeaderDto header;
-    private ChatMessageDetailDto detail;
-
-    public MessageBubble(ChatMessageHeaderDto header, MessageDetailLoader detailLoader) {
-        this.header = header;
-        this.detailLoader = detailLoader;
+    public MessageBubble(ChatMessageDetailDto detail) {
+        this.detail = detail;
         addClassName("message-bubble");
-        addClassName(header.getDirection() == MessageDirection.IN ? "incoming" : "outgoing");
+        addClassName(detail.getDirection() == MessageDirection.IN ? "incoming" : "outgoing");
 
         bodyWrapper.addClassName("bubble-body");
         attachmentsWrapper.addClassName("bubble-attachments");
@@ -40,23 +35,17 @@ public class MessageBubble extends Div {
         add(buildHeader(), bodyWrapper, attachmentsWrapper);
         renderBody();
         renderAttachments();
-
-        addClickListener(e -> {
-            if (detail == null) {
-                loadDetails();
-            }
-        });
     }
 
     private Component buildHeader() {
-        Span directionBadge = new Span(header.getDirection() == MessageDirection.IN ? "Вхідне" : "Вихідне");
+        Span directionBadge = new Span(detail.getDirection() == MessageDirection.IN ? "Вхідне" : "Вихідне");
         directionBadge.addClassName("direction-badge");
-        directionBadge.addClassName(header.getDirection() == MessageDirection.IN ? "incoming-badge" : "outgoing-badge");
+        directionBadge.addClassName(detail.getDirection() == MessageDirection.IN ? "incoming-badge" : "outgoing-badge");
 
         Span addresses = new Span(shortAddress());
         addresses.addClassName("bubble-address");
 
-        Span time = new Span(header.getSentAt() != null ? timeFormatter.format(header.getSentAt()) : "");
+        Span time = new Span(detail.getSentAt() != null ? timeFormatter.format(detail.getSentAt()) : "");
         time.addClassName("message-time");
 
         HorizontalLayout header = new HorizontalLayout(directionBadge, addresses, time);
@@ -69,39 +58,22 @@ public class MessageBubble extends Div {
 
     private void renderBody() {
         bodyWrapper.removeAll();
-        if (detail == null) {
-            String previewText = toSafeHtml(Optional.ofNullable(header.getSnippet()).orElse("Натисніть, щоб завантажити"));
-            Span preview = new Span();
-            preview.addClassName("message-body-html");
-            preview.getElement().setProperty("innerHTML", previewText);
-            bodyWrapper.add(preview);
-            return;
-        }
-
-        QuoteCollapsePanel.QuoteExtraction extraction = QuoteCollapsePanel.extract(detail.getBodyText());
-        boolean hasQuote = extraction.hasQuote();
-        String mainHtml;
-        if (!hasQuote && StringUtils.hasText(detail.getBodyHtml())) {
+        String mainHtml = detail.getBodyHtmlClean();
+        if (!StringUtils.hasText(mainHtml)) {
             mainHtml = detail.getBodyHtml();
-        } else {
-            mainHtml = toSafeHtml(extraction.main());
+        }
+        if (!StringUtils.hasText(mainHtml)) {
+            mainHtml = toSafeHtml(Optional.ofNullable(detail.getBodyTextClean()).orElse(detail.getBodyText()));
         }
 
         Span body = new Span();
         body.addClassName("message-body-html");
         body.getElement().setProperty("innerHTML", mainHtml);
         bodyWrapper.add(body);
-
-        if (hasQuote) {
-            bodyWrapper.add(new QuoteCollapsePanel(toSafeHtml(extraction.quote())));
-        }
     }
 
     private void renderAttachments() {
         attachmentsWrapper.removeAll();
-        if (detail == null) {
-            return;
-        }
         List<AttachmentDto> attachments = detail.getAttachments();
         if (attachments != null && !attachments.isEmpty()) {
             attachmentsWrapper.add(new AttachmentList(attachments));
@@ -109,10 +81,10 @@ public class MessageBubble extends Div {
     }
 
     private String shortAddress() {
-        if (header.getDirection() == MessageDirection.IN) {
-            return "Від: " + Optional.ofNullable(header.getFrom()).orElse("");
+        if (detail.getDirection() == MessageDirection.IN) {
+            return "Від: " + Optional.ofNullable(detail.getFrom()).orElse("");
         }
-        return "Кому: " + Optional.ofNullable(header.getTo()).orElse("");
+        return "Кому: " + Optional.ofNullable(detail.getTo()).orElse("");
     }
 
     private String toSafeHtml(String text) {
@@ -120,22 +92,5 @@ public class MessageBubble extends Div {
             return "";
         }
         return HtmlUtils.htmlEscape(text).replace("\n", "<br/>");
-    }
-
-    private void loadDetails() {
-        if (detailLoader == null) {
-            return;
-        }
-        ChatMessageDetailDto loaded = detailLoader.load(header.getId());
-        if (loaded != null) {
-            this.detail = loaded;
-            renderBody();
-            renderAttachments();
-        }
-    }
-
-    @FunctionalInterface
-    public interface MessageDetailLoader {
-        ChatMessageDetailDto load(Long messageId);
     }
 }
