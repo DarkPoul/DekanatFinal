@@ -10,7 +10,6 @@ import jakarta.mail.internet.InternetAddress;
 import org.eclipse.angus.mail.imap.IMAPFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +18,6 @@ import org.springframework.util.StringUtils;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Date;
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -101,12 +99,21 @@ public class MailSyncService {
             return;
         }
 
-        ChatEntity chat = chatRepository.findByPeerEmail(peerEmail)
-                .orElseGet(() -> createChat(peerEmail));
+        String normalizedSubject = MailThreadUtils.normalizeSubject(message.getSubject());
+        String threadKey = MailThreadUtils.buildThreadKey(peerEmail, message.getSubject());
+        String title = MailThreadUtils.stripPrefixes(message.getSubject());
+
+        ChatEntity chat = chatRepository.findByThreadKey(threadKey)
+                .orElseGet(() -> createChat(peerEmail, threadKey, title, normalizedSubject));
+
+        String cleanPlain = MailQuotedStripper.stripQuotedPlain(MailpartExtractor.extractPlainText(message));
+        String snippet = MailTextExtractor.sanitizeSnippet(StringUtils.hasText(cleanPlain) ? cleanPlain : title, 500);
 
         MailMessageEntity entity = MailMessageEntity.builder()
                 .messageId(messageId)
                 .chat(chat)
+                .threadKey(threadKey)
+                .normalizedSubject(normalizedSubject)
                 .peerEmail(peerEmail)
                 .folder(folder.getFullName())
                 .uid(folder.getUID(message))
@@ -115,14 +122,22 @@ public class MailSyncService {
                 .toEmail(extractAddress(message.getRecipients(Message.RecipientType.TO)))
                 .subject(message.getSubject())
                 .hasAttachments(hasAttachments(message))
+                .snippet(snippet)
                 .direction(direction)
                 .build();
 
         mailMessageRepository.save(entity);
 
+        chat.setThreadKey(threadKey);
+        chat.setTitle(title);
+        chat.setNormalizedSubject(normalizedSubject);
+        chat.setPeerEmail(peerEmail);
         chat.setLastMessageAt(entity.getSentAt());
+        chat.setLastSnippet(entity.getSnippet());
+        chat.setHasAttachments(chat.isHasAttachments() || entity.isHasAttachments());
         if (direction == MessageDirection.IN) {
             chat.setHasUnprocessed(true);
+            chat.setUnreadCount(chat.getUnreadCount() + 1);
         }
         chatRepository.save(chat);
     }
@@ -162,14 +177,20 @@ public class MailSyncService {
         return address.toString();
     }
 
-    private ChatEntity createChat(String peerEmail) {
+    private ChatEntity createChat(String peerEmail, String threadKey, String title, String normalizedSubject) {
         ChatProfileResolver.ResolvedProfile profile = profileResolver.resolve(peerEmail);
         return chatRepository.save(ChatEntity.builder()
+                .threadKey(threadKey)
                 .peerEmail(peerEmail)
+                .title(title)
+                .normalizedSubject(normalizedSubject)
                 .displayName(profile.displayName())
                 .orgUnit(profile.orgUnit())
                 .status(ChatStatus.NEW)
                 .hasUnprocessed(false)
+                .unreadCount(0)
+                .hasAttachments(false)
+                .lastSnippet(null)
                 .lastMessageAt(null)
                 .build());
     }

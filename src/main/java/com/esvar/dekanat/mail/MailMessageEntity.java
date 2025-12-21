@@ -14,7 +14,8 @@ import java.util.List;
 @Entity
 @Table(name = "mail_message", indexes = {
         @Index(name = "idx_mail_message_peer_email_date", columnList = "peer_email, sent_at"),
-        @Index(name = "idx_mail_message_folder_uid", columnList = "folder, uid")
+        @Index(name = "idx_mail_message_folder_uid", columnList = "folder, uid"),
+        @Index(name = "idx_mail_message_thread_key_date", columnList = "thread_key, sent_at")
 })
 @Getter
 @Setter
@@ -33,6 +34,12 @@ public class MailMessageEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chat_id", nullable = false)
     private ChatEntity chat;
+
+    @Column(name = "thread_key", nullable = false, length = 700)
+    private String threadKey;
+
+    @Column(name = "normalized_subject", length = 500)
+    private String normalizedSubject;
 
     @Column(name = "peer_email", nullable = false, length = 320)
     private String peerEmail;

@@ -3,7 +3,6 @@ package com.esvar.dekanat.mail;
 import com.esvar.dekanat.mail.dto.ChatFilter;
 import com.esvar.dekanat.mail.dto.ChatListItemDto;
 import com.esvar.dekanat.mail.dto.ChatMessageDetailDto;
-import com.esvar.dekanat.mail.dto.ChatMessageHeaderDto;
 import com.esvar.dekanat.mail.dto.ReplyRequest;
 import jakarta.mail.MessagingException;
 import org.springframework.data.domain.Page;
@@ -17,10 +16,11 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.InputStream;
+import java.time.Instant;
+import java.util.List;
 
 @RestController
-@RequestMapping("/mail")
+@RequestMapping("/api/mail")
 @RolesAllowed({"ROLE_ADMIN", "ROLE_DEKANAT"})
 public class MailController {
 
@@ -30,7 +30,7 @@ public class MailController {
         this.chatService = chatService;
     }
 
-    @GetMapping("/chats")
+    @GetMapping("/threads")
     public Page<ChatListItemDto> getChats(@RequestParam(name = "q", required = false) String query,
                                           @RequestParam(name = "page", defaultValue = "0") int page,
                                           @RequestParam(name = "size", defaultValue = "20") int size) {
@@ -40,12 +40,11 @@ public class MailController {
         return chatService.findChats(filter, pageable);
     }
 
-    @GetMapping("/chats/{chatId}/messages")
-    public Page<ChatMessageHeaderDto> getMessages(@PathVariable Long chatId,
-                                                  @RequestParam(name = "page", defaultValue = "0") int page,
-                                                  @RequestParam(name = "size", defaultValue = "50") int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "sentAt"));
-        return chatService.findMessageHeaders(chatId, pageable);
+    @GetMapping("/threads/{threadKey}/messages")
+    public List<ChatMessageDetailDto> getThreadMessages(@PathVariable String threadKey,
+                                                        @RequestParam(name = "limit", defaultValue = "30") int limit,
+                                                        @RequestParam(name = "before", required = false) Instant before) throws MessagingException {
+        return chatService.findThreadMessages(threadKey, limit, before);
     }
 
     @GetMapping("/messages/{messageId}")
@@ -53,38 +52,51 @@ public class MailController {
         return chatService.getMessageDetails(messageId);
     }
 
-    @PostMapping("/chats/{chatId}/status")
+    @PostMapping("/threads/{chatId}/status")
     public void updateStatus(@PathVariable Long chatId, @RequestParam ChatStatus status) {
         chatService.updateStatus(chatId, status);
     }
 
-    @PostMapping("/chats/{chatId}/processed")
+    @PostMapping("/threads/{chatId}/processed")
     public void markProcessed(@PathVariable Long chatId) {
         chatService.markProcessed(chatId);
     }
 
-    @PostMapping("/chats/{chatId}/reply")
+    @PostMapping("/threads/{chatId}/reply")
     public void reply(@PathVariable Long chatId, @RequestBody ReplyRequest request) {
         chatService.replyToChat(chatId, request.getBody(), request.getSubject());
     }
 
     @GetMapping("/attachments/{attachmentId}")
     public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable Long attachmentId) throws MessagingException {
-        InputStream stream = chatService.loadAttachment(attachmentId);
-        return buildAttachmentResponse(stream);
+        ChatService.AttachmentContent content = chatService.loadAttachment(attachmentId);
+        return buildAttachmentResponse(content);
     }
 
     @GetMapping("/messages/{messageId}/attachments/{attachmentId}")
     public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable String messageId,
                                                                   @PathVariable String attachmentId) throws MessagingException {
-        InputStream stream = chatService.loadAttachment(messageId, attachmentId);
-        return buildAttachmentResponse(stream);
+        ChatService.AttachmentContent content = chatService.loadAttachment(messageId, attachmentId);
+        return buildAttachmentResponse(content);
     }
 
-    private ResponseEntity<InputStreamResource> buildAttachmentResponse(InputStream stream) {
+    @GetMapping("/messages/{messageId}/inline/{cid}")
+    public ResponseEntity<InputStreamResource> loadInline(@PathVariable Long messageId,
+                                                          @PathVariable String cid) throws MessagingException {
+        ChatService.AttachmentContent content = chatService.loadInline(messageId, cid);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment")
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(new InputStreamResource(stream));
+                .contentType(MediaType.parseMediaType(content.contentType()))
+                .body(new InputStreamResource(content.stream()));
+    }
+
+    private ResponseEntity<InputStreamResource> buildAttachmentResponse(ChatService.AttachmentContent content) {
+        String disposition = "attachment";
+        if (content.filename() != null) {
+            disposition += "; filename=\"" + content.filename() + "\"";
+        }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition)
+                .contentType(MediaType.parseMediaType(content.contentType() != null ? content.contentType() : MediaType.APPLICATION_OCTET_STREAM_VALUE))
+                .body(new InputStreamResource(content.stream()));
     }
 }

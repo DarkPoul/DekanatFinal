@@ -11,4 +11,6 @@ public interface MailAttachmentMetaRepository extends JpaRepository<MailAttachme
     List<MailAttachmentMetaEntity> findByMessageId(Long messageId);
 
     MailAttachmentMetaEntity findByMessage_MessageIdAndPartId(String messageId, String partId);
+
+    MailAttachmentMetaEntity findByMessage_IdAndContentId(Long messageId, String contentId);
 }
