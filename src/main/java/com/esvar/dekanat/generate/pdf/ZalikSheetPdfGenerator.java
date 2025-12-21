@@ -15,10 +15,12 @@ import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.borders.Border;
 import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.LineSeparator;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
@@ -106,11 +108,61 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
     }
 
     private static void buildHeader(Document document, ZalikSheetDto dto, PdfFont regular, PdfFont bold) {
-        String studyYear = computeStudyYear(LocalDate.now());
-
-        document.add(new Paragraph(studyYear + " навчальний рік")
+        document.add(new Paragraph("НАЦІОНАЛЬНИЙ ТРАНСПОРТНИЙ УНІВЕРСИТЕТ")
                 .setFont(bold)
-                .setFontSize(HEADER_FONT_SIZE)
+                .setFontSize(11)
+                .setTextAlignment(TextAlignment.CENTER));
+
+        SolidLine solidLine = new SolidLine(1f);
+        LineSeparator line = new LineSeparator(solidLine);
+        line.setMarginTop(-6);
+        line.setMarginBottom(0);
+
+        document.add(line);
+        document.add(new Paragraph("ВІДОМІСТЬ ОБЛІКУ УСПІШНОСТІ № " + safe(dto.sheetNumber()))
+                .setFont(regular)
+                .setFontSize(11));
+        document.add(line);
+        document.add(new Paragraph("Спеціальність: " + Objects.toString(dto.spec(), ""))
+                .setFont(regular)
+                .setFontSize(11));
+        document.add(line);
+
+        Table groupTable = new Table(UnitValue.createPercentArray(new float[]{25, 10, 25, 40}))
+                .useAllAvailableWidth();
+
+        groupTable.addCell(new Cell().setPadding(0)
+                .add(new Paragraph("Курс: ").setFont(regular).setFontSize(11))
+                .setBorder(Border.NO_BORDER));
+        groupTable.addCell(new Cell().setPadding(0)
+                .add(new Paragraph(Objects.toString(dto.courseNumber(), ""))
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER))
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f)));
+        groupTable.addCell(new Cell().setPadding(0)
+                .add(new Paragraph("\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0Група: ")
+                        .setFont(regular)
+                        .setFontSize(11))
+                .setBorder(Border.NO_BORDER));
+        groupTable.addCell(new Cell().setPadding(0)
+                .add(new Paragraph(Objects.toString(data.groupName(), ""))
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER))
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f)));
+
+        document.add(groupTable);
+
+        document.add(new Paragraph(Objects.toString(data.studyYear(), "") + " навчальний рік")
+                .setFont(regular)
+                .setFontSize(11)
                 .setTextAlignment(TextAlignment.CENTER));
 
         document.add(new Paragraph("ВІДОМІСТЬ ОБЛІКУ УСПІШНОСТІ № " + safe(dto.sheetNumber()))

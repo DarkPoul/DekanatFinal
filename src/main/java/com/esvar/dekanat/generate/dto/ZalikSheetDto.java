@@ -7,6 +7,7 @@ import java.util.List;
  * Data transfer object for generating "ВІДОМІСТЬ ОБЛІКУ УСПІШНОСТІ" (залік/екзамен) PDF documents.
  */
 public record ZalikSheetDto(
+        String spec,
         String studyYear,
         String sheetNumber,
         LocalDate sheetDate,
