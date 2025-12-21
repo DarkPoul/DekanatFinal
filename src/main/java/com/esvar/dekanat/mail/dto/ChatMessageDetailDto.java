@@ -9,7 +9,7 @@ import java.util.List;
 
 @Value
 @Builder
-public class ChatMessageDto {
+public class ChatMessageDetailDto {
     Long id;
     String messageId;
     String from;
@@ -19,6 +19,7 @@ public class ChatMessageDto {
     String bodyText;
     String quotedText;
     String quotedHtml;
+    String snippet;
     Instant sentAt;
     MessageDirection direction;
     boolean hasAttachments;

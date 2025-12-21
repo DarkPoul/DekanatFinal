@@ -1,7 +1,8 @@
 package com.esvar.dekanat.mail;
 
 import com.esvar.dekanat.mail.dto.ChatListItemDto;
-import com.esvar.dekanat.mail.dto.ChatMessageDto;
+import com.esvar.dekanat.mail.dto.ChatMessageDetailDto;
+import com.esvar.dekanat.mail.dto.ChatMessageHeaderDto;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -13,6 +14,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import jakarta.mail.MessagingException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -44,7 +46,7 @@ public class ConversationView extends VerticalLayout {
 
     private ChatListItemDto currentChat;
     private int currentPage = 0;
-    private final List<ChatMessageDto> loadedMessages = new ArrayList<>();
+    private final List<ChatMessageHeaderDto> loadedMessages = new ArrayList<>();
     private Consumer<ChatListItemDto> chatUpdateListener;
 
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
@@ -186,7 +188,7 @@ public class ConversationView extends VerticalLayout {
         if (CollectionUtils.isEmpty(loadedMessages)) {
             return "";
         }
-        ChatMessageDto last = loadedMessages.get(loadedMessages.size() - 1);
+        ChatMessageHeaderDto last = loadedMessages.get(loadedMessages.size() - 1);
         String lastTime = last.getSentAt() != null ? dateTimeFormatter.format(last.getSentAt()) : "";
         return String.format("Останнє повідомлення: %s • %d повідомлень", lastTime, loadedMessages.size());
     }
@@ -196,12 +198,12 @@ public class ConversationView extends VerticalLayout {
             return;
         }
         Pageable pageable = PageRequest.of(currentPage, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "sentAt"));
-        Page<ChatMessageDto> page = chatService.findMessages(currentChat.getId(), pageable);
-        List<ChatMessageDto> batch = new ArrayList<>(page.getContent());
-        batch.sort(Comparator.comparing(ChatMessageDto::getSentAt, Comparator.nullsLast(Comparator.naturalOrder())));
+        Page<ChatMessageHeaderDto> page = chatService.findMessageHeaders(currentChat.getId(), pageable);
+        List<ChatMessageHeaderDto> batch = new ArrayList<>(page.getContent());
+        batch.sort(Comparator.comparing(ChatMessageHeaderDto::getSentAt, Comparator.nullsLast(Comparator.naturalOrder())));
 
         loadedMessages.addAll(batch);
-        loadedMessages.sort(Comparator.comparing(ChatMessageDto::getSentAt, Comparator.nullsLast(Comparator.naturalOrder())));
+        loadedMessages.sort(Comparator.comparing(ChatMessageHeaderDto::getSentAt, Comparator.nullsLast(Comparator.naturalOrder())));
 
         renderMessages(initial);
 
@@ -218,7 +220,7 @@ public class ConversationView extends VerticalLayout {
     private void renderMessages(boolean initial) {
         messagesContainer.removeAll();
         LocalDate lastDate = null;
-        for (ChatMessageDto message : loadedMessages) {
+        for (ChatMessageHeaderDto message : loadedMessages) {
             LocalDate date = Optional.ofNullable(message.getSentAt())
                     .map(instant -> instant.atZone(ZoneId.systemDefault()).toLocalDate())
                     .orElse(null);
@@ -226,10 +228,18 @@ public class ConversationView extends VerticalLayout {
                 messagesContainer.add(new MessageDateDivider(date != null ? dateFormatter.format(date) : ""));
                 lastDate = date;
             }
-            messagesContainer.add(new MessageBubble(message));
+            messagesContainer.add(new MessageBubble(message, this::loadMessageDetails));
         }
         if (!initial) {
             messagesContainer.getElement().executeJs("this.scrollTop = this.scrollHeight;");
+        }
+    }
+
+    private ChatMessageDetailDto loadMessageDetails(Long messageId) {
+        try {
+            return chatService.getMessageDetails(messageId);
+        } catch (MessagingException e) {
+            throw new IllegalStateException("Не вдалося завантажити повідомлення", e);
         }
     }
 
