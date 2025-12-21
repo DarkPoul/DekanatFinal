@@ -17,9 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -33,7 +31,6 @@ public class MailSyncService {
     private final MailSyncProperties properties;
     private final ChatRepository chatRepository;
     private final MailMessageRepository mailMessageRepository;
-    private final MailAttachmentMetaRepository attachmentRepository;
     private final MailSyncStateRepository syncStateRepository;
     private final ChatProfileResolver profileResolver;
 
@@ -41,14 +38,12 @@ public class MailSyncService {
                            MailSyncProperties properties,
                            ChatRepository chatRepository,
                            MailMessageRepository mailMessageRepository,
-                           MailAttachmentMetaRepository attachmentRepository,
                            MailSyncStateRepository syncStateRepository,
                            ChatProfileResolver profileResolver) {
         this.mailImapClient = mailImapClient;
         this.properties = properties;
         this.chatRepository = chatRepository;
         this.mailMessageRepository = mailMessageRepository;
-        this.attachmentRepository = attachmentRepository;
         this.syncStateRepository = syncStateRepository;
         this.profileResolver = profileResolver;
     }
@@ -109,8 +104,6 @@ public class MailSyncService {
         ChatEntity chat = chatRepository.findByPeerEmail(peerEmail)
                 .orElseGet(() -> createChat(peerEmail));
 
-        ParsedBody parsedBody = parseMessageBody(message);
-
         MailMessageEntity entity = MailMessageEntity.builder()
                 .messageId(messageId)
                 .chat(chat)
@@ -121,13 +114,9 @@ public class MailSyncService {
                 .fromEmail(extractAddress(message.getFrom()))
                 .toEmail(extractAddress(message.getRecipients(Message.RecipientType.TO)))
                 .subject(message.getSubject())
-                .snippet(MailTextExtractor.sanitizeSnippet(parsedBody.snippet, 500))
-                .hasAttachments(!parsedBody.attachments.isEmpty())
+                .hasAttachments(hasAttachments(message))
                 .direction(direction)
                 .build();
-
-        parsedBody.attachments.forEach(attachment -> attachment.setMessage(entity));
-        entity.setAttachments(parsedBody.attachments);
 
         mailMessageRepository.save(entity);
 
@@ -138,44 +127,21 @@ public class MailSyncService {
         chatRepository.save(chat);
     }
 
-    private ParsedBody parseMessageBody(Message message) throws MessagingException, IOException {
-        List<MailAttachmentMetaEntity> attachments = new ArrayList<>();
-        String text = extractText(message, "", attachments);
-        return new ParsedBody(text, attachments);
-    }
-
-    private String extractText(Part part, String partId, List<MailAttachmentMetaEntity> attachments) throws MessagingException, IOException {
-        if (part.isMimeType("text/plain")) {
-            return part.getContent().toString();
-        }
-        if (part.isMimeType("text/html")) {
-            return MailTextExtractor.toPlainText(part.getContent().toString());
-        }
+    private boolean hasAttachments(Part part) throws MessagingException, IOException {
         if (part.isMimeType("multipart/*")) {
             Multipart multipart = (Multipart) part.getContent();
-            StringBuilder builder = new StringBuilder();
             for (int i = 0; i < multipart.getCount(); i++) {
                 Part bodyPart = multipart.getBodyPart(i);
-                String childPartId = partId.isEmpty() ? String.valueOf(i + 1) : partId + "." + (i + 1);
-                String nestedText = extractText(bodyPart, childPartId, attachments);
-                if (StringUtils.hasText(nestedText)) {
-                    if (builder.length() > 0) {
-                        builder.append("\n\n");
-                    }
-                    builder.append(nestedText);
+                if (isAttachment(bodyPart) || hasAttachments(bodyPart)) {
+                    return true;
                 }
             }
-            return builder.toString();
         }
-        if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition()) || StringUtils.hasText(part.getFileName())) {
-            attachments.add(MailAttachmentMetaEntity.builder()
-                    .partId(partId.isEmpty() ? "part" : partId)
-                    .filename(part.getFileName())
-                    .contentType(part.getContentType())
-                    .sizeBytes(part.getSize() >= 0 ? (long) part.getSize() : null)
-                    .build());
-        }
-        return "";
+        return isAttachment(part);
+    }
+
+    private boolean isAttachment(Part part) throws MessagingException {
+        return Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition()) || StringUtils.hasText(part.getFileName());
     }
 
     private String resolvePeerEmail(Message message, MessageDirection direction) throws MessagingException {
@@ -235,8 +201,5 @@ public class MailSyncService {
         } catch (Exception ex) {
             return "(unknown)";
         }
-    }
-
-    private record ParsedBody(String snippet, List<MailAttachmentMetaEntity> attachments) {
     }
 }

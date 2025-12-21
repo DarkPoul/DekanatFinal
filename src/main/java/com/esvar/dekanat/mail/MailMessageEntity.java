@@ -58,6 +58,17 @@ public class MailMessageEntity {
     @Column(name = "snippet", length = 1000)
     private String snippet;
 
+    @Lob
+    @Column(name = "cached_plain_body", columnDefinition = "LONGTEXT")
+    private String cachedPlainBody;
+
+    @Lob
+    @Column(name = "cached_html_body", columnDefinition = "LONGTEXT")
+    private String cachedHtmlBody;
+
+    @Column(name = "content_loaded_at")
+    private Instant contentLoadedAt;
+
     @Column(name = "has_attachments", nullable = false)
     private boolean hasAttachments;
 

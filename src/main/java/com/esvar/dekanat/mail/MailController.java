@@ -2,7 +2,8 @@ package com.esvar.dekanat.mail;
 
 import com.esvar.dekanat.mail.dto.ChatFilter;
 import com.esvar.dekanat.mail.dto.ChatListItemDto;
-import com.esvar.dekanat.mail.dto.ChatMessageDto;
+import com.esvar.dekanat.mail.dto.ChatMessageDetailDto;
+import com.esvar.dekanat.mail.dto.ChatMessageHeaderDto;
 import com.esvar.dekanat.mail.dto.ReplyRequest;
 import jakarta.mail.MessagingException;
 import org.springframework.data.domain.Page;
@@ -40,11 +41,16 @@ public class MailController {
     }
 
     @GetMapping("/chats/{chatId}/messages")
-    public Page<ChatMessageDto> getMessages(@PathVariable Long chatId,
-                                            @RequestParam(name = "page", defaultValue = "0") int page,
-                                            @RequestParam(name = "size", defaultValue = "50") int size) {
+    public Page<ChatMessageHeaderDto> getMessages(@PathVariable Long chatId,
+                                                  @RequestParam(name = "page", defaultValue = "0") int page,
+                                                  @RequestParam(name = "size", defaultValue = "50") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "sentAt"));
-        return chatService.findMessages(chatId, pageable);
+        return chatService.findMessageHeaders(chatId, pageable);
+    }
+
+    @GetMapping("/messages/{messageId}")
+    public ChatMessageDetailDto getMessageDetails(@PathVariable Long messageId) throws MessagingException {
+        return chatService.getMessageDetails(messageId);
     }
 
     @PostMapping("/chats/{chatId}/status")
