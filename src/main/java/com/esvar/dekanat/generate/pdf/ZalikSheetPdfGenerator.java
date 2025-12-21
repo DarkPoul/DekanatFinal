@@ -77,29 +77,28 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
      * Generate the zalik sheet PDF as a byte array.
      */
     public static byte[] generate(ZalikSheetDto dto) {
-        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-             PdfWriter writer = new PdfWriter(outputStream);
-             PdfDocument pdfDocument = new PdfDocument(writer);
-             Document document = new Document(pdfDocument, PageSize.A4)) {
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            try (PdfWriter writer = new PdfWriter(outputStream);
+                 PdfDocument pdfDocument = new PdfDocument(writer);
+                 Document document = new Document(pdfDocument, PageSize.A4)) {
 
-            PdfFont regular = loadFont("/fonts/times.ttf", StandardFonts.TIMES_ROMAN);
-            PdfFont bold = loadFont("/fonts/timesbd.ttf", StandardFonts.TIMES_BOLD);
+                PdfFont regular = loadFont("/fonts/times.ttf", StandardFonts.TIMES_ROMAN);
+                PdfFont bold = loadFont("/fonts/timesbd.ttf", StandardFonts.TIMES_BOLD);
 
-            document.setFont(regular);
-            document.setMargins(36, 36, 36, 36);
+                document.setFont(regular);
+                document.setMargins(36, 36, 36, 36);
 
-            buildHeader(document, dto, regular, bold);
-            document.add(buildStudentsTable(dto, regular, bold));
-            buildDeanBlock(document, dto, regular);
-            document.add(new Paragraph("Підсумки складання екзамену (заліку)")
-                    .setFont(bold)
-                    .setFontSize(HEADER_FONT_SIZE)
-                    .setTextAlignment(TextAlignment.CENTER)
-                    .setMarginTop(12f));
-            document.add(buildSummaryTable(dto, regular, bold));
-            buildExaminerBlock(document, dto, regular, bold);
-
-            document.flush();
+                buildHeader(document, dto, regular, bold);
+                document.add(buildStudentsTable(dto, regular, bold));
+                buildDeanBlock(document, dto, regular);
+                document.add(new Paragraph("Підсумки складання екзамену (заліку)")
+                        .setFont(bold)
+                        .setFontSize(HEADER_FONT_SIZE)
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setMarginTop(12f));
+                document.add(buildSummaryTable(dto, regular, bold));
+                buildExaminerBlock(document, dto, regular, bold);
+            }
             return outputStream.toByteArray();
         } catch (IOException ex) {
             throw new DocumentException("Failed to generate zalik sheet PDF", ex);
