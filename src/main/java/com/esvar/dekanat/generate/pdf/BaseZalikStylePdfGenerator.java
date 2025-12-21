@@ -99,10 +99,34 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         Table groupTable = new Table(UnitValue.createPercentArray(new float[]{25, 10, 25, 40}))
                 .useAllAvailableWidth();
 
-        groupTable.addCell(buildLabelCell("Курс: ", regular));
-        groupTable.addCell(buildValueCell(Objects.toString(data.courseNumber(), ""), regular));
-        groupTable.addCell(buildLabelCell("\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0Група: ", regular));
-        groupTable.addCell(buildValueCell(Objects.toString(data.groupName(), ""), regular));
+        groupTable.addCell(new Cell().setPadding(0)
+                .add(new Paragraph("Курс: ")
+                        .setFont(regular)
+                        .setFontSize(11))
+                .setBorder(Border.NO_BORDER));
+        groupTable.addCell(new Cell().setPadding(0)
+                .add(new Paragraph(Objects.toString(data.courseNumber(), ""))
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER))
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f)));
+        groupTable.addCell(new Cell().setPadding(0)
+                .add(new Paragraph("\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0Група: ")
+                        .setFont(regular)
+                        .setFontSize(11))
+                .setBorder(Border.NO_BORDER));
+        groupTable.addCell(new Cell().setPadding(0)
+                .add(new Paragraph(Objects.toString(data.groupName(), ""))
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER))
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f)));
 
         document.add(groupTable);
 
@@ -110,36 +134,186 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
                 .setFont(regular)
                 .setFontSize(11)
                 .setTextAlignment(TextAlignment.CENTER));
-
-        document.add(new Paragraph("ВІДОМІСТЬ ОБЛІКУ УСПІШНОСТІ № " + Objects.toString(data.order(), ""))
+        document.add(new Paragraph("ВІДОМІСТЬ ОБЛІКУ УСПІШНОСТІ")
                 .setFont(bold)
-                .setFontSize(12)
+                .setFontSize(11)
+                .setTextAlignment(TextAlignment.CENTER));
+        document.add(new Paragraph("№ " + Objects.toString(data.order(), ""))
+                .setFont(bold)
+                .setFontSize(11)
                 .setTextAlignment(TextAlignment.CENTER)
-                .setMarginTop(6));
+                .setUnderline());
+        document.add(new Paragraph(String.format("%s  %s  %s року", data.day(), data.month(), data.year()))
+                .setFont(bold)
+                .setFontSize(11)
+                .setTextAlignment(TextAlignment.CENTER)
+                .setUnderline());
 
-        document.add(new Paragraph(String.format("з дисципліни: %s за %s семестр",
-                        Objects.toString(data.disciplineName(), ""), Objects.toString(data.semesterNumber(), "")))
+        document.add(createDisciplineTable(regular, data));
+        document.add(createSemesterTable(regular, data));
+        document.add(createSemesterControlTable(regular, data));
+
+        document.add(createTeacherTable("Викладач", Objects.toString(data.firstTeacher(), ""), regular));
+        document.add(createTeacherTable("Викладач", Objects.toString(data.secondTeacher(), ""), regular,
+                "(прізвище, ім’я та по батькові викладача, який здійснював поточний контроль)"));
+
+        document.add(new Paragraph("")
                 .setFont(regular)
                 .setFontSize(11)
                 .setTextAlignment(TextAlignment.CENTER));
+    }
 
-        document.add(new Paragraph("Форма семестрового контролю: " + Objects.toString(data.controlTypeName(), ""))
-                .setFont(regular)
-                .setFontSize(11)
-                .setTextAlignment(TextAlignment.CENTER));
-
-        document.add(new Paragraph("Загальна кількість годин: " + Objects.toString(data.hours(), ""))
-                .setFont(regular)
-                .setFontSize(11)
-                .setTextAlignment(TextAlignment.CENTER));
-
-        Table teachersTable = new Table(UnitValue.createPercentArray(new float[]{50, 50}))
+    private Table createDisciplineTable(PdfFont regular, DataModelForZalik data) {
+        Table disciplineTable = new Table(UnitValue.createPercentArray(new float[]{15, 70, 15}))
                 .useAllAvailableWidth();
-        teachersTable.addCell(buildTeacherCell("Перший викладач: ", Objects.toString(data.firstTeacher(), ""), regular));
-        teachersTable.addCell(buildTeacherCell("Другий викладач: ", Objects.toString(data.secondTeacher(), ""), regular));
+        disciplineTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("з дисципліни: ")
+                        .setFont(regular)
+                        .setFontSize(11)));
+        disciplineTable.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph(Objects.toString(data.disciplineName(), ""))
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        disciplineTable.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph("")
+                        .setFont(regular)
+                        .setFontSize(11)));
+        disciplineTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("")
+                        .setFont(regular)
+                        .setFontSize(11)));
+        disciplineTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("(назва дисципліни)")
+                        .setFont(regular)
+                        .setFontSize(8)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        disciplineTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("")
+                        .setFont(regular)
+                        .setFontSize(11)));
+        return disciplineTable;
+    }
 
-        document.add(teachersTable);
-        document.add(new Paragraph(""));
+    private Table createSemesterTable(PdfFont regular, DataModelForZalik data) {
+        Table semControlTable = new Table(UnitValue.createPercentArray(new float[]{2, 5, 93}))
+                .useAllAvailableWidth();
+        semControlTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("за")
+                        .setFont(regular)
+                        .setFontSize(11)));
+        semControlTable.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph(Objects.toString(data.semesterNumber(), ""))
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        semControlTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("навчальний семестр.")
+                        .setFont(regular)
+                        .setFontSize(11)));
+        return semControlTable;
+    }
+
+    private Table createSemesterControlTable(PdfFont regular, DataModelForZalik data) {
+        Table semesterControlTable = new Table(UnitValue.createPercentArray(new float[]{30, 30, 30, 10}))
+                .useAllAvailableWidth();
+        semesterControlTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("Форма семестрового контролю")
+                        .setFont(regular)
+                        .setFontSize(11)));
+        semesterControlTable.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph(Objects.toString(data.controlTypeName(), ""))
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        semesterControlTable.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("Загальна кількість годин")
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        semesterControlTable.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph(Objects.toString(data.hours(), ""))
+                        .setFont(regular)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        return semesterControlTable;
+    }
+
+    private Table createTeacherTable(String label, String value, PdfFont font) {
+        return createTeacherTable(label, value, font,
+                "(прізвище, ім’я та по батькові викладача, який виставляє підсумкову оцінку)");
+    }
+
+    private Table createTeacherTable(String label, String value, PdfFont font, String hint) {
+        Table table = new Table(UnitValue.createPercentArray(new float[]{10, 80, 10}))
+                .useAllAvailableWidth();
+        table.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph(label)
+                        .setFont(font)
+                        .setFontSize(11)));
+        table.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph(value)
+                        .setFont(font)
+                        .setFontSize(11)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        table.addCell(new Cell().setPadding(0)
+                .setBorderTop(Border.NO_BORDER)
+                .setBorderLeft(Border.NO_BORDER)
+                .setBorderRight(Border.NO_BORDER)
+                .setBorderBottom(new SolidBorder(0.5f))
+                .add(new Paragraph("")
+                        .setFont(font)
+                        .setFontSize(11)));
+        table.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("")
+                        .setFont(font)
+                        .setFontSize(11)));
+        table.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph(hint)
+                        .setFont(font)
+                        .setFontSize(8)
+                        .setTextAlignment(TextAlignment.CENTER)));
+        table.addCell(new Cell().setPadding(0)
+                .setBorder(Border.NO_BORDER)
+                .add(new Paragraph("")
+                        .setFont(font)
+                        .setFontSize(11)));
+        return table;
     }
 
     private void addStudentsTable(Document document, PdfFont regular, PdfFont bold, DataModelForZalik data) {
@@ -208,34 +382,6 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         signTable.addCell(signatureCell("Завідувач кафедри", Objects.toString(data.departmentName(), ""), regular));
 
         document.add(signTable);
-    }
-
-    private Cell buildLabelCell(String text, PdfFont font) {
-        return new Cell().setPadding(0)
-                .add(new Paragraph(text)
-                        .setFont(font)
-                        .setFontSize(11))
-                .setBorder(Border.NO_BORDER);
-    }
-
-    private Cell buildValueCell(String text, PdfFont font) {
-        return new Cell().setPadding(0)
-                .add(new Paragraph(text)
-                        .setFont(font)
-                        .setFontSize(11)
-                        .setTextAlignment(TextAlignment.CENTER))
-                .setBorderTop(Border.NO_BORDER)
-                .setBorderLeft(Border.NO_BORDER)
-                .setBorderRight(Border.NO_BORDER)
-                .setBorderBottom(new SolidBorder(0.5f));
-    }
-
-    private Cell buildTeacherCell(String label, String value, PdfFont font) {
-        return new Cell().setPadding(4)
-                .add(new Paragraph(label + value)
-                        .setFont(font)
-                        .setFontSize(11))
-                .setBorder(Border.NO_BORDER);
     }
 
     private void addHeaderCell(Table table, String text, PdfFont bold) {
