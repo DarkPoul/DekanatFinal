@@ -24,6 +24,10 @@ public interface MailMessageRepository extends JpaRepository<MailMessageEntity, 
 
     Optional<MailMessageEntity> findTop1ByThreadKeyOrderBySentAtDesc(String threadKey);
 
+    List<MailMessageEntity> findByChatIdOrderBySentAtDesc(Long chatId);
+
+    List<MailMessageEntity> findByChatIdAndSentAtBeforeOrderBySentAtDesc(Long chatId, Instant before);
+
     List<MailMessageEntity> findByContactEmailOrderBySentAtDesc(String contactEmail);
 
     List<MailMessageEntity> findByContactEmailAndSentAtBeforeOrderBySentAtDesc(String contactEmail, Instant before);
