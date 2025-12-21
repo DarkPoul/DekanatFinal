@@ -142,7 +142,7 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
-    public AttachmentContent loadAttachment(String messageId, String attachmentId) throws MessagingException {
+    public AttachmentContent loadAttachment(String messageId, String attachmentId) throws MessagingException, IOException {
         MailAttachmentMetaEntity meta = attachmentRepository.findByMessage_MessageIdAndPartId(messageId, attachmentId);
         if (meta != null) {
             return loadAttachment(meta);

@@ -163,7 +163,8 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
     private static Table buildStudentsTable(ZalikSheetDto dto, PdfFont regular, PdfFont bold) {
         Table table = new Table(UnitValue.createPercentArray(STUDENT_COLUMN_WIDTHS))
                 .useAllAvailableWidth();
-        table.setHeaderRows(3);
+
+
 
         table.addHeaderCell(headerCell("№ з/п", bold, 2, 1));
         table.addHeaderCell(headerCell("Прізвище та ініціали студента", bold, 2, 1));
@@ -222,7 +223,6 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
     private static Table buildSummaryTable(ZalikSheetDto dto, PdfFont regular, PdfFont bold) {
         Table table = new Table(UnitValue.createPercentArray(SUMMARY_COLUMN_WIDTHS))
                 .useAllAvailableWidth();
-        table.setHeaderRows(2);
         table.setMarginTop(12f);
 
         table.addCell(headerCell("ВСЬОГО ОЦІНОК", bold, 2, 1));

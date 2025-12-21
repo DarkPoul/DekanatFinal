@@ -141,7 +141,7 @@ public class SecondModulePdfGenerator implements PdfGenerator {
                 .setFont(regular)
                 .setFontSize(11)
                 .setTextAlignment(TextAlignment.CENTER));
-        document.add(new Paragraph(Objects.toString(data.controlTypeName(), ""))
+        document.add(new Paragraph("ВІДОМІСТЬ ПІДСУМКОВИХ ОЦІНОК ЗА ДРУГИЙ МОДУЛЬНИЙ КОНТРОЛЬ")
                 .setFont(bold)
                 .setFontSize(11)
                 .setTextAlignment(TextAlignment.CENTER));

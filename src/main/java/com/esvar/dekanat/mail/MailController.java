@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 
@@ -75,7 +76,7 @@ public class MailController {
 
     @GetMapping("/messages/{messageId}/attachments/{attachmentId}")
     public ResponseEntity<InputStreamResource> downloadAttachment(@PathVariable String messageId,
-                                                                  @PathVariable String attachmentId) throws MessagingException {
+                                                                  @PathVariable String attachmentId) throws MessagingException, IOException {
         ChatService.AttachmentContent content = chatService.loadAttachment(messageId, attachmentId);
         return buildAttachmentResponse(content);
     }
