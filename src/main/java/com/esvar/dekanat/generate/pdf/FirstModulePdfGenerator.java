@@ -44,6 +44,14 @@ public class FirstModulePdfGenerator implements PdfGenerator {
     public static final String NAME = "first-module-control";
 
     private static final Logger log = LoggerFactory.getLogger(FirstModulePdfGenerator.class);
+    private static final float[] STUDENT_TABLE_COLUMN_WIDTHS = new float[]{5, 35, 20, 20, 20};
+    private static final List<String> STUDENT_HEADER_TITLES = List.of(
+            "№\nз/п",
+            "Прізвище та ініціали студента",
+            "Номер залікової книжки",
+            "Кількість балів за результатами першого модуля (від 0 до 30 балів)",
+            "Підпис викладача"
+    );
 
     @Override
     public String getName() {
@@ -308,19 +316,11 @@ public class FirstModulePdfGenerator implements PdfGenerator {
     }
 
     private void addStudentsTable(Document document, PdfFont regular, List<StudentModelToDocumentGenerate> students) {
-        Table headerTable = new Table(UnitValue.createPercentArray(new float[]{5, 35, 20, 20, 20}))
+        Table table = new Table(UnitValue.createPercentArray(STUDENT_TABLE_COLUMN_WIDTHS))
                 .useAllAvailableWidth();
 
-        headerTable.addHeaderCell(createHeaderCell("№\nз/п", regular));
-        headerTable.addHeaderCell(createHeaderCell("Прізвище та ініціали студента", regular));
-        headerTable.addHeaderCell(createHeaderCell("Номер залікової книжки", regular));
-        headerTable.addHeaderCell(createHeaderCell("Кількість балів за результатами першого модуля (від 0 до 30 балів)", regular));
-        headerTable.addHeaderCell(createHeaderCell("Підпис викладача", regular));
-
-        document.add(headerTable);
-
-        Table table = new Table(UnitValue.createPercentArray(new float[]{5, 35, 20, 20, 20}))
-                .useAllAvailableWidth();
+        addHeaderRow(table, regular);
+        addNumberingHeaderRow(table, regular, STUDENT_HEADER_TITLES.size());
 
         for (StudentModelToDocumentGenerate student : students) {
             table.addCell(createBodyCell(String.valueOf(student.index()), regular, TextAlignment.CENTER));
@@ -330,7 +330,18 @@ public class FirstModulePdfGenerator implements PdfGenerator {
             table.addCell(createBodyCell("", regular, TextAlignment.CENTER));
         }
 
+        table.setKeepWithNext(true);
         document.add(table);
+    }
+
+    private void addHeaderRow(Table table, PdfFont regular) {
+        STUDENT_HEADER_TITLES.forEach(title -> table.addHeaderCell(createHeaderCell(title, regular)));
+    }
+
+    private void addNumberingHeaderRow(Table table, PdfFont regular, int columnCount) {
+        for (int i = 1; i <= columnCount; i++) {
+            table.addHeaderCell(createHeaderCell(String.valueOf(i), regular));
+        }
     }
 
     private void addSignatureSection(Document document, PdfFont regular, PdfFont bold, DataModelForMC1 data) {
@@ -342,6 +353,7 @@ public class FirstModulePdfGenerator implements PdfGenerator {
 
         Table signatureTable = new Table(UnitValue.createPercentArray(new float[]{20, 5, 20, 5, 20}))
                 .useAllAvailableWidth();
+        signatureTable.setKeepTogether(true);
 
         signatureTable.addCell(createSignatureLabelCell(bold));
         signatureTable.addCell(createSignatureSpacerCell());
