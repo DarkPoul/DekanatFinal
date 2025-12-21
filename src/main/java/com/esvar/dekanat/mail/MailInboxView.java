@@ -60,7 +60,7 @@ public class MailInboxView extends VerticalLayout {
     }
 
     private HorizontalLayout buildToolbar() {
-        searchField.setPlaceholder("Тема або email");
+        searchField.setPlaceholder("Email або ім'я");
         searchField.setClearButtonVisible(true);
         searchField.addValueChangeListener(e -> chatGrid.getDataProvider().refreshAll());
 
@@ -97,7 +97,7 @@ public class MailInboxView extends VerticalLayout {
         chatGrid.setHeightFull();
 
         chatGrid.addComponentColumn(this::buildThreadPreview)
-                .setHeader("Темы")
+                .setHeader("Чати")
                 .setFlexGrow(1);
         chatGrid.addColumn(item -> item.getLastMessageAt() != null ? dateTimeFormatter.format(item.getLastMessageAt()) : "")
                 .setHeader("Останнє")
@@ -115,10 +115,10 @@ public class MailInboxView extends VerticalLayout {
         Div wrapper = new Div();
         wrapper.addClassName("thread-preview");
 
-        Span title = new Span(item.getTitle());
+        Span title = new Span(item.getDisplayName() != null ? item.getDisplayName() : item.getContactEmail());
         title.addClassName("thread-title");
 
-        Span counterparty = new Span((item.getDisplayName() != null ? item.getDisplayName() : "") + " • " + item.getPeerEmail());
+        Span counterparty = new Span(item.getContactEmail());
         counterparty.addClassName("thread-counterparty");
 
         Span snippet = new Span(item.getLastSnippet() != null ? item.getLastSnippet() : "");

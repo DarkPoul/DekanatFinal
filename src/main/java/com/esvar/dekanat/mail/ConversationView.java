@@ -15,12 +15,12 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import jakarta.mail.MessagingException;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -28,8 +28,6 @@ import java.util.function.Consumer;
 
 @CssImport("./styles/conversation-view.css")
 public class ConversationView extends VerticalLayout {
-
-    private static final int PAGE_SIZE = 30;
 
     private final ChatService chatService;
     private final ComboBox<ChatStatus> statusComboBox = new ComboBox<>("Статус");
@@ -138,7 +136,7 @@ public class ConversationView extends VerticalLayout {
             return;
         }
         statusComboBox.setValue(currentChat.getStatus());
-        title.setText(currentChat.getTitle());
+        title.setText(StringUtils.hasText(currentChat.getDisplayName()) ? currentChat.getDisplayName() : currentChat.getContactEmail());
         metaInfo.setText(buildMetaText());
     }
 
@@ -146,7 +144,7 @@ public class ConversationView extends VerticalLayout {
         if (CollectionUtils.isEmpty(loadedMessages)) {
             return "";
         }
-        ChatMessageDetailDto last = loadedMessages.get(loadedMessages.size() - 1);
+        ChatMessageDetailDto last = loadedMessages.get(0);
         String lastTime = last.getSentAt() != null ? dateTimeFormatter.format(last.getSentAt()) : "";
         return String.format("Останнє повідомлення: %s • %d повідомлень", lastTime, loadedMessages.size());
     }
@@ -158,13 +156,11 @@ public class ConversationView extends VerticalLayout {
         messagesContainer.removeAll();
         messagesContainer.add(new Span("Завантаження..."));
         try {
-            List<ChatMessageDetailDto> batch = chatService.findThreadMessages(currentChat.getThreadKey(), PAGE_SIZE, null);
+            List<ChatMessageDetailDto> batch = chatService.findChatMessages(currentChat.getContactEmail(), null);
             loadedMessages.clear();
             loadedMessages.addAll(batch);
-            loadedMessages.sort(Comparator.comparing(ChatMessageDetailDto::getSentAt, Comparator.nullsLast(Comparator.naturalOrder())));
             renderMessages();
             metaInfo.setText(buildMetaText());
-            messagesContainer.getElement().executeJs("this.scrollTop = this.scrollHeight;");
         } catch (MessagingException e) {
             messagesContainer.removeAll();
             messagesContainer.add(new Span("Не вдалося завантажити тему."));
@@ -196,11 +192,8 @@ public class ConversationView extends VerticalLayout {
         }
         return ChatListItemDto.builder()
                 .id(chat.getId())
-                .threadKey(chat.getThreadKey())
-                .title(chat.getTitle())
+                .contactEmail(chat.getContactEmail())
                 .displayName(chat.getDisplayName())
-                .peerEmail(chat.getPeerEmail())
-                .orgUnit(chat.getOrgUnit())
                 .status(status)
                 .hasUnprocessed(hasUnprocessed)
                 .unreadCount(unreadCount)

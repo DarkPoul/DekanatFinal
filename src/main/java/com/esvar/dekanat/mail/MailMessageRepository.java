@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -22,4 +23,8 @@ public interface MailMessageRepository extends JpaRepository<MailMessageEntity, 
     Page<MailMessageEntity> findByThreadKeyAndSentAtBefore(String threadKey, Instant before, Pageable pageable);
 
     Optional<MailMessageEntity> findTop1ByThreadKeyOrderBySentAtDesc(String threadKey);
+
+    List<MailMessageEntity> findByContactEmailOrderBySentAtDesc(String contactEmail);
+
+    List<MailMessageEntity> findByContactEmailAndSentAtBeforeOrderBySentAtDesc(String contactEmail, Instant before);
 }

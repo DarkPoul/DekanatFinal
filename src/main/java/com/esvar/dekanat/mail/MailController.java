@@ -30,7 +30,7 @@ public class MailController {
         this.chatService = chatService;
     }
 
-    @GetMapping("/threads")
+    @GetMapping("/chats")
     public Page<ChatListItemDto> getChats(@RequestParam(name = "q", required = false) String query,
                                           @RequestParam(name = "page", defaultValue = "0") int page,
                                           @RequestParam(name = "size", defaultValue = "20") int size) {
@@ -40,11 +40,10 @@ public class MailController {
         return chatService.findChats(filter, pageable);
     }
 
-    @GetMapping("/threads/{threadKey}/messages")
-    public List<ChatMessageDetailDto> getThreadMessages(@PathVariable String threadKey,
-                                                        @RequestParam(name = "limit", defaultValue = "30") int limit,
+    @GetMapping("/chats/{contactEmail}/messages")
+    public List<ChatMessageDetailDto> getChatMessages(@PathVariable String contactEmail,
                                                         @RequestParam(name = "before", required = false) Instant before) throws MessagingException {
-        return chatService.findThreadMessages(threadKey, limit, before);
+        return chatService.findChatMessages(contactEmail, before);
     }
 
     @GetMapping("/messages/{messageId}")
