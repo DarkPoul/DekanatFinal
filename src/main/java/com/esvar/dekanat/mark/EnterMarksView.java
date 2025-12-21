@@ -75,6 +75,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @PageTitle("Введення оцінок | Деканат")
 @Route(value = "marks", layout = MainLayout.class)
@@ -878,6 +879,11 @@ public class EnterMarksView extends Div {
         if (plansEntity.getGroups() != null && !plansEntity.getGroups().isEmpty()) {
             return plansEntity.getGroups().iterator().next();
         }
+        return getLegacyPlanGroup();
+    }
+
+    @SuppressWarnings("deprecation")
+    private StudentGroupEntity getLegacyPlanGroup() {
         return plansEntity.getGroup();
     }
 
@@ -1550,9 +1556,8 @@ public class EnterMarksView extends Div {
             if (mark == null) {
                 mark = "";
             }
-            String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
             students.add(new StudentModelToDocumentGenerate(index,
-                    student.getSurname() + " " + student.getName().charAt(0) + ". " + patronymic.charAt(0) + ".",
+                    buildStudentNameWithInitials(student),
                     student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
                     mark));
             index++;
@@ -1569,6 +1574,29 @@ public class EnterMarksView extends Div {
                 .map(String::toUpperCase)
                 .orElse("");
         return (firstName + " " + surname).trim();
+    }
+
+    private String buildStudentNameWithInitials(StudentEntity student) {
+        String surname = Optional.ofNullable(student.getSurname()).orElse("").trim();
+        String nameInitial = extractInitial(student.getName());
+        String patronymicInitial = extractInitial(student.getPatronymic());
+
+        return Stream.of(surname, nameInitial, patronymicInitial)
+                .filter(part -> !part.isEmpty())
+                .collect(Collectors.joining(" "));
+    }
+
+    private String extractInitial(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+        int firstCodePoint = trimmed.codePointAt(0);
+        String initial = new String(Character.toChars(Character.toUpperCase(firstCodePoint)));
+        return initial + ".";
     }
 
     private void showAdditionalReportDialog() {

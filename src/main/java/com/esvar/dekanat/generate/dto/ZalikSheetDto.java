@@ -8,6 +8,8 @@ import java.util.List;
  */
 public record ZalikSheetDto(
         String spec,
+        String courseNumber,
+        String groupName,
         String studyYear,
         String sheetNumber,
         LocalDate sheetDate,

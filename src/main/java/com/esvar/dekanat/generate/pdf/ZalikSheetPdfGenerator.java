@@ -149,7 +149,7 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
                         .setFontSize(11))
                 .setBorder(Border.NO_BORDER));
         groupTable.addCell(new Cell().setPadding(0)
-                .add(new Paragraph(Objects.toString(data.groupName(), ""))
+                .add(new Paragraph(Objects.toString(dto.groupName(), ""))
                         .setFont(regular)
                         .setFontSize(11)
                         .setTextAlignment(TextAlignment.CENTER))
@@ -160,7 +160,7 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
 
         document.add(groupTable);
 
-        document.add(new Paragraph(Objects.toString(data.studyYear(), "") + " навчальний рік")
+        document.add(new Paragraph(Objects.toString(dto.studyYear(), "") + " навчальний рік")
                 .setFont(regular)
                 .setFontSize(11)
                 .setTextAlignment(TextAlignment.CENTER));
@@ -451,6 +451,20 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
         return date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
     }
 
+    private static LocalDate parseSheetDate(String day, String month, String year) {
+        try {
+            if (day == null || month == null || year == null) {
+                return null;
+            }
+            int d = Integer.parseInt(day);
+            int m = Integer.parseInt(month);
+            int y = Integer.parseInt(year);
+            return LocalDate.of(y, m, d);
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
     /**
      * Compute study year in format "YY-(YY+1)" using current calendar year.
      */
@@ -475,10 +489,18 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
                 .map(student -> toRow(student, data))
                 .toList();
 
+        String studyYear = safe(data.studyYear());
+        if (studyYear.isBlank()) {
+            studyYear = computeStudyYear(LocalDate.now());
+        }
+
         return new ZalikSheetDto(
-                computeStudyYear(LocalDate.now()),
+                safe(data.specialityName()),
+                safe(data.courseNumber()),
+                safe(data.groupName()),
+                studyYear,
                 safe(data.order()),
-                null,
+                parseSheetDate(data.day(), data.month(), data.year()),
                 safe(data.day()),
                 safe(data.month()),
                 safe(data.year()),
