@@ -4,6 +4,7 @@ import jakarta.mail.Folder;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
 import org.eclipse.angus.mail.imap.IMAPFolder;
 import org.eclipse.angus.mail.imap.IMAPStore;
 import org.slf4j.Logger;
@@ -87,7 +88,12 @@ public class MailImapClient {
     public Message getMessage(String folderName, long uid) throws MessagingException {
         return withFolder(folderName, folder -> {
             try {
-                return folder.getMessageByUID(uid);
+                Message message = folder.getMessageByUID(uid);
+                if (message == null) {
+                    throw new IllegalStateException("Message UID " + uid + " not found in folder " + folderName);
+                }
+                // Copy message content while folder is open to avoid FolderClosedException later.
+                return new MimeMessage((MimeMessage) message);
             } catch (MessagingException e) {
                 throw new IllegalStateException("Failed to load message by UID " + uid + " from folder " + folderName, e);
             }
