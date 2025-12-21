@@ -17,6 +17,8 @@ public class ChatMessageDto {
     String subject;
     String bodyHtml;
     String bodyText;
+    String quotedText;
+    String quotedHtml;
     Instant sentAt;
     MessageDirection direction;
     boolean hasAttachments;

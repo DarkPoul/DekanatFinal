@@ -4,8 +4,7 @@ import com.esvar.dekanat.mail.dto.AttachmentDto;
 import com.esvar.dekanat.mail.dto.ChatListItemDto;
 import com.esvar.dekanat.mail.dto.ChatMessageDto;
 import com.esvar.dekanat.mail.dto.ChatFilter;
-import jakarta.mail.Message;
-import jakarta.mail.MessagingException;
+import jakarta.mail.*;
 import jakarta.mail.internet.MimeMessage;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +23,8 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static org.reflections.Reflections.log;
 
 @Service
 public class ChatService {
@@ -177,15 +178,33 @@ public class ChatService {
     }
 
     private ChatMessageDto toMessageDto(MailMessageEntity entity) throws MessagingException {
-        String bodyText = String.valueOf(resolveBodyText(entity));
+        MailpartExtractor.BodyContent body = resolveBodyText(entity);
+
+        String htmlText  = body != null && body.html()  != null ? body.html()  : "";
+        String plainText = body != null && body.plain() != null ? body.plain() : "";
+
+        MailReplySplitter.SplitResult split = MailReplySplitter.split(plainText);
+        String replyText = split.reply();
+        String quotedText = split.quoted();
+
+        // якщо ти хочеш quoted ще й як html (просто для простого відображення)
+        String quotedHtml = "";
+        if (StringUtils.hasText(quotedText)) {
+            quotedHtml = "<pre style=\"white-space:pre-wrap;\">" +
+                    escapeHtml(quotedText) +
+                    "</pre>";
+        }
+
         return ChatMessageDto.builder()
                 .id(entity.getId())
                 .messageId(entity.getMessageId())
                 .from(entity.getFromEmail())
                 .to(entity.getToEmail())
                 .subject(entity.getSubject())
-                .bodyHtml(bodyText)
-                .bodyText(bodyText)
+                .bodyHtml(htmlText)
+                .bodyText(replyText)
+                .quotedText(quotedText)     // <-- нове поле
+                .quotedHtml(quotedHtml)     // <-- опційно
                 .sentAt(entity.getSentAt())
                 .direction(entity.getDirection())
                 .hasAttachments(entity.isHasAttachments())
@@ -193,14 +212,48 @@ public class ChatService {
                 .build();
     }
 
+    private static String escapeHtml(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
+
+
+
     private MailpartExtractor.BodyContent resolveBodyText(MailMessageEntity entity) throws MessagingException {
         try {
             Message message = mailImapClient.getMessage(entity.getFolder(), entity.getUid());
+
+            // force load content (інколи критично для IMAP)
+            // message.getContent();
+
             MailpartExtractor.BodyContent body = MailpartExtractor.extractBody(message);
-            String sanitizedHtml = MailTextExtractor.sanitizeHtml(body.html());
-            String plain = StringUtils.hasText(body.plain()) ? MailTextExtractor.stripInlinePlaceholders(body.plain())
-                    : MailTextExtractor.toPlainText(sanitizedHtml);
-            return new MailpartExtractor.BodyContent(sanitizedHtml, plain);
+
+            String html = body != null ? body.html() : null;
+            String plain = body != null ? body.plain() : null;
+
+            // Фолбек, якщо витяг не дав нічого
+            if (!StringUtils.hasText(html) && !StringUtils.hasText(plain)) {
+                Extracted ex = extractTextFallback(message);
+                html = ex.html;
+                plain = ex.plain;
+            }
+
+            String sanitizedHtml = StringUtils.hasText(html) ? MailTextExtractor.sanitizeHtml(html) : "";
+            String finalPlain = StringUtils.hasText(plain)
+                    ? MailTextExtractor.stripInlinePlaceholders(plain)
+                    : (StringUtils.hasText(sanitizedHtml) ? MailTextExtractor.toPlainText(sanitizedHtml) : "");
+
+            // останній фолбек — snippet
+            if (!StringUtils.hasText(finalPlain) && StringUtils.hasText(entity.getSnippet())) {
+                finalPlain = entity.getSnippet();
+            }
+
+            return new MailpartExtractor.BodyContent(sanitizedHtml, finalPlain);
         } catch (MessagingException e) {
             if (StringUtils.hasText(entity.getSnippet())) {
                 return new MailpartExtractor.BodyContent("", entity.getSnippet());
@@ -208,6 +261,119 @@ public class ChatService {
             throw e;
         }
     }
+
+    private static class Extracted {
+        final String plain;
+        final String html;
+        Extracted(String plain, String html) { this.plain = plain; this.html = html; }
+    }
+
+    private Extracted extractTextFallback(Part part) throws MessagingException {
+        try {
+            // 1) Базові текстові типи
+            if (part.isMimeType("text/plain")) {
+                String text = safeText(part);
+                return new Extracted(StringUtils.hasText(text) ? text : null, null);
+            }
+            if (part.isMimeType("text/html")) {
+                String html = safeText(part);
+                return new Extracted(null, StringUtils.hasText(html) ? html : null);
+            }
+
+            // 2) Вкладене повідомлення
+            if (part.isMimeType("message/rfc822")) {
+                Object c = part.getContent();
+                if (c instanceof Part p) return extractTextFallback(p);
+                return new Extracted(null, null);
+            }
+
+            // 3) Мультипарти
+            if (part.isMimeType("multipart/*")) {
+                Multipart mp = (Multipart) part.getContent();
+                String plain = null;
+                String html = null;
+
+                // Спец-випадок: multipart/alternative (plain+html)
+                boolean isAlternative = part.isMimeType("multipart/alternative");
+
+                // Спец-випадок: multipart/related (html + inline resources)
+                boolean isRelated = part.isMimeType("multipart/related");
+
+                for (int i = 0; i < mp.getCount(); i++) {
+                    BodyPart bp = mp.getBodyPart(i);
+
+                    // ❌ Пропускаємо вкладення/ресурси
+                    if (shouldSkipBodyPart(bp)) continue;
+
+                    Extracted ex = extractTextFallback(bp);
+
+                    // В alternative: html важливіше, але plain теж треба
+                    if (StringUtils.hasText(ex.html) && !StringUtils.hasText(html)) {
+                        html = ex.html;
+                        if (isAlternative && StringUtils.hasText(plain)) break; // вже є і plain і html
+                    }
+                    if (StringUtils.hasText(ex.plain) && !StringUtils.hasText(plain)) {
+                        plain = ex.plain;
+                        if (isAlternative && StringUtils.hasText(html)) break;
+                    }
+
+                    // У related часто достатньо лише html (plain може не існувати)
+                    if (isRelated && StringUtils.hasText(html)) {
+                        // але не break якщо хочеш ще plain, тут зазвичай можна break
+                        // break;
+                    }
+                }
+
+                return new Extracted(plain, html);
+            }
+
+            // Інші mime-типы ігноруємо
+            return new Extracted(null, null);
+
+        } catch (Exception ex) {
+            throw new MessagingException("Failed to extract body fallback", ex);
+        }
+    }
+
+    private boolean shouldSkipBodyPart(BodyPart bp) throws MessagingException {
+        String disp = bp.getDisposition();
+        String fileName = bp.getFileName();
+        String ct = bp.getContentType() != null ? bp.getContentType().toLowerCase() : "";
+
+        // 1) Явні вкладення
+        if (disp != null && disp.equalsIgnoreCase(Part.ATTACHMENT)) return true;
+
+        // 2) Inline з filename — дуже часто це теж “вкладення”
+        if (disp != null && disp.equalsIgnoreCase(Part.INLINE) && StringUtils.hasText(fileName)) return true;
+
+        // 3) Inline картинки / ресурси в multipart/related
+        if (disp != null && disp.equalsIgnoreCase(Part.INLINE) && ct.startsWith("image/")) return true;
+
+        // 4) Часто зустрічається: application/* як частина листа — це не body
+        if (ct.startsWith("application/")) return true;
+
+        // 5) Іноді “вкладення” без disposition але з filename
+        if (StringUtils.hasText(fileName) && !bp.isMimeType("text/*")) return true;
+
+        return false;
+    }
+
+    private String safeText(Part part) throws Exception {
+        Object c = part.getContent();
+        if (c == null) return null;
+
+        // JavaMail може повернути String або InputStream залежно від декодування
+        if (c instanceof String s) return s;
+
+        // Якщо раптом повернув stream — читаємо обережно
+        if (c instanceof java.io.InputStream is) {
+            return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+
+        return c.toString();
+    }
+
+
 
     private AttachmentDto toAttachmentDto(MailAttachmentMetaEntity attachment) {
         return AttachmentDto.builder()
