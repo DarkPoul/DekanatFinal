@@ -39,6 +39,8 @@ import java.util.stream.Collectors;
 @Service
 public class ChatService {
 
+    private static final int DEFAULT_MESSAGE_PAGE_SIZE = 20;
+
     private final ChatRepository chatRepository;
     private final MailMessageRepository mailMessageRepository;
     private final MailAttachmentMetaRepository attachmentRepository;
@@ -80,22 +82,33 @@ public class ChatService {
         return page.map(this::toDto);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ChatMessageDetailDto> findChatMessages(Long chatId, Instant before) throws MessagingException {
+        return findChatMessages(chatId, before, DEFAULT_MESSAGE_PAGE_SIZE);
+    }
+
+    @Transactional
+    public List<ChatMessageDetailDto> findChatMessages(Long chatId, Instant before, int pageSize) throws MessagingException {
         if (chatId == null) {
             return List.of();
         }
-        List<MailMessageEntity> messages = before != null
-                ? mailMessageRepository.findByChatIdAndSentAtBeforeOrderBySentAtDesc(chatId, before)
-                : mailMessageRepository.findByChatIdOrderBySentAtDesc(chatId);
+
+        int effectivePageSize = Math.max(Math.min(pageSize, 100), 1);
+        Pageable pageable = PageRequest.of(0, effectivePageSize, Sort.by(Sort.Direction.DESC, "sentAt"));
+
+        Page<MailMessageEntity> messagePage = before != null
+                ? mailMessageRepository.findByChatIdAndSentAtBefore(chatId, before, pageable)
+                : mailMessageRepository.findByChatId(chatId, pageable);
+        List<MailMessageEntity> messages = messagePage.getContent();
 
         if (messages.isEmpty()) {
             Optional<ChatEntity> chat = chatRepository.findById(chatId);
             if (chat.isPresent() && StringUtils.hasText(chat.get().getContactEmail())) {
                 String normalized = chat.get().getContactEmail().trim().toLowerCase();
-                messages = before != null
-                        ? mailMessageRepository.findByContactEmailAndSentAtBeforeOrderBySentAtDesc(normalized, before)
-                        : mailMessageRepository.findByContactEmailOrderBySentAtDesc(normalized);
+                Page<MailMessageEntity> contactMessages = before != null
+                        ? mailMessageRepository.findByContactEmailAndSentAtBefore(normalized, before, pageable)
+                        : mailMessageRepository.findByContactEmail(normalized, pageable);
+                messages = contactMessages.getContent();
             }
         }
         List<ChatMessageDetailDto> details = new ArrayList<>();
