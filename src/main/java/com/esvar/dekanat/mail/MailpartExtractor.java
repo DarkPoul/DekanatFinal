@@ -42,6 +42,26 @@ public final class MailpartExtractor {
         return new BodyContent(collector.html, collector.plain);
     }
 
+    public static InlineContent extractInlineContent(Message message, String contentId) {
+        try {
+            Part part = findInlinePart(message, normalizeContentId(contentId), "");
+            if (part == null) {
+                return null;
+            }
+            return new InlineContent(part.getInputStream(), part.getContentType());
+        } catch (Exception e) {
+            throw new IllegalStateException("Cannot load inline resource: " + e.getMessage(), e);
+        }
+    }
+
+    public static String extractContentId(Part part) throws MessagingException {
+        String[] ids = part.getHeader("Content-ID");
+        if (ids == null || ids.length == 0) {
+            return null;
+        }
+        return normalizeContentId(ids[0]);
+    }
+
     private static Optional<Part> findAttachment(Part part, String targetPartId, String currentPartId) throws MessagingException, IOException {
         if (part.isMimeType("multipart/*")) {
             Multipart multipart = (Multipart) part.getContent();
@@ -61,6 +81,26 @@ public final class MailpartExtractor {
             }
         }
         return Optional.empty();
+    }
+
+    private static Part findInlinePart(Part part, String targetContentId, String currentPartId) throws MessagingException, IOException {
+        if (part.isMimeType("multipart/*")) {
+            Multipart multipart = (Multipart) part.getContent();
+            for (int i = 0; i < multipart.getCount(); i++) {
+                BodyPart bodyPart = multipart.getBodyPart(i);
+                String childPartId = currentPartId.isEmpty() ? String.valueOf(i + 1) : currentPartId + "." + (i + 1);
+                Part match = findInlinePart(bodyPart, targetContentId, childPartId);
+                if (match != null) {
+                    return match;
+                }
+            }
+            return null;
+        }
+        String contentId = extractContentId(part);
+        if (StringUtils.hasText(targetContentId) && targetContentId.equalsIgnoreCase(contentId)) {
+            return part;
+        }
+        return null;
     }
 
     private static String extractText(Part part, String partId) throws MessagingException, IOException {
@@ -126,5 +166,22 @@ public final class MailpartExtractor {
     }
 
     public record BodyContent(String html, String plain) {
+    }
+
+    public record InlineContent(InputStream stream, String contentType) {
+    }
+
+    private static String normalizeContentId(String contentId) {
+        if (contentId == null) {
+            return null;
+        }
+        String cleaned = contentId.trim();
+        if (cleaned.startsWith("<") && cleaned.endsWith(">")) {
+            cleaned = cleaned.substring(1, cleaned.length() - 1);
+        }
+        if (cleaned.startsWith("cid:")) {
+            cleaned = cleaned.substring(4);
+        }
+        return cleaned;
     }
 }

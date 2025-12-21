@@ -35,4 +35,10 @@ public class MailAttachmentMetaEntity {
 
     @Column(name = "size_bytes")
     private Long sizeBytes;
+
+    @Column(name = "content_id", length = 255)
+    private String contentId;
+
+    @Column(name = "inline_attachment", nullable = false)
+    private boolean inline;
 }

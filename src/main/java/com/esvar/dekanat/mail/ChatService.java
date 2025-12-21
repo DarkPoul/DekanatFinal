@@ -1,12 +1,17 @@
 package com.esvar.dekanat.mail;
 
 import com.esvar.dekanat.mail.dto.AttachmentDto;
+import com.esvar.dekanat.mail.dto.ChatFilter;
 import com.esvar.dekanat.mail.dto.ChatListItemDto;
 import com.esvar.dekanat.mail.dto.ChatMessageDetailDto;
-import com.esvar.dekanat.mail.dto.ChatMessageHeaderDto;
-import com.esvar.dekanat.mail.dto.ChatFilter;
-import jakarta.mail.*;
+import jakarta.mail.BodyPart;
+import jakarta.mail.Message;
+import jakarta.mail.MessagingException;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
 import jakarta.mail.internet.MimeMessage;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.mail.MailProperties;
 import org.springframework.data.domain.Page;
@@ -18,12 +23,15 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.util.HtmlUtils;
+import org.springframework.web.util.UriUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -39,6 +47,9 @@ public class ChatService {
     private final MailSyncProperties properties;
     private final MailProperties mailProperties;
     private final String defaultFrom;
+
+    public record AttachmentContent(InputStream stream, String contentType, String filename) {
+    }
 
     public ChatService(ChatRepository chatRepository,
                        MailMessageRepository mailMessageRepository,
@@ -63,38 +74,69 @@ public class ChatService {
         String query = filter != null && StringUtils.hasText(filter.getQuery()) ? filter.getQuery() : "";
         Sort sort = pageable.getSort().isUnsorted() ? Sort.by(Sort.Direction.DESC, "lastMessageAt") : pageable.getSort();
         Pageable effectivePageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
-        Page<ChatEntity> page;
-        if (filter != null && filter.getStatuses() != null && !filter.getStatuses().isEmpty()) {
-            page = chatRepository.findByPeerEmailContainingIgnoreCaseAndDisplayNameContainingIgnoreCaseAndStatusIn(
-                    query, query, filter.getStatuses(), effectivePageable);
-        } else {
-            page = chatRepository.findByPeerEmailContainingIgnoreCaseAndDisplayNameContainingIgnoreCase(
-                    query, query, effectivePageable);
-        }
+        List<ChatStatus> statuses = filter != null && filter.getStatuses() != null ? filter.getStatuses() : List.of();
+        boolean statusesEmpty = statuses.isEmpty();
+        Page<ChatEntity> page = chatRepository.search(query, statuses, statusesEmpty, effectivePageable);
         return page.map(this::toDto);
     }
 
     @Transactional(readOnly = true)
-    public Page<ChatMessageHeaderDto> findMessageHeaders(Long chatId, Pageable pageable) {
-        Page<MailMessageEntity> page = mailMessageRepository.findByChatId(chatId, pageable);
-        return page.map(this::toHeaderDto);
+    public List<ChatMessageDetailDto> findThreadMessages(String threadKey, int limit, Instant before) throws MessagingException {
+        Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "sentAt"));
+        Page<MailMessageEntity> page = before != null
+                ? mailMessageRepository.findByThreadKeyAndSentAtBefore(threadKey, before, pageable)
+                : mailMessageRepository.findByThreadKey(threadKey, pageable);
+        List<MailMessageEntity> messages = new ArrayList<>(page.getContent());
+        messages.sort(Comparator.comparing(MailMessageEntity::getSentAt, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        List<ChatMessageDetailDto> details = new ArrayList<>();
+        for (MailMessageEntity message : messages) {
+            details.add(toDetailDto(message));
+        }
+        return details;
+    }
+
+    @Transactional
+    public ChatMessageDetailDto getMessageDetails(Long messageId) throws MessagingException {
+        MailMessageEntity entity = mailMessageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found"));
+        return toDetailDto(entity);
     }
 
     public void updateStatus(Long chatId, ChatStatus status) {
-        ChatEntity chat = chatRepository.findById(chatId).orElseThrow();
-        chat.setStatus(status);
-        chatRepository.save(chat);
-    }
-
-    public void markProcessed(Long chatId) {
         chatRepository.findById(chatId).ifPresent(chat -> {
+            chat.setStatus(status);
             chat.setHasUnprocessed(false);
             chatRepository.save(chat);
         });
     }
 
+    public void updateStatus(String threadKey, ChatStatus status) {
+        chatRepository.findByThreadKey(threadKey).ifPresent(chat -> {
+            chat.setStatus(status);
+            chat.setHasUnprocessed(false);
+            chatRepository.save(chat);
+        });
+    }
+
+    public void markProcessed(Long chatId) {
+        chatRepository.findById(chatId).ifPresent(chat -> {
+            chat.setHasUnprocessed(false);
+            chat.setUnreadCount(0);
+            chatRepository.save(chat);
+        });
+    }
+
+    public void markProcessed(String threadKey) {
+        chatRepository.findByThreadKey(threadKey).ifPresent(chat -> {
+            chat.setHasUnprocessed(false);
+            chat.setUnreadCount(0);
+            chatRepository.save(chat);
+        });
+    }
+
     @Transactional(readOnly = true)
-    public InputStream loadAttachment(String messageId, String attachmentId) throws MessagingException {
+    public AttachmentContent loadAttachment(String messageId, String attachmentId) throws MessagingException {
         MailAttachmentMetaEntity meta = attachmentRepository.findByMessage_MessageIdAndPartId(messageId, attachmentId);
         if (meta == null) {
             throw new IllegalArgumentException("Attachment not found");
@@ -103,16 +145,35 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
-    public InputStream loadAttachment(Long attachmentMetaId) throws MessagingException {
+    public AttachmentContent loadAttachment(Long attachmentMetaId) throws MessagingException {
         MailAttachmentMetaEntity meta = attachmentRepository.findById(attachmentMetaId)
                 .orElseThrow(() -> new IllegalArgumentException("Attachment not found"));
         return loadAttachment(meta);
     }
 
-    private InputStream loadAttachment(MailAttachmentMetaEntity meta) throws MessagingException {
+    @Transactional(readOnly = true)
+    public AttachmentContent loadInline(Long messageId, String contentId) throws MessagingException {
+        MailMessageEntity entity = mailMessageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found"));
+        String normalizedCid = normalizeContentId(contentId);
+        MailAttachmentMetaEntity meta = attachmentRepository.findByMessage_IdAndContentId(messageId, normalizedCid);
+        Message mimeMessage = mailImapClient.getMessage(entity.getFolder(), entity.getUid());
+        MailpartExtractor.InlineContent inlineContent = MailpartExtractor.extractInlineContent(mimeMessage, normalizedCid);
+        if (inlineContent == null) {
+            throw new IllegalArgumentException("Inline attachment not found");
+        }
+        String contentType = inlineContent.contentType() != null
+                ? inlineContent.contentType()
+                : (meta != null ? meta.getContentType() : "application/octet-stream");
+        String filename = meta != null ? meta.getFilename() : null;
+        return new AttachmentContent(inlineContent.stream(), contentType, filename);
+    }
+
+    private AttachmentContent loadAttachment(MailAttachmentMetaEntity meta) throws MessagingException {
         MailMessageEntity message = meta.getMessage();
         Message mimeMessage = mailImapClient.getMessage(message.getFolder(), message.getUid());
-        return MailpartExtractor.extractAttachmentStream(mimeMessage, meta.getPartId());
+        InputStream stream = MailpartExtractor.extractAttachmentStream(mimeMessage, meta.getPartId());
+        return new AttachmentContent(stream, meta.getContentType(), meta.getFilename());
     }
 
     public void replyToChat(Long chatId, String body, String subjectOverride) {
@@ -134,12 +195,6 @@ public class ChatService {
             lastMessage.map(MailMessageEntity::getMessageId).ifPresent(id -> {
                 try {
                     mimeMessage.setHeader("In-Reply-To", id);
-                } catch (MessagingException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            lastMessage.map(MailMessageEntity::getMessageId).ifPresent(id -> {
-                try {
                     mimeMessage.setHeader("References", id);
                 } catch (MessagingException e) {
                     throw new RuntimeException(e);
@@ -162,37 +217,49 @@ public class ChatService {
     }
 
     private ChatListItemDto toDto(ChatEntity chat) {
+        String resolvedTitle = StringUtils.hasText(chat.getTitle()) ? chat.getTitle() : MailThreadUtils.stripPrefixes(chat.getNormalizedSubject());
         return ChatListItemDto.builder()
                 .id(chat.getId())
-                .displayName(StringUtils.hasText(chat.getDisplayName()) ? chat.getDisplayName() : "Невідомий")
+                .threadKey(chat.getThreadKey())
+                .title(resolvedTitle)
+                .displayName(StringUtils.hasText(chat.getDisplayName()) ? chat.getDisplayName() : chat.getPeerEmail())
                 .peerEmail(chat.getPeerEmail())
                 .orgUnit(chat.getOrgUnit())
                 .status(chat.getStatus())
                 .hasUnprocessed(chat.isHasUnprocessed())
+                .unreadCount(chat.getUnreadCount())
                 .lastMessageAt(chat.getLastMessageAt())
+                .lastSnippet(chat.getLastSnippet())
+                .hasAttachments(chat.isHasAttachments())
                 .build();
     }
 
-    @Transactional
-    public ChatMessageDetailDto getMessageDetails(Long messageId) throws MessagingException {
-        MailMessageEntity entity = mailMessageRepository.findById(messageId)
-                .orElseThrow(() -> new IllegalArgumentException("Message not found"));
-
+    private ChatMessageDetailDto toDetailDto(MailMessageEntity entity) throws MessagingException {
         MailpartExtractor.BodyContent body = ensureContentCached(entity);
 
         String htmlText = body != null && body.html() != null ? body.html() : "";
         String plainText = body != null && body.plain() != null ? body.plain() : "";
-
-        MailReplySplitter.SplitResult split = MailReplySplitter.split(plainText);
-        String replyText = split.reply();
-        String quotedText = split.quoted();
-
-        String quotedHtml = "";
-        if (StringUtils.hasText(quotedText)) {
-            quotedHtml = "<pre style=\"white-space:pre-wrap;\">" +
-                    escapeHtml(quotedText) +
-                    "</pre>";
+        if (!StringUtils.hasText(plainText) && StringUtils.hasText(htmlText)) {
+            plainText = MailTextExtractor.toPlainText(htmlText);
         }
+
+        String bodyTextClean = MailQuotedStripper.stripQuotedPlain(plainText);
+        String sanitizedHtml = StringUtils.hasText(htmlText) ? MailTextExtractor.sanitizeHtml(htmlText) : "";
+        String bodyHtmlClean = MailQuotedStripper.stripQuotedHtml(sanitizedHtml);
+
+        if (!StringUtils.hasText(bodyTextClean) && StringUtils.hasText(bodyHtmlClean)) {
+            bodyTextClean = MailTextExtractor.toPlainText(bodyHtmlClean);
+        }
+
+        String htmlWithInline = rewriteInlineCid(sanitizedHtml, entity.getId());
+        String cleanHtmlWithInline = rewriteInlineCid(bodyHtmlClean, entity.getId());
+        if (!StringUtils.hasText(cleanHtmlWithInline) && StringUtils.hasText(bodyTextClean)) {
+            cleanHtmlWithInline = toSimpleHtml(bodyTextClean);
+        }
+
+        String snippet = StringUtils.hasText(entity.getSnippet())
+                ? entity.getSnippet()
+                : MailTextExtractor.sanitizeSnippet(bodyTextClean, 500);
 
         return ChatMessageDetailDto.builder()
                 .id(entity.getId())
@@ -200,34 +267,20 @@ public class ChatService {
                 .from(entity.getFromEmail())
                 .to(entity.getToEmail())
                 .subject(entity.getSubject())
-                .bodyHtml(htmlText)
-                .bodyText(replyText)
-                .quotedText(quotedText)
-                .quotedHtml(quotedHtml)
-                .snippet(entity.getSnippet())
-                .sentAt(entity.getSentAt())
-                .direction(entity.getDirection())
-                .hasAttachments(entity.isHasAttachments())
-                .attachments(entity.getAttachments().stream().map(this::toAttachmentDto).collect(Collectors.toList()))
-                .build();
-    }
-
-    private ChatMessageHeaderDto toHeaderDto(MailMessageEntity entity) {
-        String snippet = entity.getSnippet();
-        if (!StringUtils.hasText(snippet) && StringUtils.hasText(entity.getCachedPlainBody())) {
-            snippet = MailTextExtractor.sanitizeSnippet(entity.getCachedPlainBody(), 500);
-        }
-
-        return ChatMessageHeaderDto.builder()
-                .id(entity.getId())
-                .messageId(entity.getMessageId())
-                .from(entity.getFromEmail())
-                .to(entity.getToEmail())
-                .subject(entity.getSubject())
+                .bodyHtml(htmlWithInline)
+                .bodyHtmlClean(cleanHtmlWithInline)
+                .bodyText(plainText)
+                .bodyTextClean(bodyTextClean)
+                .quotedText("")
+                .quotedHtml("")
                 .snippet(snippet)
                 .sentAt(entity.getSentAt())
                 .direction(entity.getDirection())
                 .hasAttachments(entity.isHasAttachments())
+                .attachments(entity.getAttachments().stream()
+                        .filter(att -> !att.isInline())
+                        .map(this::toAttachmentDto)
+                        .collect(Collectors.toList()))
                 .build();
     }
 
@@ -259,7 +312,9 @@ public class ChatService {
                 finalPlain = entity.getSnippet();
             }
 
-            persistContent(entity, sanitizedHtml, finalPlain, message);
+            String cleanPlain = MailQuotedStripper.stripQuotedPlain(finalPlain);
+
+            persistContent(entity, sanitizedHtml, finalPlain, cleanPlain, message);
 
             return new MailpartExtractor.BodyContent(sanitizedHtml, finalPlain);
         } catch (MessagingException e) {
@@ -272,14 +327,13 @@ public class ChatService {
         }
     }
 
-    private void persistContent(MailMessageEntity entity, String html, String plain, Message message) throws MessagingException, IOException {
+    private void persistContent(MailMessageEntity entity, String html, String plain, String cleanPlain, Message message) throws MessagingException, IOException {
         String sanitizedPlain = StringUtils.hasText(plain) ? plain : "";
         entity.setCachedHtmlBody(html);
         entity.setCachedPlainBody(sanitizedPlain);
 
-        if (!StringUtils.hasText(entity.getSnippet())) {
-            entity.setSnippet(MailTextExtractor.sanitizeSnippet(sanitizedPlain, 500));
-        }
+        String snippetSource = StringUtils.hasText(cleanPlain) ? cleanPlain : sanitizedPlain;
+        entity.setSnippet(MailTextExtractor.sanitizeSnippet(snippetSource, 500));
 
         List<MailAttachmentMetaEntity> attachments = new ArrayList<>();
         collectAttachments(message, "", attachments);
@@ -287,9 +341,18 @@ public class ChatService {
         initializeAttachments(entity);
         entity.getAttachments().clear();
         entity.getAttachments().addAll(attachments);
-        entity.setHasAttachments(!entity.getAttachments().isEmpty());
+        entity.setHasAttachments(attachments.stream().anyMatch(att -> !att.isInline()));
         entity.setContentLoadedAt(Instant.now());
         mailMessageRepository.save(entity);
+
+        ChatEntity chat = entity.getChat();
+        if (chat != null && (chat.getLastMessageAt() == null
+                || entity.getSentAt() == null
+                || !chat.getLastMessageAt().isAfter(entity.getSentAt()))) {
+            chat.setLastSnippet(entity.getSnippet());
+            chat.setHasAttachments(chat.isHasAttachments() || entity.isHasAttachments());
+            chatRepository.save(chat);
+        }
     }
 
     private void initializeAttachments(MailMessageEntity entity) {
@@ -309,23 +372,20 @@ public class ChatService {
             return;
         }
 
-        if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition()) || StringUtils.hasText(part.getFileName())) {
+        String contentId = MailpartExtractor.extractContentId(part);
+        boolean inline = Part.INLINE.equalsIgnoreCase(part.getDisposition()) || (StringUtils.hasText(contentId) && part.isMimeType("image/*"));
+        boolean downloadable = Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition()) || StringUtils.hasText(part.getFileName());
+
+        if (inline || downloadable) {
             attachments.add(MailAttachmentMetaEntity.builder()
                     .partId(partId.isEmpty() ? "part" : partId)
                     .filename(part.getFileName())
                     .contentType(part.getContentType())
                     .sizeBytes(part.getSize() >= 0 ? (long) part.getSize() : null)
+                    .contentId(contentId)
+                    .inline(inline)
                     .build());
         }
-    }
-
-    private static String escapeHtml(String s) {
-        if (s == null) return "";
-        return s.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#39;");
     }
 
     private static class Extracted {
@@ -336,7 +396,6 @@ public class ChatService {
 
     private Extracted extractTextFallback(Part part) throws MessagingException {
         try {
-            // 1) Базові текстові типи
             if (part.isMimeType("text/plain")) {
                 String text = safeText(part);
                 return new Extracted(StringUtils.hasText(text) ? text : null, null);
@@ -346,54 +405,44 @@ public class ChatService {
                 return new Extracted(null, StringUtils.hasText(html) ? html : null);
             }
 
-            // 2) Вкладене повідомлення
             if (part.isMimeType("message/rfc822")) {
                 Object c = part.getContent();
                 if (c instanceof Part p) return extractTextFallback(p);
                 return new Extracted(null, null);
             }
 
-            // 3) Мультипарти
             if (part.isMimeType("multipart/*")) {
                 Multipart mp = (Multipart) part.getContent();
                 String plain = null;
                 String html = null;
 
-                // Спец-випадок: multipart/alternative (plain+html)
                 boolean isAlternative = part.isMimeType("multipart/alternative");
-
-                // Спец-випадок: multipart/related (html + inline resources)
                 boolean isRelated = part.isMimeType("multipart/related");
 
                 for (int i = 0; i < mp.getCount(); i++) {
                     BodyPart bp = mp.getBodyPart(i);
 
-                    // ❌ Пропускаємо вкладення/ресурси
                     if (shouldSkipBodyPart(bp)) continue;
 
                     Extracted ex = extractTextFallback(bp);
 
-                    // В alternative: html важливіше, але plain теж треба
                     if (StringUtils.hasText(ex.html) && !StringUtils.hasText(html)) {
                         html = ex.html;
-                        if (isAlternative && StringUtils.hasText(plain)) break; // вже є і plain і html
+                        if (isAlternative && StringUtils.hasText(plain)) break;
                     }
                     if (StringUtils.hasText(ex.plain) && !StringUtils.hasText(plain)) {
                         plain = ex.plain;
                         if (isAlternative && StringUtils.hasText(html)) break;
                     }
 
-                    // У related часто достатньо лише html (plain може не існувати)
                     if (isRelated && StringUtils.hasText(html)) {
-                        // але не break якщо хочеш ще plain, тут зазвичай можна break
-                        // break;
+                        // intentionally continue to allow plain extraction if available
                     }
                 }
 
                 return new Extracted(plain, html);
             }
 
-            // Інші mime-типы ігноруємо
             return new Extracted(null, null);
 
         } catch (Exception ex) {
@@ -406,19 +455,10 @@ public class ChatService {
         String fileName = bp.getFileName();
         String ct = bp.getContentType() != null ? bp.getContentType().toLowerCase() : "";
 
-        // 1) Явні вкладення
         if (disp != null && disp.equalsIgnoreCase(Part.ATTACHMENT)) return true;
-
-        // 2) Inline з filename — дуже часто це теж “вкладення”
         if (disp != null && disp.equalsIgnoreCase(Part.INLINE) && StringUtils.hasText(fileName)) return true;
-
-        // 3) Inline картинки / ресурси в multipart/related
         if (disp != null && disp.equalsIgnoreCase(Part.INLINE) && ct.startsWith("image/")) return true;
-
-        // 4) Часто зустрічається: application/* як частина листа — це не body
         if (ct.startsWith("application/")) return true;
-
-        // 5) Іноді “вкладення” без disposition але з filename
         if (StringUtils.hasText(fileName) && !bp.isMimeType("text/*")) return true;
 
         return false;
@@ -428,10 +468,8 @@ public class ChatService {
         Object c = part.getContent();
         if (c == null) return null;
 
-        // JavaMail може повернути String або InputStream залежно від декодування
         if (c instanceof String s) return s;
 
-        // Якщо раптом повернув stream — читаємо обережно
         if (c instanceof java.io.InputStream is) {
             return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         }
@@ -447,5 +485,37 @@ public class ChatService {
                 .sizeBytes(attachment.getSizeBytes())
                 .mimeType(attachment.getContentType())
                 .build();
+    }
+
+    private String rewriteInlineCid(String html, Long messageId) {
+        if (!StringUtils.hasText(html) || messageId == null) {
+            return html != null ? html : "";
+        }
+        Document document = Jsoup.parse(html);
+        document.select("img[src^=cid:], img[src^=CID:]").forEach(img -> {
+            String src = img.attr("src");
+            String cid = src.length() > 4 ? src.substring(4) : "";
+            String url = "/api/mail/messages/" + messageId + "/inline/" + UriUtils.encodePath(cid, StandardCharsets.UTF_8);
+            img.attr("src", url);
+        });
+        return document.body().html();
+    }
+
+    private String toSimpleHtml(String text) {
+        return HtmlUtils.htmlEscape(text).replace("\n", "<br/>");
+    }
+
+    private String normalizeContentId(String contentId) {
+        if (contentId == null) {
+            return null;
+        }
+        String cleaned = contentId.trim();
+        if (cleaned.startsWith("<") && cleaned.endsWith(">")) {
+            cleaned = cleaned.substring(1, cleaned.length() - 1);
+        }
+        if (cleaned.startsWith("cid:")) {
+            cleaned = cleaned.substring(4);
+        }
+        return cleaned;
     }
 }

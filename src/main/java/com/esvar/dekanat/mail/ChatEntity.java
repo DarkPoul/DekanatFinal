@@ -12,7 +12,8 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "mail_chat", indexes = {
-        @Index(name = "idx_mail_chat_peer_email", columnList = "peer_email", unique = true),
+        @Index(name = "idx_mail_chat_peer_email", columnList = "peer_email"),
+        @Index(name = "idx_mail_chat_thread_key", columnList = "thread_key", unique = true),
         @Index(name = "idx_mail_chat_last_message_at", columnList = "last_message_at")
 })
 @Getter
@@ -26,7 +27,16 @@ public class ChatEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "peer_email", nullable = false, unique = true, length = 320)
+    @Column(name = "thread_key", nullable = false, unique = true, length = 700)
+    private String threadKey;
+
+    @Column(name = "title", length = 500)
+    private String title;
+
+    @Column(name = "normalized_subject", length = 500)
+    private String normalizedSubject;
+
+    @Column(name = "peer_email", nullable = false, length = 320)
     private String peerEmail;
 
     @Column(name = "display_name", length = 255)
@@ -42,6 +52,15 @@ public class ChatEntity {
 
     @Column(name = "has_unprocessed", nullable = false)
     private boolean hasUnprocessed = false;
+
+    @Column(name = "unread_count", nullable = false)
+    private int unreadCount = 0;
+
+    @Column(name = "has_attachments", nullable = false)
+    private boolean hasAttachments = false;
+
+    @Column(name = "last_snippet", length = 1000)
+    private String lastSnippet;
 
     @Column(name = "last_message_at")
     private Instant lastMessageAt;
