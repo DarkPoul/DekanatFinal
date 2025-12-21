@@ -16,6 +16,8 @@ public interface MailMessageRepository extends JpaRepository<MailMessageEntity, 
 
     Page<MailMessageEntity> findByChatId(Long chatId, Pageable pageable);
 
+    Page<MailMessageEntity> findByChatIdAndSentAtBefore(Long chatId, Instant before, Pageable pageable);
+
     Optional<MailMessageEntity> findTop1ByChatIdOrderBySentAtDesc(Long chatId);
 
     Page<MailMessageEntity> findByThreadKey(String threadKey, Pageable pageable);
@@ -28,7 +30,7 @@ public interface MailMessageRepository extends JpaRepository<MailMessageEntity, 
 
     List<MailMessageEntity> findByChatIdAndSentAtBeforeOrderBySentAtDesc(Long chatId, Instant before);
 
-    List<MailMessageEntity> findByContactEmailOrderBySentAtDesc(String contactEmail);
+    Page<MailMessageEntity> findByContactEmail(String contactEmail, Pageable pageable);
 
-    List<MailMessageEntity> findByContactEmailAndSentAtBeforeOrderBySentAtDesc(String contactEmail, Instant before);
+    Page<MailMessageEntity> findByContactEmailAndSentAtBefore(String contactEmail, Instant before, Pageable pageable);
 }

@@ -42,8 +42,9 @@ public class MailController {
 
     @GetMapping("/chats/{chatId}/messages")
     public List<ChatMessageDetailDto> getChatMessages(@PathVariable Long chatId,
-                                                      @RequestParam(name = "before", required = false) Instant before) throws MessagingException {
-        return chatService.findChatMessages(chatId, before);
+                                                      @RequestParam(name = "before", required = false) Instant before,
+                                                      @RequestParam(name = "size", defaultValue = "20") int size) throws MessagingException {
+        return chatService.findChatMessages(chatId, before, size);
     }
 
     @GetMapping("/messages/{messageId}")
