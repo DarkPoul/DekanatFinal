@@ -310,19 +310,20 @@ public class SecondModulePdfGenerator implements PdfGenerator {
     }
 
     private void addStudentsTable(Document document, PdfFont regular, List<StudentModelToDocumentGenerate> students) {
-        Table headerTable = new Table(UnitValue.createPercentArray(new float[]{5, 35, 20, 20, 20}))
-                .useAllAvailableWidth();
-
-        headerTable.addHeaderCell(createHeaderCell("№\nз/п", regular));
-        headerTable.addHeaderCell(createHeaderCell("Прізвище та ініціали студента", regular));
-        headerTable.addHeaderCell(createHeaderCell("Номер залікової книжки", regular));
-        headerTable.addHeaderCell(createHeaderCell("Сума балів за результатами першого та другого модулів (від 0 до 60 балів)", regular));
-        headerTable.addHeaderCell(createHeaderCell("Підпис викладача", regular));
-
-        document.add(headerTable);
-
         Table table = new Table(UnitValue.createPercentArray(new float[]{5, 35, 20, 20, 20}))
                 .useAllAvailableWidth();
+
+        table.addHeaderCell(createHeaderCell("№\nз/п", regular));
+        table.addHeaderCell(createHeaderCell("Прізвище та ініціали студента", regular));
+        table.addHeaderCell(createHeaderCell("Номер залікової книжки", regular));
+        table.addHeaderCell(createHeaderCell("Сума балів за результатами першого та другого модулів (від 0 до 60 балів)", regular));
+        table.addHeaderCell(createHeaderCell("Підпис викладача", regular));
+
+        table.addHeaderCell(createHeaderCell("1", regular));
+        table.addHeaderCell(createHeaderCell("2", regular));
+        table.addHeaderCell(createHeaderCell("3", regular));
+        table.addHeaderCell(createHeaderCell("4", regular));
+        table.addHeaderCell(createHeaderCell("5", regular));
 
         for (StudentModelToDocumentGenerate student : students) {
             table.addCell(createBodyCell(String.valueOf(student.index()), regular, TextAlignment.CENTER));
@@ -332,6 +333,7 @@ public class SecondModulePdfGenerator implements PdfGenerator {
             table.addCell(createBodyCell("", regular, TextAlignment.CENTER));
         }
 
+        table.setKeepWithNext(true);
         document.add(table);
     }
 
@@ -342,10 +344,13 @@ public class SecondModulePdfGenerator implements PdfGenerator {
                 .setFontSize(11)
                 .setTextAlignment(TextAlignment.CENTER)
                 .setMarginTop(8)
-                .setMarginBottom(4));
+                .setMarginBottom(4)
+                .setKeepWithNext(true));
 
         Table summaryTable = new Table(UnitValue.createPercentArray(new float[]{60, 40}))
-                .useAllAvailableWidth();
+                .useAllAvailableWidth()
+                .setKeepTogether(true)
+                .setKeepWithNext(true);
         summaryTable.addHeaderCell(createHeaderCell("Кількість студентів", regular));
         summaryTable.addHeaderCell(createHeaderCell("Сума балів", regular));
 
@@ -365,10 +370,12 @@ public class SecondModulePdfGenerator implements PdfGenerator {
                 .setFont(regular)
                 .setFontSize(11)
                 .setMarginTop(12)
-                .setTextAlignment(TextAlignment.CENTER));
+                .setTextAlignment(TextAlignment.CENTER)
+                .setKeepWithNext(true));
 
         Table signatureTable = new Table(UnitValue.createPercentArray(new float[]{20, 5, 20, 5, 20}))
-                .useAllAvailableWidth();
+                .useAllAvailableWidth()
+                .setKeepTogether(true);
 
         signatureTable.addCell(createSignatureLabelCell(bold));
         signatureTable.addCell(createSignatureSpacerCell());
