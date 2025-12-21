@@ -16,7 +16,9 @@ public class ChatMessageDetailDto {
     String to;
     String subject;
     String bodyHtml;
+    String bodyHtmlClean;
     String bodyText;
+    String bodyTextClean;
     String quotedText;
     String quotedHtml;
     String snippet;

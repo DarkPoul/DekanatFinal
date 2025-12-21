@@ -1059,9 +1059,7 @@ public class EnterMarksView extends Div {
 
     private String getCurrentUserFullNameSurnameFirst() {
         return securityService.getCurrentUserModel()
-                .map(u -> capitalize(u.getLastname()) + " "
-                        + capitalize(u.getFirstname()) + " "
-                        + capitalize(u.getPatronymic()))
+                .map(u -> capitalize(u.getFirstname()) + " " + u.getLastname().toUpperCase())
                 .orElse("");
     }
 

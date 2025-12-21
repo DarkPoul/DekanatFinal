@@ -2,7 +2,6 @@ package com.esvar.dekanat.mail;
 
 import com.esvar.dekanat.mail.dto.ChatListItemDto;
 import com.esvar.dekanat.mail.dto.ChatMessageDetailDto;
-import com.esvar.dekanat.mail.dto.ChatMessageHeaderDto;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -15,10 +14,6 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import jakarta.mail.MessagingException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDate;
@@ -40,13 +35,12 @@ public class ConversationView extends VerticalLayout {
     private final ComboBox<ChatStatus> statusComboBox = new ComboBox<>("Статус");
     private final Button markProcessedButton = new Button("Позначити опрацьованим");
     private final Button closeButton = new Button("Закрити");
-    private final Button loadMoreButton = new Button("Завантажити попередні");
     private final Span metaInfo = new Span();
     private final Div messagesContainer = new Div();
+    private final H3 title = new H3("Діалог");
 
     private ChatListItemDto currentChat;
-    private int currentPage = 0;
-    private final List<ChatMessageHeaderDto> loadedMessages = new ArrayList<>();
+    private final List<ChatMessageDetailDto> loadedMessages = new ArrayList<>();
     private Consumer<ChatListItemDto> chatUpdateListener;
 
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
@@ -58,7 +52,7 @@ public class ConversationView extends VerticalLayout {
         setSizeFull();
         setPadding(false);
         setSpacing(false);
-        add(buildHeader(), buildMessagesArea(), buildLoadMore());
+        add(buildHeader(), buildMessagesArea());
     }
 
     public void setChatUpdateListener(Consumer<ChatListItemDto> chatUpdateListener) {
@@ -67,29 +61,17 @@ public class ConversationView extends VerticalLayout {
 
     public void showChat(ChatListItemDto chat) {
         this.currentChat = chat;
-        this.currentPage = 0;
         this.loadedMessages.clear();
         updateHeaderState();
-        loadPage(true);
+        loadMessages();
     }
 
     private Component buildHeader() {
-        H3 title = new H3("Діалог");
-        title.addClassName("conversation-title");
-
         statusComboBox.setItems(ChatStatus.values());
         statusComboBox.addValueChangeListener(e -> {
             if (currentChat != null && e.getValue() != null && e.isFromClient()) {
                 chatService.updateStatus(currentChat.getId(), e.getValue());
-                currentChat = ChatListItemDto.builder()
-                        .id(currentChat.getId())
-                        .displayName(currentChat.getDisplayName())
-                        .peerEmail(currentChat.getPeerEmail())
-                        .orgUnit(currentChat.getOrgUnit())
-                        .status(e.getValue())
-                        .hasUnprocessed(false)
-                        .lastMessageAt(currentChat.getLastMessageAt())
-                        .build();
+                currentChat = rebuildChat(currentChat, e.getValue(), false, currentChat.getUnreadCount());
                 notifyChatUpdated();
                 updateHeaderState();
             }
@@ -103,15 +85,7 @@ public class ConversationView extends VerticalLayout {
             chatService.markProcessed(currentChat.getId());
             ChatStatus newStatus = currentChat.getStatus() == ChatStatus.NEW ? ChatStatus.IN_PROGRESS : currentChat.getStatus();
             chatService.updateStatus(currentChat.getId(), newStatus);
-            currentChat = ChatListItemDto.builder()
-                    .id(currentChat.getId())
-                    .displayName(currentChat.getDisplayName())
-                    .peerEmail(currentChat.getPeerEmail())
-                    .orgUnit(currentChat.getOrgUnit())
-                    .status(newStatus)
-                    .hasUnprocessed(false)
-                    .lastMessageAt(currentChat.getLastMessageAt())
-                    .build();
+            currentChat = rebuildChat(currentChat, newStatus, false, 0);
             notifyChatUpdated();
             updateHeaderState();
         });
@@ -122,20 +96,13 @@ public class ConversationView extends VerticalLayout {
                 return;
             }
             chatService.updateStatus(currentChat.getId(), ChatStatus.CLOSED);
-            currentChat = ChatListItemDto.builder()
-                    .id(currentChat.getId())
-                    .displayName(currentChat.getDisplayName())
-                    .peerEmail(currentChat.getPeerEmail())
-                    .orgUnit(currentChat.getOrgUnit())
-                    .status(ChatStatus.CLOSED)
-                    .hasUnprocessed(false)
-                    .lastMessageAt(currentChat.getLastMessageAt())
-                    .build();
+            currentChat = rebuildChat(currentChat, ChatStatus.CLOSED, false, currentChat.getUnreadCount());
             notifyChatUpdated();
             updateHeaderState();
         });
 
         metaInfo.addClassName("conversation-meta");
+        title.addClassName("conversation-title");
 
         HorizontalLayout left = new HorizontalLayout(title, statusComboBox, markProcessedButton, closeButton);
         left.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
@@ -158,29 +125,20 @@ public class ConversationView extends VerticalLayout {
         return messagesContainer;
     }
 
-    private Component buildLoadMore() {
-        loadMoreButton.setWidthFull();
-        loadMoreButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        loadMoreButton.addClickListener(e -> loadPage(false));
-        loadMoreButton.setVisible(false);
-        Div wrapper = new Div(loadMoreButton);
-        wrapper.addClassName("conversation-load-more");
-        return wrapper;
-    }
-
     private void updateHeaderState() {
         boolean hasChat = currentChat != null;
         statusComboBox.setEnabled(hasChat);
         markProcessedButton.setEnabled(hasChat);
         closeButton.setEnabled(hasChat);
-        loadMoreButton.setEnabled(hasChat);
         if (!hasChat) {
             messagesContainer.removeAll();
             messagesContainer.add(new Span("Оберіть діалог"));
             metaInfo.setText("");
+            title.setText("Діалог");
             return;
         }
         statusComboBox.setValue(currentChat.getStatus());
+        title.setText(currentChat.getTitle());
         metaInfo.setText(buildMetaText());
     }
 
@@ -188,39 +146,39 @@ public class ConversationView extends VerticalLayout {
         if (CollectionUtils.isEmpty(loadedMessages)) {
             return "";
         }
-        ChatMessageHeaderDto last = loadedMessages.get(loadedMessages.size() - 1);
+        ChatMessageDetailDto last = loadedMessages.get(loadedMessages.size() - 1);
         String lastTime = last.getSentAt() != null ? dateTimeFormatter.format(last.getSentAt()) : "";
         return String.format("Останнє повідомлення: %s • %d повідомлень", lastTime, loadedMessages.size());
     }
 
-    private void loadPage(boolean initial) {
+    private void loadMessages() {
         if (currentChat == null) {
             return;
         }
-        Pageable pageable = PageRequest.of(currentPage, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "sentAt"));
-        Page<ChatMessageHeaderDto> page = chatService.findMessageHeaders(currentChat.getId(), pageable);
-        List<ChatMessageHeaderDto> batch = new ArrayList<>(page.getContent());
-        batch.sort(Comparator.comparing(ChatMessageHeaderDto::getSentAt, Comparator.nullsLast(Comparator.naturalOrder())));
-
-        loadedMessages.addAll(batch);
-        loadedMessages.sort(Comparator.comparing(ChatMessageHeaderDto::getSentAt, Comparator.nullsLast(Comparator.naturalOrder())));
-
-        renderMessages(initial);
-
-        loadMoreButton.setVisible(page.hasNext());
-        if (page.hasNext()) {
-            currentPage++;
-        }
-        metaInfo.setText(buildMetaText());
-        if (initial) {
+        messagesContainer.removeAll();
+        messagesContainer.add(new Span("Завантаження..."));
+        try {
+            List<ChatMessageDetailDto> batch = chatService.findThreadMessages(currentChat.getThreadKey(), PAGE_SIZE, null);
+            loadedMessages.clear();
+            loadedMessages.addAll(batch);
+            loadedMessages.sort(Comparator.comparing(ChatMessageDetailDto::getSentAt, Comparator.nullsLast(Comparator.naturalOrder())));
+            renderMessages();
+            metaInfo.setText(buildMetaText());
             messagesContainer.getElement().executeJs("this.scrollTop = this.scrollHeight;");
+        } catch (MessagingException e) {
+            messagesContainer.removeAll();
+            messagesContainer.add(new Span("Не вдалося завантажити тему."));
         }
     }
 
-    private void renderMessages(boolean initial) {
+    private void renderMessages() {
         messagesContainer.removeAll();
+        if (loadedMessages.isEmpty()) {
+            messagesContainer.add(new Span("Немає повідомлень у темі"));
+            return;
+        }
         LocalDate lastDate = null;
-        for (ChatMessageHeaderDto message : loadedMessages) {
+        for (ChatMessageDetailDto message : loadedMessages) {
             LocalDate date = Optional.ofNullable(message.getSentAt())
                     .map(instant -> instant.atZone(ZoneId.systemDefault()).toLocalDate())
                     .orElse(null);
@@ -228,19 +186,28 @@ public class ConversationView extends VerticalLayout {
                 messagesContainer.add(new MessageDateDivider(date != null ? dateFormatter.format(date) : ""));
                 lastDate = date;
             }
-            messagesContainer.add(new MessageBubble(message, this::loadMessageDetails));
-        }
-        if (!initial) {
-            messagesContainer.getElement().executeJs("this.scrollTop = this.scrollHeight;");
+            messagesContainer.add(new MessageBubble(message));
         }
     }
 
-    private ChatMessageDetailDto loadMessageDetails(Long messageId) {
-        try {
-            return chatService.getMessageDetails(messageId);
-        } catch (MessagingException e) {
-            throw new IllegalStateException("Не вдалося завантажити повідомлення", e);
+    private ChatListItemDto rebuildChat(ChatListItemDto chat, ChatStatus status, boolean hasUnprocessed, int unreadCount) {
+        if (chat == null) {
+            return null;
         }
+        return ChatListItemDto.builder()
+                .id(chat.getId())
+                .threadKey(chat.getThreadKey())
+                .title(chat.getTitle())
+                .displayName(chat.getDisplayName())
+                .peerEmail(chat.getPeerEmail())
+                .orgUnit(chat.getOrgUnit())
+                .status(status)
+                .hasUnprocessed(hasUnprocessed)
+                .unreadCount(unreadCount)
+                .lastMessageAt(chat.getLastMessageAt())
+                .lastSnippet(chat.getLastSnippet())
+                .hasAttachments(chat.isHasAttachments())
+                .build();
     }
 
     private void notifyChatUpdated() {

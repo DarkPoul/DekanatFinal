@@ -95,3 +95,45 @@
     color: var(--lumo-secondary-text-color);
     font-weight: 600;
 }
+
+.thread-preview {
+    display: flex;
+    flex-direction: column;
+    gap: var(--lumo-space-xs);
+    padding: var(--lumo-space-xs);
+}
+
+.thread-title {
+    font-weight: 700;
+    font-size: var(--lumo-font-size-m);
+}
+
+.thread-counterparty {
+    color: var(--lumo-secondary-text-color);
+    font-size: var(--lumo-font-size-s);
+}
+
+.thread-snippet {
+    color: var(--lumo-body-text-color);
+    font-size: var(--lumo-font-size-s);
+}
+
+.thread-unread {
+    background: var(--lumo-primary-color-10pct);
+    color: var(--lumo-primary-text-color);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: var(--lumo-font-size-xs);
+    font-weight: 600;
+}
+
+.thread-attachment {
+    color: var(--lumo-secondary-text-color);
+}
+
+.thread-status {
+    color: var(--lumo-secondary-text-color);
+    font-size: var(--lumo-font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
