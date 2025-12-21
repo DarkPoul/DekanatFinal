@@ -156,7 +156,7 @@ public class ConversationView extends VerticalLayout {
         messagesContainer.removeAll();
         messagesContainer.add(new Span("Завантаження..."));
         try {
-            List<ChatMessageDetailDto> batch = chatService.findChatMessages(currentChat.getContactEmail(), null);
+            List<ChatMessageDetailDto> batch = chatService.findChatMessages(currentChat.getId(), null);
             loadedMessages.clear();
             loadedMessages.addAll(batch);
             renderMessages();
