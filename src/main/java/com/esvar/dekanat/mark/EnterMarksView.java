@@ -86,8 +86,7 @@ public class EnterMarksView extends Div {
     private static final String CONTROL_TYPE_CONTROL_WORK = "Контрольна робота";
     private static final String SYSTEM_USER_DISPLAY_NAME = "Система";
     private static final String DATE_TIME_PATTERN = "dd.MM.yyyy HH:mm";
-    private static final String EXAMINER_NAME = "Павло ГОНЧАР";
-    private static final String FINAL_GRADE_TEACHER_NAME = "Гончар Павло Олександрович";
+    private static final String MODULE_CONTROL_TEACHER_FULL_NAME = "Гончар Павло Олександрович";
 
     private final FacultyService facultyService;
     private final DepartmentService departmentService;
@@ -1024,8 +1023,8 @@ public class EnterMarksView extends Div {
         String controlTypeName = selectControlType.getValue();
         String hours = String.valueOf(plansEntity.getHours());
         // Приклад з фіксованими значеннями для викладачів
-        String firstTeacher = EXAMINER_NAME;
-        String gradeTeacher = FINAL_GRADE_TEACHER_NAME;
+        String firstTeacher = MODULE_CONTROL_TEACHER_FULL_NAME;
+        String gradeTeacher = MODULE_CONTROL_TEACHER_FULL_NAME;
 
         // Формуємо список студентів для друку
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
@@ -1157,8 +1156,8 @@ public class EnterMarksView extends Div {
         String semesterNumber = String.valueOf(plansEntity.getSemester());
         String controlTypeName = selectControlType.getValue();
         String hours = String.valueOf(plansEntity.getHours());
-        String firstTeacher = EXAMINER_NAME;
-        String gradeTeacher = FINAL_GRADE_TEACHER_NAME;
+        String firstTeacher = MODULE_CONTROL_TEACHER_FULL_NAME;
+        String gradeTeacher = MODULE_CONTROL_TEACHER_FULL_NAME;
         String qualityTrue = "Якість1";
         String qualityFalse = "Якість2";
 

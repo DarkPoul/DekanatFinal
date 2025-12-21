@@ -418,19 +418,29 @@ public class FirstModulePdfGenerator implements PdfGenerator {
 
     private String resolveSignatureName(DataModelForMC1 data) {
         if (!isBlank(data.secondTeacher())) {
-            return data.secondTeacher();
+            return formatExaminerName(data.secondTeacher());
         }
         if (!isBlank(data.gradeTeacher())) {
-            return data.gradeTeacher();
+            return formatExaminerName(data.gradeTeacher());
         }
         if (!isBlank(data.firstTeacher())) {
-            return data.firstTeacher();
+            return formatExaminerName(data.firstTeacher());
         }
         return "";
     }
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private String formatExaminerName(String fullName) {
+        String[] parts = Objects.toString(fullName, "").trim().split("\\s+");
+        if (parts.length >= 2) {
+            String surname = parts[0].toUpperCase();
+            String firstName = parts[1];
+            return firstName + " " + surname;
+        }
+        return Objects.toString(fullName, "");
     }
 
     private Cell createHeaderCell(String text, PdfFont font) {
