@@ -40,10 +40,10 @@ public class MailController {
         return chatService.findChats(filter, pageable);
     }
 
-    @GetMapping("/chats/{contactEmail}/messages")
-    public List<ChatMessageDetailDto> getChatMessages(@PathVariable String contactEmail,
-                                                        @RequestParam(name = "before", required = false) Instant before) throws MessagingException {
-        return chatService.findChatMessages(contactEmail, before);
+    @GetMapping("/chats/{chatId}/messages")
+    public List<ChatMessageDetailDto> getChatMessages(@PathVariable Long chatId,
+                                                      @RequestParam(name = "before", required = false) Instant before) throws MessagingException {
+        return chatService.findChatMessages(chatId, before);
     }
 
     @GetMapping("/messages/{messageId}")

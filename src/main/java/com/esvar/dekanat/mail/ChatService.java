@@ -81,11 +81,13 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
-    public List<ChatMessageDetailDto> findChatMessages(String contactEmail, Instant before) throws MessagingException {
-        String normalizedContact = StringUtils.hasText(contactEmail) ? contactEmail.trim().toLowerCase() : contactEmail;
+    public List<ChatMessageDetailDto> findChatMessages(Long chatId, Instant before) throws MessagingException {
+        if (chatId == null) {
+            return List.of();
+        }
         List<MailMessageEntity> messages = before != null
-                ? mailMessageRepository.findByContactEmailAndSentAtBeforeOrderBySentAtDesc(normalizedContact, before)
-                : mailMessageRepository.findByContactEmailOrderBySentAtDesc(normalizedContact);
+                ? mailMessageRepository.findByChatIdAndSentAtBeforeOrderBySentAtDesc(chatId, before)
+                : mailMessageRepository.findByChatIdOrderBySentAtDesc(chatId);
         List<ChatMessageDetailDto> details = new ArrayList<>();
         for (MailMessageEntity message : messages) {
             details.add(toDetailDto(message));
