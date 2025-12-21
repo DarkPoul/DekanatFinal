@@ -10,11 +10,8 @@ import java.time.Instant;
 @Builder
 public class ChatListItemDto {
     Long id;
-    String threadKey;
-    String title;
+    String contactEmail;
     String displayName;
-    String peerEmail;
-    String orgUnit;
     ChatStatus status;
     boolean hasUnprocessed;
     int unreadCount;
