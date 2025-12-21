@@ -16,6 +16,7 @@ import com.esvar.dekanat.generate.pdf.ExamPdfGenerator;
 import com.esvar.dekanat.generate.pdf.FirstModulePdfGenerator;
 import com.esvar.dekanat.generate.pdf.SecondModulePdfGenerator;
 import com.esvar.dekanat.generate.pdf.ZalikPdfGenerator;
+import com.esvar.dekanat.generate.pdf.ZalikSheetPdfGenerator;
 import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
@@ -1265,7 +1266,7 @@ public class EnterMarksView extends Div {
         return switch (controlType) {
             case CONTROL_TYPE_FIRST_MODULE -> generateReportWithModel(FirstModulePdfGenerator.NAME, buildDataModelForMC1(secondTeacher));
             case CONTROL_TYPE_SECOND_MODULE -> generateReportWithModel(SecondModulePdfGenerator.NAME, buildDataModelForMC2(secondTeacher));
-            case "Залік" -> generateReportWithModel(ZalikPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
+            case "Залік" -> generateReportWithModel(ZalikSheetPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
             case "Екзамен" -> generateReportWithModel(ExamPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
             case "Диференційний залік" -> generateReportWithModel(DifferentialZalikPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
             case "Курсова робота" -> generateReportWithModel(CourseWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
