@@ -879,6 +879,11 @@ public class EnterMarksView extends Div {
         if (plansEntity.getGroups() != null && !plansEntity.getGroups().isEmpty()) {
             return plansEntity.getGroups().iterator().next();
         }
+        return getLegacyPlanGroup();
+    }
+
+    @SuppressWarnings("deprecation")
+    private StudentGroupEntity getLegacyPlanGroup() {
         return plansEntity.getGroup();
     }
 
