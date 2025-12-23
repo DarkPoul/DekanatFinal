@@ -64,6 +64,9 @@ public class ImapMailIngestService implements MailIngestService {
     @Value("${mail.imap.inbox-folder:INBOX}")
     private String inboxFolder;
 
+    @Value("${mail.imap.sent-folder:}")
+    private String sentFolder;
+
     @Value("${mail.imap.use-ssl:true}")
     private boolean useSsl;
 
@@ -83,60 +86,9 @@ public class ImapMailIngestService implements MailIngestService {
         Session session = Session.getInstance(props);
         try (Store store = session.getStore()) {
             store.connect(host, port, username, password);
-            Folder folder = store.getFolder(inboxFolder);
-            if (!(folder instanceof IMAPFolder imapFolder)) {
-                log.warn("Folder {} is not IMAP compatible", inboxFolder);
-                return;
-            }
-            try {
-                imapFolder.open(Folder.READ_ONLY);
-                FolderStateEntity state = folderStateRepository.findByFolderName(inboxFolder)
-                        .orElseGet(() -> FolderStateEntity.builder()
-                                .folderName(inboxFolder)
-                                .build());
-                long uidValidity = imapFolder.getUIDValidity();
-                if (state.getUidValidity() != null && !state.getUidValidity().equals(uidValidity)) {
-                    log.info("UIDVALIDITY changed for {}, resetting sync cursor", inboxFolder);
-                    state.setLastSeenUid(null);
-                }
-                state.setUidValidity(uidValidity);
-
-                long startUid = state.getLastSeenUid() != null ? state.getLastSeenUid() + 1 : 1;
-                Message[] messages = imapFolder.getMessagesByUID(startUid, UIDFolder.LASTUID);
-                // 1. Попередньо завантажуємо UID для всіх повідомлень одним викликом
-                FetchProfile fp = new FetchProfile();
-                fp.add(UIDFolder.FetchProfileItem.UID);
-                imapFolder.fetch(messages, fp);
-
-// 2. Сортуємо, обробляючи можливі помилки
-                Arrays.sort(messages, (m1, m2) -> {
-                    try {
-                        return Long.compare(imapFolder.getUID(m1), imapFolder.getUID(m2));
-                    } catch (MessagingException e) {
-                        throw new RuntimeException("Помилка при отриманні UID під час сортування", e);
-                    }
-                });
-
-                long maxUid = state.getLastSeenUid() != null ? state.getLastSeenUid() : 0;
-                for (Message message : messages) {
-                    long uid = imapFolder.getUID(message);
-                    if (uid <= 0) {
-                        continue;
-                    }
-                    try {
-                        ingestMessage(message, uid);
-                        maxUid = Math.max(maxUid, uid);
-                    } catch (Exception e) {
-                        log.warn("Failed to ingest message UID {}: {}", uid, e.getMessage(), e);
-                    }
-                }
-                state.setLastSeenUid(maxUid);
-                state.setUpdatedAt(Instant.now());
-                folderStateRepository.save(state);
-            } finally {
-                if (imapFolder.isOpen()) {
-                    imapFolder.close(false);
-                }
+            syncFolder(store, inboxFolder);
+            if (StringUtils.hasText(sentFolder) && !inboxFolder.equalsIgnoreCase(sentFolder)) {
+                syncFolder(store, sentFolder);
             }
         } catch (Exception e) {
             log.error("IMAP sync failed: {}", e.getMessage(), e);
@@ -148,9 +100,65 @@ public class ImapMailIngestService implements MailIngestService {
         syncInbox();
     }
 
-    private void ingestMessage(Message message, long uid) throws MessagingException, IOException {
+    private void syncFolder(Store store, String folderName) throws MessagingException {
+        Folder folder = store.getFolder(folderName);
+        if (!(folder instanceof IMAPFolder imapFolder)) {
+            log.warn("Folder {} is not IMAP compatible", folderName);
+            return;
+        }
+        try {
+            imapFolder.open(Folder.READ_ONLY);
+            FolderStateEntity state = folderStateRepository.findByFolderName(folderName)
+                    .orElseGet(() -> FolderStateEntity.builder()
+                            .folderName(folderName)
+                            .build());
+            long uidValidity = imapFolder.getUIDValidity();
+            if (state.getUidValidity() != null && !state.getUidValidity().equals(uidValidity)) {
+                log.info("UIDVALIDITY changed for {}, resetting sync cursor", folderName);
+                state.setLastSeenUid(null);
+            }
+            state.setUidValidity(uidValidity);
+
+            long startUid = state.getLastSeenUid() != null ? state.getLastSeenUid() + 1 : 1;
+            Message[] messages = imapFolder.getMessagesByUID(startUid, UIDFolder.LASTUID);
+            FetchProfile fp = new FetchProfile();
+            fp.add(UIDFolder.FetchProfileItem.UID);
+            imapFolder.fetch(messages, fp);
+
+            Arrays.sort(messages, (m1, m2) -> {
+                try {
+                    return Long.compare(imapFolder.getUID(m1), imapFolder.getUID(m2));
+                } catch (MessagingException e) {
+                    throw new RuntimeException("Помилка при отриманні UID під час сортування", e);
+                }
+            });
+
+            long maxUid = state.getLastSeenUid() != null ? state.getLastSeenUid() : 0;
+            for (Message message : messages) {
+                long uid = imapFolder.getUID(message);
+                if (uid <= 0) {
+                    continue;
+                }
+                try {
+                    ingestMessage(message, uid, folderName);
+                    maxUid = Math.max(maxUid, uid);
+                } catch (Exception e) {
+                    log.warn("Failed to ingest message UID {} from folder {}: {}", uid, folderName, e.getMessage(), e);
+                }
+            }
+            state.setLastSeenUid(maxUid);
+            state.setUpdatedAt(Instant.now());
+            folderStateRepository.save(state);
+        } finally {
+            if (imapFolder.isOpen()) {
+                imapFolder.close(false);
+            }
+        }
+    }
+
+    private void ingestMessage(Message message, long uid, String folderName) throws MessagingException, IOException {
         String messageId = Arrays.toString(message.getHeader("Message-ID"));
-        String externalId = StringUtils.hasText(messageId) ? messageId : inboxFolder + ":" + uid;
+        String externalId = StringUtils.hasText(messageId) ? messageId : folderName + ":" + uid;
         if (messageRepository.findByExternalId(externalId).isPresent()) {
             return;
         }
