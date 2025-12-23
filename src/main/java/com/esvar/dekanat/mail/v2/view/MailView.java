@@ -30,12 +30,14 @@ import com.vaadin.flow.data.provider.CallbackDataProvider;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import jakarta.annotation.security.RolesAllowed;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
 
 @Route(value = "mail", layout = MainLayout.class)
 @PageTitle("Пошта")
+@RolesAllowed("ROLE_ADMIN")
 @CssImport("./styles/mail-messenger.css")
 public class MailView extends HorizontalLayout {
 
