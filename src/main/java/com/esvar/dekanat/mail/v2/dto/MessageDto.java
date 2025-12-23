@@ -10,6 +10,7 @@ import lombok.Setter;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Getter
@@ -26,6 +27,7 @@ public class MessageDto {
     private Instant sentAt;
     private String bodyHtml;
     private String bodyText;
+    @Builder.Default
     private List<MessageAttachmentDto> attachments = new ArrayList<>();
     private String snippet;
 
@@ -44,6 +46,7 @@ public class MessageDto {
     }
 
     public static MessageDto fromEntity(MailMessageEntity entity, List<MailAttachmentEntity> attachments) {
+        List<MailAttachmentEntity> safeAttachments = attachments != null ? attachments : Collections.emptyList();
         MessageDto dto = MessageDto.builder()
                 .id(entity.getId())
                 .direction(entity.getDirection())
@@ -55,7 +58,7 @@ public class MessageDto {
                 .bodyText(entity.getBodyText())
                 .snippet(entity.getSnippet())
                 .build();
-        for (MailAttachmentEntity attachment : attachments) {
+        for (MailAttachmentEntity attachment : safeAttachments) {
             dto.attachments.add(MessageAttachmentDto.builder()
                     .id(attachment.getId())
                     .filename(attachment.getFilename())
