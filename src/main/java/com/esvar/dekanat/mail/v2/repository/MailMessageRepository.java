@@ -20,4 +20,6 @@ public interface MailMessageRepository extends JpaRepository<MailMessageEntity, 
 
     @Query("select m from MailMessageEntity m where m.thread.id = :threadId order by m.sentAt desc")
     List<MailMessageEntity> findPaged(@Param("threadId") Long threadId, Pageable pageable);
+
+    Optional<MailMessageEntity> findByExternalId(String externalId);
 }
