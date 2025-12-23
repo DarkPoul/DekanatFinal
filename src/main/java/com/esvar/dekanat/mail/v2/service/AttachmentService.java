@@ -12,7 +12,9 @@ import org.springframework.http.MediaTypeFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
@@ -58,6 +60,12 @@ public class AttachmentService {
             return new FileSystemResource(path);
         }
         byte[] bytes = decodeStorageKey(entity.getStorageKey());
+        if (bytes.length == 0) {
+            Resource fileResource = fallbackToFileResource(entity.getStorageKey());
+            if (fileResource != null) {
+                return fileResource;
+            }
+        }
         return new ByteArrayResource(bytes);
     }
 
@@ -68,8 +76,40 @@ public class AttachmentService {
         try {
             return Base64.getDecoder().decode(storageKey);
         } catch (IllegalArgumentException ignored) {
-            return storageKey.getBytes(StandardCharsets.UTF_8);
         }
+        try {
+            return Base64.getMimeDecoder().decode(storageKey);
+        } catch (IllegalArgumentException ignored) {
+        }
+        return storageKey.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private MediaType parseMediaType(String contentType) {
+        if (!StringUtils.hasText(contentType)) {
+            return null;
+        }
+        try {
+            return MediaType.parseMediaType(contentType);
+        } catch (InvalidMediaTypeException ignored) {
+            return null;
+        }
+    }
+
+    private Resource fallbackToFileResource(String storageKey) {
+        if (!StringUtils.hasText(storageKey)) {
+            return null;
+        }
+        Path candidate = Paths.get(storageKey);
+        if (!Files.exists(candidate)) {
+            return null;
+        }
+        try {
+            if (Files.isReadable(candidate) && Files.size(candidate) > 0) {
+                return new FileSystemResource(candidate);
+            }
+        } catch (IOException ignored) {
+        }
+        return null;
     }
 
     private MediaType parseMediaType(String contentType) {
