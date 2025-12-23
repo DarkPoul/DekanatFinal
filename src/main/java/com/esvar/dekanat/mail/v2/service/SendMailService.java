@@ -16,9 +16,6 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,13 +54,7 @@ public class SendMailService {
         helper.setText(message.getBodyText(), false);
         helper.setFrom(message.getFromEmail() != null ? message.getFromEmail() : thread.getContact().getEmail());
         for (MailAttachmentEntity attachment : attachments) {
-            Path path = Paths.get(attachment.getStorageKey());
-
-            helper.addAttachment(
-                    attachment.getFilename(),
-                    () -> Files.newInputStream(path),
-                    attachment.getContentType()
-            );
+            helper.addAttachment(attachment.getFilename(), () -> attachment.getStorageKey().getBytes(), attachment.getContentType());
         }
         mailSender.send(mimeMessage);
     }
