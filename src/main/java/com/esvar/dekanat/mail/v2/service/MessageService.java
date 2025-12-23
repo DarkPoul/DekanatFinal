@@ -35,6 +35,7 @@ public class MessageService {
 
     @Transactional
     public MailMessageEntity saveOutgoing(MailThreadEntity thread,
+                                          String fromEmail,
                                           String subject,
                                           String bodyHtml,
                                           String bodyText,
@@ -42,7 +43,7 @@ public class MessageService {
         MailMessageEntity entity = MailMessageEntity.builder()
                 .thread(thread)
                 .direction(MailMessageEntity.Direction.OUT)
-                .fromEmail(thread.getContact().getEmail())
+                .fromEmail(fromEmail)
                 .toEmail(toEmail)
                 .subject(subject)
                 .sentAt(Instant.now())
