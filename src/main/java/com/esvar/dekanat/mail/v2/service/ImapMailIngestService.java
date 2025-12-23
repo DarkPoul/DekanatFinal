@@ -101,6 +101,24 @@ public class ImapMailIngestService implements MailIngestService {
     }
 
     private void syncFolder(Store store, String folderName) throws MessagingException {
+        syncFolder(store, folderName, 0);
+    }
+
+    private void syncFolder(Store store, String folderName, int attempt) throws MessagingException {
+        try {
+            syncFolderInternal(store, folderName);
+        } catch (FolderClosedException e) {
+            if (attempt < 1) {
+                log.warn("Folder {} connection lost, retrying sync", folderName, e);
+                syncFolder(store, folderName, attempt + 1);
+            } else {
+                log.error("Folder {} connection lost after retry, aborting sync", folderName, e);
+                throw e;
+            }
+        }
+    }
+
+    private void syncFolderInternal(Store store, String folderName) throws MessagingException {
         Folder folder = store.getFolder(folderName);
         if (!(folder instanceof IMAPFolder imapFolder)) {
             log.warn("Folder {} is not IMAP compatible", folderName);
