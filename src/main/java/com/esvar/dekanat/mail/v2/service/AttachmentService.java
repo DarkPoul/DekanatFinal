@@ -6,6 +6,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.InvalidMediaTypeException;
+import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -29,6 +32,15 @@ public class AttachmentService {
     public Optional<AttachmentContent> loadInline(Long id) {
         return attachmentRepository.findByIdAndInlineTrue(id)
                 .map(this::toAttachmentContent);
+    }
+
+    public MediaType resolveMediaType(AttachmentContent content) {
+        MediaType parsed = parseMediaType(content.contentType());
+        if (parsed != null) {
+            return parsed;
+        }
+        return MediaTypeFactory.getMediaType(content.filename())
+                .orElse(MediaType.APPLICATION_OCTET_STREAM);
     }
 
     private AttachmentContent toAttachmentContent(MailAttachmentEntity entity) {
@@ -57,6 +69,17 @@ public class AttachmentService {
             return Base64.getDecoder().decode(storageKey);
         } catch (IllegalArgumentException ignored) {
             return storageKey.getBytes(StandardCharsets.UTF_8);
+        }
+    }
+
+    private MediaType parseMediaType(String contentType) {
+        if (!StringUtils.hasText(contentType)) {
+            return null;
+        }
+        try {
+            return MediaType.parseMediaType(contentType);
+        } catch (InvalidMediaTypeException ignored) {
+            return null;
         }
     }
 
