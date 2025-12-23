@@ -45,6 +45,7 @@ public class MessageBubble extends Div {
                 .toList();
 
         InlineBody inlineBody = sanitizeBodyHtml(message.getBodyHtml(), inlineAttachments);
+        Set<Long> resolvedInlineIds = inlineBody.resolvedInlineIds();
 
         if (StringUtils.hasText(inlineBody.html())) {
             body.getElement().setProperty("innerHTML", inlineBody.html());
@@ -56,12 +57,13 @@ public class MessageBubble extends Div {
             body.setText("Без вмісту");
         }
 
-        appendInlineImages(body, inlineAttachments, inlineBody.resolvedInlineIds());
+        appendInlineImages(body, inlineAttachments, resolvedInlineIds);
 
         add(meta, body);
 
         List<MessageDto.MessageAttachmentDto> downloadableAttachments = attachments.stream()
-                .filter(attachment -> !attachment.isInline())
+                .filter(attachment -> attachment.getId() != null)
+                .filter(attachment -> !attachment.isInline() || !resolvedInlineIds.contains(attachment.getId()))
                 .toList();
         if (!downloadableAttachments.isEmpty()) {
             Div attachmentBlock = new Div();
