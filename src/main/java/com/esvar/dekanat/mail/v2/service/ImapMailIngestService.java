@@ -32,6 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -385,7 +386,7 @@ public class ImapMailIngestService implements MailIngestService {
                 (long) contentBytes.length,
                 inline,
                 contentId,
-                new String(contentBytes, StandardCharsets.UTF_8)
+                Base64.getEncoder().encodeToString(contentBytes)
         );
     }
 
