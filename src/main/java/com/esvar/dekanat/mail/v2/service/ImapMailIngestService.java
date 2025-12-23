@@ -25,6 +25,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Entities;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,6 +42,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -193,7 +197,7 @@ public class ImapMailIngestService implements MailIngestService {
         EmailAddress to = extractAddress(message.getRecipients(Message.RecipientType.TO));
         MailMessageEntity.Direction direction = resolveDirection(from.email());
         Instant sentAt = message.getSentDate() != null ? message.getSentDate().toInstant() : Instant.now();
-        MessageContent content = extractContent(message);
+        MessageContent content = sanitizeContent(extractContent(message));
         MailContactEntity contact = resolveContact(direction, from, to);
         MailThreadEntity thread = resolveThread(contact);
 
@@ -523,5 +527,80 @@ public class ImapMailIngestService implements MailIngestService {
         public MessageContent build() {
             return new MessageContent(bodyText, bodyHtml, attachments);
         }
+    }
+
+    private MessageContent sanitizeContent(MessageContent content) {
+        String cleanedText = stripQuotedText(content.bodyText());
+        String cleanedHtml = stripQuotedHtml(content.bodyHtml(), cleanedText);
+        return new MessageContent(cleanedText, cleanedHtml, content.attachments());
+    }
+
+    private String stripQuotedText(String text) {
+        if (!StringUtils.hasText(text)) {
+            return text;
+        }
+        List<String> lines = new ArrayList<>(Arrays.asList(text.split("\\r?\\n")));
+        List<String> result = new ArrayList<>();
+        for (String line : lines) {
+            if (isQuoteMarker(line)) {
+                break;
+            }
+            result.add(line);
+        }
+        while (!result.isEmpty() && !StringUtils.hasText(result.get(result.size() - 1).trim())) {
+            result.remove(result.size() - 1);
+        }
+        if (result.isEmpty()) {
+            return null;
+        }
+        return String.join("\n", result).trim();
+    }
+
+    private String stripQuotedHtml(String html, String fallbackText) {
+        if (!StringUtils.hasText(html)) {
+            return fallbackText;
+        }
+        String plainFromHtml = htmlToText(html);
+        String cleanedPlain = stripQuotedText(plainFromHtml);
+        if (!StringUtils.hasText(cleanedPlain)) {
+            return fallbackText;
+        }
+        return textToHtml(cleanedPlain);
+    }
+
+    private boolean isQuoteMarker(String line) {
+        if (!StringUtils.hasText(line)) {
+            return false;
+        }
+        String trimmed = line.trim();
+        List<Pattern> patterns = List.of(
+                Pattern.compile("(?i)^>+.*"),
+                Pattern.compile("(?i)^on .+wrote:?$"),
+                Pattern.compile("(?i)^from:.*"),
+                Pattern.compile("(?i)^re:.*"),
+                Pattern.compile("(?i)^subject:.*"),
+                Pattern.compile("(?i)^sent:.*"),
+                Pattern.compile("(?iu)^.*пише:?$"),
+                Pattern.compile("(?iu)^.*написав:?$"),
+                Pattern.compile("(?iu)^.*написала:?$")
+        );
+        return patterns.stream().anyMatch(pattern -> pattern.matcher(trimmed).find());
+    }
+
+    private String htmlToText(String html) {
+        Document document = Jsoup.parse(html);
+        document.outputSettings().prettyPrint(false);
+        document.select("br").append("\\n");
+        document.select("p").prepend("\\n").append("\\n");
+        document.select("div").prepend("\\n").append("\\n");
+        String text = document.text();
+        return text.replace("\\n", "\n");
+    }
+
+    private String textToHtml(String text) {
+        return Arrays.stream(text.split("\\r?\\n", -1))
+                .map(String::trim)
+                .map(Entities::escape)
+                .collect(Collectors.joining("<br>"));
     }
 }
