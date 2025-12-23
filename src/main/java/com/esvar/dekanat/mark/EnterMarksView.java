@@ -183,7 +183,11 @@ public class EnterMarksView extends Div {
         Long departmentId      = isDepartment ? Long.valueOf(role_type) : null;
 
         if (isDekanatGroup){
-            selectFaculty.setValue(facultyService.getFacultyTitleById(Long.valueOf(role_type)));
+            setRoleBoundSelection(selectFaculty, facultyService.getFacultyTitleById(Long.valueOf(role_type)));
+        }
+
+        if (isDepartment) {
+            setRoleBoundSelection(selectDepartment, departmentService.getDepartmentById(departmentId));
         }
 
         selectSpecialty.setLabel("Спеціальність");
@@ -459,6 +463,15 @@ public class EnterMarksView extends Div {
                 ? null
                 : departmentService.getDepartmentByTitle(selectedDepartment);
         return department != null ? department.getId() : null;
+    }
+
+    private void setRoleBoundSelection(Select<String> select, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        select.setItems(value);
+        select.setValue(value);
+        select.setReadOnly(true);
     }
 
     private void configureGrid(String typeControl, int part) {
