@@ -119,14 +119,12 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
         line.setMarginBottom(0);
 
         document.add(line);
-        document.add(new Paragraph("ВІДОМІСТЬ ОБЛІКУ УСПІШНОСТІ № " + safe(dto.sheetNumber()))
+        document.add(new Paragraph("Спеціальність " + safe(dto.spec()))
                 .setFont(regular)
                 .setFontSize(11));
         document.add(line);
-        document.add(new Paragraph("Спеціальність: " + Objects.toString(dto.spec(), ""))
-                .setFont(regular)
-                .setFontSize(11));
-        document.add(line);
+
+
 
         Table groupTable = new Table(UnitValue.createPercentArray(new float[]{25, 10, 25, 40}))
                 .useAllAvailableWidth();

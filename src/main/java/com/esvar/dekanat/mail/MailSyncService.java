@@ -1,6 +1,8 @@
 package com.esvar.dekanat.mail;
 
 
+import com.esvar.dekanat.mail.v2.entity.MailMessageEntity;
+import com.esvar.dekanat.mail.v2.repository.MailMessageRepository;
 import jakarta.mail.Address;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
@@ -118,7 +120,7 @@ public class MailSyncService {
         String snippet = MailTextExtractor.sanitizeSnippet(StringUtils.hasText(cleanPlain) ? cleanPlain : title, 500);
 
         MailMessageEntity entity = MailMessageEntity.builder()
-                .messageId(messageId)
+
                 .chat(chat)
                 .threadKey(threadKey)
                 .normalizedSubject(normalizedSubject)
