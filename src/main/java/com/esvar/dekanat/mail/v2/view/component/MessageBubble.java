@@ -15,6 +15,7 @@ import org.springframework.util.StringUtils;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 
 public class MessageBubble extends Div {
 
@@ -43,7 +44,7 @@ public class MessageBubble extends Div {
 
         add(meta, body);
 
-        List<MessageDto.MessageAttachmentDto> attachments = message.getAttachments();
+        List<MessageDto.MessageAttachmentDto> attachments = Objects.requireNonNullElseGet(message.getAttachments(), List::of);
         if (!attachments.isEmpty()) {
             Div attachmentBlock = new Div();
             attachmentBlock.addClassName("attachments");
