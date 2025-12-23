@@ -133,8 +133,16 @@ public class MessageBubble extends Div {
                     .filter(attachment -> StringUtils.hasText(attachment.getContentId()))
                     .collect(Collectors.toMap(attachment -> attachment.getContentId().toLowerCase(Locale.ROOT), Function.identity(), (first, duplicate) -> first));
 
-            for (Element imageElement : document.select("img[src^=cid:]")) {
-                String cid = imageElement.attr("src").substring(4).trim();
+            for (Element imageElement : document.select("img[src]")) {
+                String originalSrc = imageElement.attr("src");
+                if (!StringUtils.hasText(originalSrc)) {
+                    continue;
+                }
+                String normalizedSrc = originalSrc.trim();
+                if (!normalizedSrc.toLowerCase(Locale.ROOT).startsWith("cid:")) {
+                    continue;
+                }
+                String cid = normalizedSrc.substring(4).trim();
                 MessageDto.MessageAttachmentDto attachment = inlineByContentId.get(cid.toLowerCase(Locale.ROOT));
                 if (attachment != null) {
                     imageElement.attr("src", "/api/mail/v2/attachments/" + attachment.getId() + "/inline");
