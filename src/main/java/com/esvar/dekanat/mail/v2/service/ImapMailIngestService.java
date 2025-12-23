@@ -10,6 +10,10 @@ import com.esvar.dekanat.mail.v2.entity.MailAttachmentEntity;
 import com.esvar.dekanat.mail.v2.entity.MailContactEntity;
 import com.esvar.dekanat.mail.v2.entity.MailMessageEntity;
 import com.esvar.dekanat.mail.v2.entity.MailThreadEntity;
+import com.esvar.dekanat.service.DepartmentService;
+import com.esvar.dekanat.service.FacultyService;
+import com.esvar.dekanat.user.UserModel;
+import com.esvar.dekanat.user.UserRepository;
 import jakarta.mail.*;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeUtility;
@@ -22,8 +26,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +36,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +49,9 @@ public class ImapMailIngestService implements MailIngestService {
     private final MailThreadRepository threadRepository;
     private final MailMessageRepository messageRepository;
     private final MailAttachmentRepository attachmentRepository;
+    private final UserRepository userRepository;
+    private final FacultyService facultyService;
+    private final DepartmentService departmentService;
 
     @Value("${mail.sync.enabled:true}")
     private boolean syncEnabled;
@@ -252,12 +259,77 @@ public class ImapMailIngestService implements MailIngestService {
                         .createdAt(Instant.now())
                         .updatedAt(Instant.now())
                         .build()));
+        contact = enrichContact(contact, peer);
         if (!StringUtils.hasText(contact.getDisplayName()) && StringUtils.hasText(peer.displayName())) {
             contact.setDisplayName(peer.displayName());
             contact.setUpdatedAt(Instant.now());
             contact = contactRepository.save(contact);
         }
         return contact;
+    }
+
+    private MailContactEntity enrichContact(MailContactEntity contact, EmailAddress peer) {
+        boolean changed = false;
+        Optional<UserModel> userOpt = userRepository.findByEmail(contact.getEmail());
+        if (userOpt.isPresent()) {
+            UserModel user = userOpt.get();
+            if (contact.getType() != MailContactEntity.ContactType.INTERNAL) {
+                contact.setType(MailContactEntity.ContactType.INTERNAL);
+                changed = true;
+            }
+            if (contact.getUserId() == null || !contact.getUserId().equals(user.getId())) {
+                contact.setUserId(user.getId());
+                changed = true;
+            }
+            String fullName = composeFullName(user);
+            if (StringUtils.hasText(fullName) && !fullName.equals(contact.getDisplayName())) {
+                contact.setDisplayName(fullName);
+                changed = true;
+            }
+            String orgUnit = resolveOrgUnit(user);
+            if (StringUtils.hasText(orgUnit) && !orgUnit.equals(contact.getOrgUnitText())) {
+                contact.setOrgUnitText(orgUnit);
+                changed = true;
+            }
+        } else if (!StringUtils.hasText(contact.getDisplayName()) && StringUtils.hasText(peer.displayName())) {
+            contact.setDisplayName(peer.displayName());
+            changed = true;
+        }
+
+        if (changed) {
+            contact.setUpdatedAt(Instant.now());
+            return contactRepository.save(contact);
+        }
+        return contact;
+    }
+
+    private String composeFullName(UserModel user) {
+        return List.of(user.getLastname(), user.getFirstname(), user.getPatronymic())
+                .stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .collect(Collectors.joining(" "));
+    }
+
+    private String resolveOrgUnit(UserModel user) {
+        String role = user.getRole();
+        String roleType = user.getRoleType();
+        if (!StringUtils.hasText(role) || !StringUtils.hasText(roleType)) {
+            return null;
+        }
+        try {
+            Long roleTypeId = Long.valueOf(roleType);
+            if (role.startsWith("ROLE_DEPARTMENT")) {
+                return departmentService.getDepartmentById(roleTypeId);
+            }
+            if (role.startsWith("ROLE_DEKANAT")) {
+                return facultyService.getFacultyTitleById(roleTypeId);
+            }
+        } catch (NumberFormatException e) {
+            log.warn("Не вдалося обробити roleType {} для користувача {}", roleType, user.getEmail());
+        }
+        return null;
     }
 
     private EmailAddress preferredRecipient(EmailAddress primary, EmailAddress fallback) {
