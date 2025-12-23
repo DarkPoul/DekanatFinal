@@ -582,7 +582,13 @@ public class ImapMailIngestService implements MailIngestService {
                 Pattern.compile("(?i)^sent:.*"),
                 Pattern.compile("(?iu)^.*пише:?$"),
                 Pattern.compile("(?iu)^.*написав:?$"),
-                Pattern.compile("(?iu)^.*написала:?$")
+                Pattern.compile("(?iu)^.*написала:?$"),
+                Pattern.compile("(?iu)^[-_\\s]*forwarded message[-_\\s]*$"),
+                Pattern.compile("(?iu)^[-_\\s]*original message[-_\\s]*$"),
+                Pattern.compile("(?iu)^[-_\\s]*forwarded:?[-_\\s]*$"),
+                Pattern.compile("(?iu)^[-_\\s]*переслане повідомлення[-_\\s]*$"),
+                Pattern.compile("(?iu)^[-_\\s]*оригінальне повідомлення[-_\\s]*$"),
+                Pattern.compile("(?iu)^[-_\\s]*початкове повідомлення[-_\\s]*$")
         );
         return patterns.stream().anyMatch(pattern -> pattern.matcher(trimmed).find());
     }
