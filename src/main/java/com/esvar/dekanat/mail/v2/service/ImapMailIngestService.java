@@ -10,26 +10,19 @@ import com.esvar.dekanat.mail.v2.entity.MailAttachmentEntity;
 import com.esvar.dekanat.mail.v2.entity.MailContactEntity;
 import com.esvar.dekanat.mail.v2.entity.MailMessageEntity;
 import com.esvar.dekanat.mail.v2.entity.MailThreadEntity;
-import jakarta.mail.Address;
-import jakarta.mail.BodyPart;
-import jakarta.mail.Folder;
-import jakarta.mail.Message;
-import jakarta.mail.MessagingException;
-import jakarta.mail.Multipart;
-import jakarta.mail.Part;
-import jakarta.mail.Session;
-import jakarta.mail.Store;
-import jakarta.mail.UIDFolder;
+import jakarta.mail.*;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeUtility;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.angus.mail.imap.IMAPFolder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import com.sun.mail.imap.IMAPFolder;
+
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -77,6 +70,7 @@ public class ImapMailIngestService implements MailIngestService {
     @Value("${mail.default-from:}")
     private String defaultFrom;
 
+    @SneakyThrows
     @Override
     public void syncInbox() {
         if (!syncEnabled) {
@@ -109,7 +103,20 @@ public class ImapMailIngestService implements MailIngestService {
 
                 long startUid = state.getLastSeenUid() != null ? state.getLastSeenUid() + 1 : 1;
                 Message[] messages = imapFolder.getMessagesByUID(startUid, UIDFolder.LASTUID);
-                Arrays.sort(messages, Comparator.comparingLong(imapFolder::getUID));
+                // 1. Попередньо завантажуємо UID для всіх повідомлень одним викликом
+                FetchProfile fp = new FetchProfile();
+                fp.add(UIDFolder.FetchProfileItem.UID);
+                imapFolder.fetch(messages, fp);
+
+// 2. Сортуємо, обробляючи можливі помилки
+                Arrays.sort(messages, (m1, m2) -> {
+                    try {
+                        return Long.compare(imapFolder.getUID(m1), imapFolder.getUID(m2));
+                    } catch (MessagingException e) {
+                        throw new RuntimeException("Помилка при отриманні UID під час сортування", e);
+                    }
+                });
+
                 long maxUid = state.getLastSeenUid() != null ? state.getLastSeenUid() : 0;
                 for (Message message : messages) {
                     long uid = imapFolder.getUID(message);
@@ -142,7 +149,7 @@ public class ImapMailIngestService implements MailIngestService {
     }
 
     private void ingestMessage(Message message, long uid) throws MessagingException, IOException {
-        String messageId = message.getHeader("Message-ID", null);
+        String messageId = Arrays.toString(message.getHeader("Message-ID"));
         String externalId = StringUtils.hasText(messageId) ? messageId : inboxFolder + ":" + uid;
         if (messageRepository.findByExternalId(externalId).isPresent()) {
             return;
@@ -210,10 +217,11 @@ public class ImapMailIngestService implements MailIngestService {
         if (!StringUtils.hasText(email)) {
             throw new MessagingException("Cannot resolve contact email for message");
         }
+        String finalEmail = email;
         MailContactEntity contact = contactRepository.findNormalized(email)
                 .orElseGet(() -> contactRepository.save(MailContactEntity.builder()
                         .type(MailContactEntity.ContactType.EXTERNAL)
-                        .email(email)
+                        .email(finalEmail)
                         .displayName(peer.displayName())
                         .createdAt(Instant.now())
                         .updatedAt(Instant.now())
@@ -267,9 +275,10 @@ public class ImapMailIngestService implements MailIngestService {
     private AttachmentData buildAttachment(Part part) throws MessagingException, IOException {
         String filename = MimeUtility.decodeText(part.getFileName() != null ? part.getFileName() : "attachment");
         String contentType = part.getContentType();
-        String contentId = Optional.ofNullable(part.getHeader("Content-ID", null))
-                .map(id -> id.replaceAll("[<>]", ""))
-                .orElse(null);
+        String[] headers = part.getHeader("Content-ID");
+        String contentId = (headers != null && headers.length > 0)
+                ? headers[0].replaceAll("[<>]", "")
+                : null;
         boolean inline = Part.INLINE.equalsIgnoreCase(part.getDisposition()) || StringUtils.hasText(contentId);
         byte[] contentBytes = readBytes(part);
         return new AttachmentData(

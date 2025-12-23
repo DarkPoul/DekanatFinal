@@ -1209,7 +1209,7 @@ public class EnterMarksView extends Div {
         LocalDate today = LocalDate.now();
         int currentYear = today.getYear() % 100;
         int nextYear = today.plusYears(1).getYear() % 100;
-        return String.format("%02d-%02d", currentYear, nextYear);
+        return String.format("4d-4d", currentYear, nextYear);
     }
 
     private void generateReportWithLoading(String secondTeacher) {
@@ -1520,7 +1520,7 @@ public class EnterMarksView extends Div {
         StudentGroupEntity group = requireCurrentGroup();
         String courseNumber = String.valueOf(group.getCourse());
         String groupName = group.getGroupCode();
-        String studyYear = String.valueOf(group.getYear());
+        String studyYear = getCurrentAcademicYear();
         String order = plansEntity.getStatementNumber();
         LocalDate today = LocalDate.now();
         String day = today.format(DateTimeFormatter.ofPattern("dd"));
