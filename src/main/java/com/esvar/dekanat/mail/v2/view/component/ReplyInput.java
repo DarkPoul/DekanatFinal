@@ -1,5 +1,6 @@
 package com.esvar.dekanat.mail.v2.view.component;
 
+import com.vaadin.flow.component.ClientCallable;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
 import com.vaadin.flow.component.Key;
@@ -75,17 +76,31 @@ public class ReplyInput extends Div {
 
     private void configureInteractions() {
         textArea.addValueChangeListener(e -> updateSendEnabled());
-        textArea.addKeyDownListener(Key.ENTER, event -> {
-            if (event.isShiftKey()) {
-                return;
-            }
-            event.preventDefault();
-            emitSend();
+
+        // Enter => send, Shift+Enter => newline
+        textArea.getElement().executeJs("""
+        const host = this;
+        const ta = host.inputElement; // vaadin-text-area internal textarea
+        if (!ta) return;
+
+        ta.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) {
+            ev.preventDefault();
+            host.$server.onEnterSend();
+          }
         });
+    """);
 
         upload.addSucceededListener(e -> updateSendEnabled());
         upload.addFileRemovedListener(e -> updateSendEnabled());
         upload.addFileRejectedListener(e -> Notification.show(e.getErrorMessage()));
+    }
+
+
+    @ClientCallable
+    private void onEnterSend() {
+        // Це викликається з браузера -> ми вже на UI thread
+        emitSend();
     }
 
     private void emitSend() {

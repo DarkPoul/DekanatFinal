@@ -36,6 +36,10 @@ import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import elemental.json.JsonArray;
+import elemental.json.JsonObject;
+import elemental.json.JsonValue;
+import jakarta.annotation.security.RolesAllowed;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
@@ -49,6 +53,7 @@ import java.util.stream.Stream;
 @Route(value = "mail", layout = MainLayout.class)
 @PageTitle("Пошта")
 @CssImport("./styles/mail-inbox.css")
+@RolesAllowed("ROLE_ADMIN")
 public class MailInboxView extends VerticalLayout {
 
     private final ThreadService threadService;
@@ -195,8 +200,10 @@ public class MailInboxView extends VerticalLayout {
 
     private void configureList() {
         dataProvider = new CallbackDataProvider<>(this::fetchThreads, this::countThreads);
-        threadList.setItems(dataProvider);
+        threadList.setDataProvider(dataProvider);
     }
+
+
 
     private void configureConversation() {
         chatHeader.addStatusChangeListener(event -> changeStatus(event.getStatus()));
@@ -410,17 +417,28 @@ public class MailInboxView extends VerticalLayout {
     }
 
     private void preserveScrollWhile(Runnable action) {
-        messageScroller.getElement().executeJs("return {top: this.scrollTop, height: this.scrollHeight};")
-                .then(json -> {
-                    double top = json.asObject().getNumber("top");
-                    double height = json.asObject().getNumber("height");
-                    action.run();
-                    getUI().ifPresent(ui -> ui.beforeClientResponse(messageScroller,
-                            ctx -> messageScroller.getElement().executeJs(
-                                    "const prevTop=$0; const prevHeight=$1; const delta=this.scrollHeight - prevHeight; this.scrollTop = prevTop + delta;",
-                                    top, height)));
+        messageScroller.getElement().executeJs("return this.scrollTop;")
+                .then(Double.class, top -> {
+                    messageScroller.getElement().executeJs("return this.scrollHeight;")
+                            .then(Double.class, height -> {
+
+                                action.run();
+
+                                getUI().ifPresent(ui -> ui.beforeClientResponse(messageScroller, ctx ->
+                                        messageScroller.getElement().executeJs(
+                                                """
+                                                const prevTop = $0;
+                                                const prevHeight = $1;
+                                                const delta = this.scrollHeight - prevHeight;
+                                                this.scrollTop = prevTop + delta;
+                                                """,
+                                                top, height
+                                        )));
+                            });
                 });
     }
+
+
 
     private void scrollToBottom() {
         getUI().ifPresent(ui -> ui.beforeClientResponse(messageScroller,

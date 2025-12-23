@@ -6,7 +6,10 @@ import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.server.HtmlSanitizer;
+
+import org.owasp.html.HtmlSanitizer;
+import org.owasp.html.PolicyFactory;
+import org.owasp.html.Sanitizers;
 import org.springframework.util.StringUtils;
 
 import java.time.ZoneId;
@@ -28,7 +31,8 @@ public class MessageBubble extends Div {
         Div body = new Div();
         body.addClassName("message-body");
         if (StringUtils.hasText(message.getBodyHtml())) {
-            body.getElement().setProperty("innerHTML", HtmlSanitizer.sanitize(message.getBodyHtml()));
+            String safeHtml = MAIL_HTML_POLICY.sanitize(message.getBodyHtml());
+            body.getElement().setProperty("innerHTML", safeHtml);
         } else if (StringUtils.hasText(message.getBodyText())) {
             body.setText(message.getBodyText());
         }
@@ -88,4 +92,12 @@ public class MessageBubble extends Div {
         }
         return String.format("%.1f %s", bytes, units[unitIndex]);
     }
+
+    private static final PolicyFactory MAIL_HTML_POLICY =
+            Sanitizers.FORMATTING
+                    .and(Sanitizers.BLOCKS)
+                    .and(Sanitizers.LINKS)
+                    .and(Sanitizers.IMAGES)
+                    .and(Sanitizers.STYLES);
+
 }

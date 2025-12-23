@@ -10,6 +10,7 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -63,7 +64,7 @@ public class ChatListItem extends Div {
         header.setSpacing(false);
         header.setPadding(false);
         header.setWidthFull();
-        header.setDefaultVerticalComponentAlignment(Alignment.CENTER);
+        header.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         header.addClassName("chat-item-header");
 
         FlexLayout badges = new FlexLayout(statusBadge, externalBadge, renameButton);

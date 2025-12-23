@@ -11,6 +11,7 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -62,7 +63,7 @@ public class ChatHeader extends Div {
         info.setSpacing(true);
         info.setPadding(false);
         info.setWidthFull();
-        info.setDefaultVerticalComponentAlignment(Alignment.CENTER);
+        info.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
 
         HorizontalLayout statuses = new HorizontalLayout(statusNew, statusInProgress, statusClosed);
         statuses.setSpacing(false);
