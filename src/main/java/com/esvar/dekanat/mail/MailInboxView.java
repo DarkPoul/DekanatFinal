@@ -32,7 +32,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-@Route(value = "mail", layout = MainLayout.class)
+@Route(value = "mail-legacy", layout = MainLayout.class)
 @PageTitle("Пошта як месенджер")
 @RolesAllowed({"ROLE_ADMIN", "ROLE_DEKANAT"})
 @CssImport("./styles/mail-view.css")
