@@ -83,7 +83,11 @@ public class ThreadService {
     private ThreadListItemDto toDto(MailThreadEntity thread) {
         MailContactEntity contact = thread.getContact();
         List<MailMessageEntity> latestMessage = messageRepository.findPaged(thread.getId(), PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "sentAt")));
-        String lastSubject = latestMessage.stream().findFirst().map(MailMessageEntity::getSubject).orElse(null);
+        String lastSubject = latestMessage.stream()
+                .findFirst()
+                .map(MailMessageEntity::getSubject)
+                .map(SubjectNormalizer::normalize)
+                .orElse(null);
         return ThreadListItemDto.builder()
                 .threadId(thread.getId())
                 .contactId(contact.getId())
