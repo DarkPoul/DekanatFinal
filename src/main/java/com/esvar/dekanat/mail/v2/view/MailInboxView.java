@@ -4,6 +4,7 @@ import com.esvar.dekanat.mail.v2.dto.MessageDto;
 import com.esvar.dekanat.mail.v2.dto.ThreadListItemDto;
 import com.esvar.dekanat.mail.v2.entity.MailThreadEntity;
 import com.esvar.dekanat.mail.v2.service.MessageService;
+import com.esvar.dekanat.mail.v2.service.SubjectNormalizer;
 import com.esvar.dekanat.mail.v2.service.SendMailService;
 import com.esvar.dekanat.mail.v2.service.ThreadService;
 import com.esvar.dekanat.mail.v2.view.component.ChatHeader;
@@ -328,7 +329,7 @@ public class MailInboxView extends VerticalLayout {
         }
         sendMailService.send(threadService.findById(selectedThread.getThreadId()).orElseThrow(),
                 text,
-                "Re: " + (StringUtils.hasText(selectedThread.getLastSubject()) ? selectedThread.getLastSubject() : " "),
+                SubjectNormalizer.buildReplySubject(selectedThread.getLastSubject()),
                 attachments);
         replyInput.reset();
         Notification.show("Відправлено");
