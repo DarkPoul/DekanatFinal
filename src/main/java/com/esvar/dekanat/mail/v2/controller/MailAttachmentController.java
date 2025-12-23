@@ -21,19 +21,25 @@ public class MailAttachmentController {
     @GetMapping("/{attachmentId}/download")
     public ResponseEntity<Resource> download(@PathVariable Long attachmentId) {
         return attachmentService.loadAttachment(attachmentId)
-                .map(content -> ResponseEntity.ok()
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + content.filename() + "\"")
-                        .contentType(MediaType.parseMediaType(content.contentType() != null ? content.contentType() : MediaType.APPLICATION_OCTET_STREAM_VALUE))
-                        .body(content.resource()))
+                .map(content -> {
+                    MediaType mediaType = attachmentService.resolveMediaType(content);
+                    return ResponseEntity.ok()
+                            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + content.filename() + "\"")
+                            .contentType(mediaType)
+                            .body(content.resource());
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/{attachmentId}/inline")
     public ResponseEntity<Resource> inline(@PathVariable Long attachmentId) {
         return attachmentService.loadInline(attachmentId)
-                .map(content -> ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType(content.contentType() != null ? content.contentType() : MediaType.APPLICATION_OCTET_STREAM_VALUE))
-                        .body(content.resource()))
+                .map(content -> {
+                    MediaType mediaType = attachmentService.resolveMediaType(content);
+                    return ResponseEntity.ok()
+                            .contentType(mediaType)
+                            .body(content.resource());
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
 }
