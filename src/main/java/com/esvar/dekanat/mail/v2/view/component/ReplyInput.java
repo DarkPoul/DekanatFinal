@@ -14,12 +14,14 @@ import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.component.upload.receivers.MultiFileMemoryBuffer;
 import com.vaadin.flow.shared.Registration;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -99,13 +101,14 @@ public class ReplyInput extends Div {
         List<MultipartFile> result = new ArrayList<>();
         for (String filename : buffer.getFiles()) {
             try (InputStream inputStream = buffer.getInputStream(filename)) {
-                MockMultipartFile file = new MockMultipartFile(
+                byte[] content = inputStream.readAllBytes();
+                MultipartFile multipartFile = new InMemoryMultipartFile(
                         filename,
                         filename,
                         buffer.getFileData(filename).getMimeType(),
-                        inputStream.readAllBytes()
+                        content
                 );
-                result.add(file);
+                result.add(multipartFile);
             } catch (IOException ignored) {
             }
         }
@@ -161,6 +164,60 @@ public class ReplyInput extends Div {
 
         public List<MultipartFile> getAttachments() {
             return attachments;
+        }
+    }
+
+    private static class InMemoryMultipartFile implements MultipartFile {
+        private final String name;
+        private final String originalFilename;
+        private final String contentType;
+        private final byte[] content;
+
+        public InMemoryMultipartFile(String name, String originalFilename, String contentType, byte[] content) {
+            this.name = name;
+            this.originalFilename = originalFilename;
+            this.contentType = contentType;
+            this.content = content != null ? content : new byte[0];
+        }
+
+        @Override
+        public String getName() {
+            return name;
+        }
+
+        @Override
+        public String getOriginalFilename() {
+            return originalFilename;
+        }
+
+        @Override
+        public String getContentType() {
+            return contentType;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return content.length == 0;
+        }
+
+        @Override
+        public long getSize() {
+            return content.length;
+        }
+
+        @Override
+        public byte[] getBytes() {
+            return content;
+        }
+
+        @Override
+        public InputStream getInputStream() {
+            return new ByteArrayInputStream(content);
+        }
+
+        @Override
+        public void transferTo(File dest) throws IOException {
+            Files.write(dest.toPath(), content);
         }
     }
 }
