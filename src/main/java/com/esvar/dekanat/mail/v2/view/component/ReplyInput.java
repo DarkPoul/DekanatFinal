@@ -7,6 +7,7 @@ import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
@@ -54,6 +55,8 @@ public class ReplyInput extends Div {
         upload.setAutoUpload(true);
         upload.getElement().setAttribute("title", "Додати вкладення або перетягнути файли");
         upload.addClassName("reply-upload");
+        upload.setUploadButton(createUploadButton());
+        upload.setDropLabel(new Span("Перетягніть файли або оберіть їх"));
 
         send.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         send.addClickListener(e -> emitSend());
@@ -63,8 +66,8 @@ public class ReplyInput extends Div {
 
         FlexLayout layout = new FlexLayout();
         layout.setWidthFull();
-        layout.setAlignItems(FlexLayout.Alignment.END);
-        layout.setJustifyContentMode(FlexLayout.JustifyContentMode.BETWEEN);
+        layout.setAlignItems(FlexLayout.Alignment.CENTER);
+        layout.setJustifyContentMode(FlexLayout.JustifyContentMode.START);
         layout.add(upload, textArea, send);
         layout.addClassName("reply-row");
         layout.setFlexGrow(1, textArea);
@@ -72,6 +75,13 @@ public class ReplyInput extends Div {
 
         add(layout);
         attachAutoGrow();
+    }
+
+    private Button createUploadButton() {
+        Button button = new Button("Додати файл", new Icon(VaadinIcon.PAPERCLIP));
+        button.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        button.setWidthFull();
+        return button;
     }
 
     private void configureInteractions() {
