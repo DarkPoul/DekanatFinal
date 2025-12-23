@@ -275,12 +275,13 @@
 }
 
 .reply-upload {
-    width: 44px;
-    --lumo-size-s: 34px;
+    min-width: 200px;
+    flex-shrink: 0;
 }
 
 .reply-upload::part(drop-label) {
-    display: none;
+    color: var(--lumo-secondary-text-color);
+    font-size: 12px;
 }
 
 .reply-textarea {

@@ -237,15 +237,11 @@ public class MailInboxView extends VerticalLayout {
     }
 
     private int countThreads(Query<ThreadListItemDto, Void> query) {
-        int limit = query.getLimit() > 0 ? query.getLimit() : pageSize;
-        return (int) threadService.findThreads(
-                        nameFilter.getValue(),
-                        emailFilter.getValue(),
-                        orgFilter.getValue(),
-                        statusFilter.getValue(),
-                        0,
-                        limit)
-                .getTotalElements();
+        return (int) threadService.countThreads(
+                nameFilter.getValue(),
+                emailFilter.getValue(),
+                orgFilter.getValue(),
+                statusFilter.getValue());
     }
 
     private Component renderThread(ThreadListItemDto thread) {

@@ -34,9 +34,19 @@ public class ThreadService {
                                                MailThreadEntity.ThreadStatus status,
                                                int offset,
                                                int limit) {
-        Pageable pageable = PageRequest.of(offset / limit, limit, Sort.by(Sort.Direction.DESC, "lastIncomingAt"));
+        int page = Math.floorDiv(offset, limit);
+        Pageable pageable = PageRequest.of(page, limit, Sort.by(Sort.Direction.DESC, "lastIncomingAt"));
         Page<MailThreadEntity> page = threadRepository.search(trimToNull(nameQuery), trimToNull(emailQuery), trimToNull(orgQuery), status, pageable);
         return page.map(this::toDto);
+    }
+
+    public long countThreads(String nameQuery,
+                             String emailQuery,
+                             String orgQuery,
+                             MailThreadEntity.ThreadStatus status) {
+        Pageable pageable = PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "lastIncomingAt"));
+        return threadRepository.search(trimToNull(nameQuery), trimToNull(emailQuery), trimToNull(orgQuery), status, pageable)
+                .getTotalElements();
     }
 
     public Optional<MailThreadEntity> findById(Long id) {

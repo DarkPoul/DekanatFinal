@@ -35,6 +35,10 @@ public class MessageBubble extends Div {
             body.getElement().setProperty("innerHTML", safeHtml);
         } else if (StringUtils.hasText(message.getBodyText())) {
             body.setText(message.getBodyText());
+        } else if (StringUtils.hasText(message.getSnippet())) {
+            body.setText(message.getSnippet());
+        } else {
+            body.setText("Без вмісту");
         }
 
         add(meta, body);
