@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -63,7 +64,8 @@ public class MailAttachmentEntity {
     @Column(name = "storage_type", nullable = false, length = 8)
     private StorageType storageType;
 
-    @Column(name = "storage_key", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "storage_key", columnDefinition = "LONGTEXT")
     private String storageKey;
 
     @Column(name = "created_at", nullable = false)
