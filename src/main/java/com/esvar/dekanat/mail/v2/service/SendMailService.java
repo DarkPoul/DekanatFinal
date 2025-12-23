@@ -9,6 +9,9 @@ import jakarta.mail.internet.MimeMessage;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.lang.Nullable;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -18,11 +21,10 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 @Service
@@ -72,14 +74,14 @@ public class SendMailService {
         helper.setText(message.getBodyText(), false);
         helper.setFrom(StringUtils.hasText(message.getFromEmail()) ? message.getFromEmail() : resolveSenderEmail(thread));
         for (MailAttachmentEntity attachment : attachments) {
-            Path path = Paths.get(attachment.getStorageKey());
-
-            helper.addAttachment(
-                    attachment.getFilename(),
-                    () -> Files.newInputStream(path),
-                    attachment.getContentType()
-            );
-
+            Resource resource = resolveAttachmentResource(attachment);
+            if (resource != null) {
+                helper.addAttachment(
+                        attachment.getFilename(),
+                        resource,
+                        attachment.getContentType()
+                );
+            }
         }
         mailSender.send(mimeMessage);
     }
@@ -94,6 +96,26 @@ public class SendMailService {
         return thread.getContact().getEmail();
     }
 
+    private Resource resolveAttachmentResource(MailAttachmentEntity attachment) {
+        if (attachment.getStorageType() == MailAttachmentEntity.StorageType.FS
+                && StringUtils.hasText(attachment.getStorageKey())) {
+            return new FileSystemResource(attachment.getStorageKey());
+        }
+        byte[] bytes = decodeStorageKey(attachment.getStorageKey());
+        return new ByteArrayResource(bytes);
+    }
+
+    private byte[] decodeStorageKey(String storageKey) {
+        if (!StringUtils.hasText(storageKey)) {
+            return new byte[0];
+        }
+        try {
+            return Base64.getDecoder().decode(storageKey);
+        } catch (IllegalArgumentException ignored) {
+            return storageKey.getBytes(StandardCharsets.UTF_8);
+        }
+    }
+
     private List<MailAttachmentEntity> persistAttachments(MailMessageEntity message, @Nullable List<MultipartFile> files) {
         if (CollectionUtils.isEmpty(files)) {
             return List.of();
@@ -101,6 +123,7 @@ public class SendMailService {
         List<MailAttachmentEntity> entities = new ArrayList<>();
         for (MultipartFile file : files) {
             try {
+                String storageKey = Base64.getEncoder().encodeToString(file.getBytes());
                 MailAttachmentEntity entity = MailAttachmentEntity.builder()
                         .message(message)
                         .filename(file.getOriginalFilename())
@@ -108,7 +131,7 @@ public class SendMailService {
                         .size(file.getSize())
                         .inline(false)
                         .storageType(MailAttachmentEntity.StorageType.DB)
-                        .storageKey(new String(file.getBytes()))
+                        .storageKey(storageKey)
                         .createdAt(Instant.now())
                         .build();
                 entities.add(entity);
