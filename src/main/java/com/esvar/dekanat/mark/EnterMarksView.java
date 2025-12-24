@@ -22,6 +22,7 @@ import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.service.SummaryReportService.SummaryReportGenerationException;
 import com.esvar.dekanat.service.SummaryReportService.SummaryReportResult;
+import com.esvar.dekanat.utilites.ContentDispositionUtils;
 import com.esvar.dekanat.user.UserModel;
 import com.esvar.dekanat.user.UserRepository;
 import com.esvar.dekanat.view.MainLayout;
@@ -1373,7 +1374,8 @@ public class EnterMarksView extends Div {
         StreamResource resource = new StreamResource(fileName, () -> new ByteArrayInputStream(pdfBytes));
         resource.setContentType("application/pdf");
         resource.setCacheTime(0);
-        resource.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"");
+        resource.setHeader(HttpHeaders.CONTENT_DISPOSITION,
+                ContentDispositionUtils.buildHeaderValue("inline", fileName));
 
         StreamRegistration registration = VaadinSession.getCurrent()
                 .getResourceRegistry()
@@ -1410,7 +1412,8 @@ public class EnterMarksView extends Div {
         });
         resource.setContentType(resolveContentType(fileName));
         resource.setCacheTime(0);
-        resource.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"");
+        resource.setHeader(HttpHeaders.CONTENT_DISPOSITION,
+                ContentDispositionUtils.buildHeaderValue("inline", fileName));
 
         UI ui = UI.getCurrent();
         if (ui == null) {
