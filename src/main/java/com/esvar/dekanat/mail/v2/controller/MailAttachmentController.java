@@ -1,6 +1,7 @@
 package com.esvar.dekanat.mail.v2.controller;
 
 import com.esvar.dekanat.mail.v2.service.AttachmentService;
+import com.esvar.dekanat.utilites.ContentDispositionUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -24,7 +25,8 @@ public class MailAttachmentController {
                 .map(content -> {
                     MediaType mediaType = attachmentService.resolveMediaType(content);
                     return ResponseEntity.ok()
-                            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + content.filename() + "\"")
+                            .header(HttpHeaders.CONTENT_DISPOSITION,
+                                    ContentDispositionUtils.buildHeaderValue("attachment", content.filename()))
                             .contentType(mediaType)
                             .body(content.resource());
                 })
