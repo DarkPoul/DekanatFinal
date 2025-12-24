@@ -3,6 +3,7 @@ package com.esvar.dekanat.mail.v2.view;
 import com.esvar.dekanat.mail.v2.dto.MessageDto;
 import com.esvar.dekanat.mail.v2.dto.ThreadListItemDto;
 import com.esvar.dekanat.mail.v2.entity.MailThreadEntity;
+import com.esvar.dekanat.mail.v2.service.AttachmentUploadException;
 import com.esvar.dekanat.mail.v2.service.MessageService;
 import com.esvar.dekanat.mail.v2.service.SubjectNormalizer;
 import com.esvar.dekanat.mail.v2.service.SendMailService;
@@ -327,10 +328,15 @@ public class MailInboxView extends VerticalLayout {
         if (!StringUtils.hasText(text) && attachments.isEmpty()) {
             return;
         }
-        sendMailService.send(threadService.findById(selectedThread.getThreadId()).orElseThrow(),
-                text,
-                SubjectNormalizer.buildReplySubject(selectedThread.getLastSubject()),
-                attachments);
+        try {
+            sendMailService.send(threadService.findById(selectedThread.getThreadId()).orElseThrow(),
+                    text,
+                    SubjectNormalizer.buildReplySubject(selectedThread.getLastSubject()),
+                    attachments);
+        } catch (AttachmentUploadException ex) {
+            Notification.show(ex.getMessage());
+            return;
+        }
         replyInput.reset();
         Notification.show("Відправлено");
         List<MessageDto> latest = messageService.loadMessages(selectedThread.getThreadId(), null, 1);

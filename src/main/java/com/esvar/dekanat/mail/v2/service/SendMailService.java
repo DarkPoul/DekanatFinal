@@ -22,10 +22,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 
 @Service
@@ -36,6 +34,7 @@ public class SendMailService {
     private final MailAttachmentRepository attachmentRepository;
     private final MailThreadRepository threadRepository;
     private final MessageService messageService;
+    private final AttachmentStorageService attachmentStorageService;
 
     @Value("${mail.default-from:}")
     private String defaultFrom;
@@ -114,9 +113,9 @@ public class SendMailService {
             return new byte[0];
         }
         try {
-            return Base64.getDecoder().decode(storageKey);
+            return java.util.Base64.getDecoder().decode(storageKey);
         } catch (IllegalArgumentException ignored) {
-            return storageKey.getBytes(StandardCharsets.UTF_8);
+            return storageKey.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         }
     }
 
@@ -126,21 +125,18 @@ public class SendMailService {
         }
         List<MailAttachmentEntity> entities = new ArrayList<>();
         for (MultipartFile file : files) {
-            try {
-                String storageKey = Base64.getEncoder().encodeToString(file.getBytes());
-                MailAttachmentEntity entity = MailAttachmentEntity.builder()
-                        .message(message)
-                        .filename(file.getOriginalFilename())
-                        .contentType(file.getContentType())
-                        .size(file.getSize())
-                        .inline(false)
-                        .storageType(MailAttachmentEntity.StorageType.DB)
-                        .storageKey(storageKey)
-                        .createdAt(Instant.now())
-                        .build();
-                entities.add(entity);
-            } catch (IOException ignored) {
-            }
+            AttachmentStorageService.StoredAttachment storedAttachment = attachmentStorageService.storeImage(file);
+            MailAttachmentEntity entity = MailAttachmentEntity.builder()
+                    .message(message)
+                    .filename(storedAttachment.originalFilename())
+                    .contentType(storedAttachment.contentType())
+                    .size(storedAttachment.size())
+                    .inline(false)
+                    .storageType(MailAttachmentEntity.StorageType.FS)
+                    .storageKey(storedAttachment.storagePath())
+                    .createdAt(Instant.now())
+                    .build();
+            entities.add(entity);
         }
         return attachmentRepository.saveAll(entities);
     }

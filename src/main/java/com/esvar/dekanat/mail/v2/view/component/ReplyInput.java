@@ -29,6 +29,15 @@ import java.util.List;
 
 public class ReplyInput extends Div {
 
+    private static final int MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+    private static final String[] ACCEPTED_IMAGE_TYPES = new String[]{
+            "image/png",
+            "image/jpeg",
+            "image/jpg",
+            "image/gif",
+            "image/webp"
+    };
+
     private TextArea textArea = new TextArea();
     private MultiFileMemoryBuffer buffer = new MultiFileMemoryBuffer();
     private final Upload upload = new Upload(buffer);
@@ -53,10 +62,12 @@ public class ReplyInput extends Div {
         upload.setDropAllowed(true);
         upload.setMaxFiles(8);
         upload.setAutoUpload(true);
+        upload.setMaxFileSize(MAX_IMAGE_SIZE_BYTES);
+        upload.setAcceptedFileTypes(ACCEPTED_IMAGE_TYPES);
         upload.getElement().setAttribute("title", "Додати вкладення або перетягнути файли");
         upload.addClassName("reply-upload");
         upload.setUploadButton(createUploadButton());
-        upload.setDropLabel(new Span("Перетягніть файли або оберіть їх"));
+        upload.setDropLabel(new Span("Перетягніть зображення (PNG/JPG/GIF/WEBP) " + readableMaxSize()));
 
         send.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         send.addClickListener(e -> emitSend());
@@ -103,7 +114,13 @@ public class ReplyInput extends Div {
 
         upload.addSucceededListener(e -> updateSendEnabled());
         upload.addFileRemovedListener(e -> updateSendEnabled());
-        upload.addFileRejectedListener(e -> Notification.show(e.getErrorMessage()));
+        upload.addFileRejectedListener(e -> {
+            String error = e.getErrorMessage();
+            if (!StringUtils.hasText(error)) {
+                error = "Невдале завантаження зображення. Перевірте формат та розмір (" + readableMaxSize() + ")";
+            }
+            Notification.show(error);
+        });
     }
 
 
@@ -156,6 +173,17 @@ public class ReplyInput extends Div {
 
     public Registration addSendListener(ComponentEventListener<SendEvent> listener) {
         return addListener(SendEvent.class, listener);
+    }
+
+    private String readableMaxSize() {
+        double value = MAX_IMAGE_SIZE_BYTES;
+        String[] units = {"Б", "КБ", "МБ"};
+        int unit = 0;
+        while (value >= 1024 && unit < units.length - 1) {
+            value /= 1024;
+            unit++;
+        }
+        return String.format("%.0f %s", value, units[unit]);
     }
 
     private void attachAutoGrow() {

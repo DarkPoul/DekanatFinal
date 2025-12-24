@@ -57,6 +57,10 @@ mail:
   sync:
     interval-ms: ${MAIL_SYNC_INTERVAL_MS:60000}
 
+  attachments:
+    dir: ${MAIL_ATTACHMENTS_DIR:uploads/mail}
+    max-size-bytes: ${MAIL_ATTACHMENTS_MAX_SIZE:5242880}
+
 # Якщо треба довіряти заголовкам проксі (nginx/cloudflare)
 #server:
 #  port: ${SERVER_PORT:8080}
