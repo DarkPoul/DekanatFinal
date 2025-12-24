@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Base64;
 
@@ -33,9 +34,8 @@ public class AttachmentService {
     }
 
     public Optional<AttachmentContent> loadInline(Long id) {
-        return attachmentRepository.findByIdAndInlineTrue(id)
-                .or(() -> attachmentRepository.findById(id)
-                        .filter(attachment -> StringUtils.hasText(attachment.getContentId())))
+        return attachmentRepository.findById(id)
+                .filter(this::isRenderableInline)
                 .map(this::toAttachmentContent)
                 .flatMap(this::filterExistingResource);
     }
@@ -47,6 +47,13 @@ public class AttachmentService {
         }
         return MediaTypeFactory.getMediaType(content.filename())
                 .orElse(MediaType.APPLICATION_OCTET_STREAM);
+    }
+
+    private boolean isRenderableInline(MailAttachmentEntity attachment) {
+        if (attachment.isInline() || StringUtils.hasText(attachment.getContentId())) {
+            return true;
+        }
+        return isImageContent(attachment.getContentType(), attachment.getFilename());
     }
 
     private AttachmentContent toAttachmentContent(MailAttachmentEntity entity) {
@@ -128,6 +135,24 @@ public class AttachmentService {
         } catch (IOException ignored) {
         }
         return null;
+    }
+
+    private boolean isImageContent(String contentType, String filename) {
+        if (StringUtils.hasText(contentType) && contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+            return true;
+        }
+        if (!StringUtils.hasText(filename)) {
+            return false;
+        }
+        String lower = filename.toLowerCase(Locale.ROOT);
+        return lower.endsWith(".png")
+                || lower.endsWith(".jpg")
+                || lower.endsWith(".jpeg")
+                || lower.endsWith(".gif")
+                || lower.endsWith(".bmp")
+                || lower.endsWith(".webp")
+                || lower.endsWith(".heic")
+                || lower.endsWith(".heif");
     }
 
     public record AttachmentContent(String filename, String contentType, Resource resource) {
