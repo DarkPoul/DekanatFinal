@@ -3,6 +3,7 @@ package com.esvar.dekanat.mail.v2.service;
 import com.esvar.dekanat.mail.v2.entity.MailAttachmentEntity;
 import com.esvar.dekanat.mail.v2.repository.MailAttachmentRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -23,21 +24,59 @@ import java.util.Base64;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AttachmentService {
 
     private final MailAttachmentRepository attachmentRepository;
 
     public Optional<AttachmentContent> loadAttachment(Long id) {
-        return attachmentRepository.findById(id)
+        Optional<MailAttachmentEntity> attachmentOpt = attachmentRepository.findById(id);
+        if (attachmentOpt.isEmpty()) {
+            log.warn("Attachment {} not found while attempting to download", id);
+            return Optional.empty();
+        }
+
+        MailAttachmentEntity attachment = attachmentOpt.get();
+        log.debug("Attachment {} fetched for download: filename={}, contentType={}, storageType={}, storageKeyLength={}",
+                id,
+                attachment.getFilename(),
+                attachment.getContentType(),
+                attachment.getStorageType(),
+                StringUtils.hasText(attachment.getStorageKey()) ? attachment.getStorageKey().length() : 0);
+
+        return Optional.of(attachment)
                 .map(this::toAttachmentContent)
-                .flatMap(this::filterExistingResource);
+                .flatMap(content -> filterExistingResource(content, attachment));
     }
 
     public Optional<AttachmentContent> loadInline(Long id) {
-        return attachmentRepository.findById(id)
-                .filter(this::isRenderableInline)
+        Optional<MailAttachmentEntity> attachmentOpt = attachmentRepository.findById(id);
+        if (attachmentOpt.isEmpty()) {
+            log.warn("Inline attachment {} not found", id);
+            return Optional.empty();
+        }
+
+        MailAttachmentEntity attachment = attachmentOpt.get();
+        if (!isRenderableInline(attachment)) {
+            log.warn("Attachment {} is not renderable inline. filename={}, contentType={}, inline={}, contentId={}",
+                    id,
+                    attachment.getFilename(),
+                    attachment.getContentType(),
+                    attachment.isInline(),
+                    attachment.getContentId());
+            return Optional.empty();
+        }
+
+        log.debug("Attachment {} prepared for inline rendering: filename={}, contentType={}, storageType={}, storageKeyLength={}",
+                id,
+                attachment.getFilename(),
+                attachment.getContentType(),
+                attachment.getStorageType(),
+                StringUtils.hasText(attachment.getStorageKey()) ? attachment.getStorageKey().length() : 0);
+
+        return Optional.of(attachment)
                 .map(this::toAttachmentContent)
-                .flatMap(this::filterExistingResource);
+                .flatMap(content -> filterExistingResource(content, attachment));
     }
 
     public MediaType resolveMediaType(AttachmentContent content) {
@@ -68,29 +107,41 @@ public class AttachmentService {
         if (entity.getStorageType() == MailAttachmentEntity.StorageType.FS
                 && StringUtils.hasText(entity.getStorageKey())) {
             Path path = Paths.get(entity.getStorageKey());
+            log.debug("Attachment {} uses filesystem storage: {}", entity.getId(), path);
             return new FileSystemResource(path);
         }
         byte[] bytes = decodeStorageKey(entity.getStorageKey());
+        log.debug("Attachment {} uses encoded storage, decoded {} bytes", entity.getId(), bytes.length);
         if (bytes.length == 0) {
             Resource fileResource = fallbackToFileResource(entity.getStorageKey());
             if (fileResource != null) {
+                log.debug("Attachment {} storageKey could not be decoded; using fallback file resource", entity.getId());
                 return fileResource;
             }
+            log.warn("Attachment {} storageKey decoded to empty bytes and no fallback resource found", entity.getId());
         }
         return new ByteArrayResource(bytes);
     }
 
-    private Optional<AttachmentContent> filterExistingResource(AttachmentContent content) {
+    private Optional<AttachmentContent> filterExistingResource(AttachmentContent content, MailAttachmentEntity attachment) {
         Resource resource = content.resource();
         if (resource == null) {
+            log.warn("Attachment {} produced null resource", attachment.getId());
             return Optional.empty();
         }
         try {
             if (resource.exists() && resource.contentLength() > 0) {
                 return Optional.of(content);
             }
-        } catch (IOException ignored) {
+        } catch (IOException e) {
+            log.error("Failed to read attachment {} resource metadata", attachment.getId(), e);
         }
+        log.warn("Attachment {} resource missing or empty. storageType={}, storageKeyLength={}, filename={}, contentType={}",
+                attachment.getId(),
+                attachment.getStorageType(),
+                StringUtils.hasText(attachment.getStorageKey()) ? attachment.getStorageKey().length() : 0,
+                attachment.getFilename(),
+                attachment.getContentType());
         return Optional.empty();
     }
 
