@@ -5,18 +5,7 @@ import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
-import com.esvar.dekanat.generate.pdf.BasicControlPdfGenerator;
-import com.esvar.dekanat.generate.pdf.CalculationGraphicWorkPdfGenerator;
-import com.esvar.dekanat.generate.pdf.CalculationWorkPdfGenerator;
-import com.esvar.dekanat.generate.pdf.ControlWorkPdfGenerator;
-import com.esvar.dekanat.generate.pdf.CourseProjectPdfGenerator;
-import com.esvar.dekanat.generate.pdf.CourseWorkPdfGenerator;
-import com.esvar.dekanat.generate.pdf.DifferentialZalikPdfGenerator;
-import com.esvar.dekanat.generate.pdf.ExamPdfGenerator;
-import com.esvar.dekanat.generate.pdf.FirstModulePdfGenerator;
-import com.esvar.dekanat.generate.pdf.SecondModulePdfGenerator;
-import com.esvar.dekanat.generate.pdf.ZalikPdfGenerator;
-import com.esvar.dekanat.generate.pdf.ZalikSheetPdfGenerator;
+import com.esvar.dekanat.generate.pdf.*;
 import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
@@ -89,7 +78,7 @@ public class EnterMarksView extends Div {
     private static final String CONTROL_TYPE_CONTROL_WORK = "Контрольна робота";
     private static final String SYSTEM_USER_DISPLAY_NAME = "Система";
     private static final String DATE_TIME_PATTERN = "dd.MM.yyyy HH:mm";
-    private static final String MODULE_CONTROL_TEACHER_FULL_NAME = "Гончар Павло Олександрович";
+
 
     private final FacultyService facultyService;
     private final DepartmentService departmentService;
@@ -1031,8 +1020,13 @@ public class EnterMarksView extends Div {
         String controlTypeName = selectControlType.getValue();
         String hours = String.valueOf(plansEntity.getHours());
         // Приклад з фіксованими значеннями для викладачів
-        String firstTeacher = MODULE_CONTROL_TEACHER_FULL_NAME;
-        String gradeTeacher = MODULE_CONTROL_TEACHER_FULL_NAME;
+        UserModel userModel = userRepository.findByEmail(securityService.getAuthenticatedUser().getUsername()).orElseThrow();
+        String last = userModel.getLastname();
+        String first = userModel.getFirstname();
+        String patronymic = userModel.getPatronymic() != null ? userModel.getPatronymic() : "";
+        String firstTeacher = capitalize(last) + " " + capitalize(first) + " " + capitalize(patronymic);
+        String gradeTeacher = capitalize(first) + " " + capitalize(last).toUpperCase();
+        System.out.println("gradeTeacher: " + gradeTeacher);
 
         // Формуємо список студентів для друку
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
@@ -1044,11 +1038,20 @@ public class EnterMarksView extends Div {
             if (mark == null) {
                 mark = "";
             }
-            String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
-            students.add(new StudentModelToDocumentGenerate(index,
-                    student.getSurname() + " " + student.getName() + " " + patronymic,
+            String patronymic2 = Optional.ofNullable(student.getPatronymic()).orElse("");
+            ///int index, String name, String studentNumber, String nationalMark,
+            ///                                              String mark, String ectsMark, LocalDate date,
+            ///                                              String dateText
+            students.add(new StudentModelToDocumentGenerate(
+                    index,
+                    student.getSurname() + " " + student.getName() + " " + patronymic2,
                     student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
-                    mark));
+                    convertMarkToNationalGrade(mark.isEmpty() ? 0 : Integer.parseInt(mark)),
+                    mark,
+                    convertMarkToECTSGrade(Integer.parseInt(mark)),
+                    today,
+                    day + " " + month + " " + year
+                    ));
             index++;
         }
 
@@ -1164,8 +1167,12 @@ public class EnterMarksView extends Div {
         String semesterNumber = String.valueOf(plansEntity.getSemester());
         String controlTypeName = selectControlType.getValue();
         String hours = String.valueOf(plansEntity.getHours());
-        String firstTeacher = MODULE_CONTROL_TEACHER_FULL_NAME;
-        String gradeTeacher = MODULE_CONTROL_TEACHER_FULL_NAME;
+        UserModel userModel = userRepository.findByEmail(securityService.getAuthenticatedUser().getUsername()).orElseThrow();
+        String last = userModel.getLastname();
+        String first = userModel.getFirstname();
+        String patronymic = userModel.getPatronymic() != null ? userModel.getPatronymic() : "";
+        String firstTeacher = capitalize(last) + " " + capitalize(first) + " " + capitalize(patronymic);
+        String gradeTeacher = capitalize(first) + " " + capitalize(last).toUpperCase();
         String qualityTrue = "Якість1";
         String qualityFalse = "Якість2";
 
@@ -1173,12 +1180,31 @@ public class EnterMarksView extends Div {
         List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
         int index = 1;
         for (StudentEntity student : studentEntities) {
-            String mark = calculateTotalModuleMark(student);
-            String patronymic = Optional.ofNullable(student.getPatronymic()).orElse("");
-            students.add(new StudentModelToDocumentGenerate(index,
-                    student.getSurname() + " " + student.getName() + " " + patronymic,
-                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
-                    mark));
+            String markStr = calculateTotalModuleMark(student);
+            int markInt = 0;
+            try {
+                markInt = (markStr != null && !markStr.isEmpty()) ? Integer.parseInt(markStr) : 0;
+            } catch (NumberFormatException e) {
+                log.error("Invalid mark format for student {}: {}", student.getId(), markStr);
+            }
+
+            String fullName = String.format("%s %s %s",
+                    Optional.ofNullable(student.getSurname()).orElse(""),
+                    Optional.ofNullable(student.getName()).orElse(""),
+                    Optional.ofNullable(student.getPatronymic()).orElse("")).trim();
+
+            String recordBook = Optional.ofNullable(student.getRecordBookNumber()).orElse("");
+
+            students.add(new StudentModelToDocumentGenerate(
+                    index,
+                    fullName,
+                    recordBook,
+                    convertMarkToNationalGrade(markInt),
+                    markStr,
+                    convertMarkToECTSGrade(markInt),
+                    today,
+                    day + " " + month + " " + year
+            ));
             index++;
         }
 
@@ -1208,10 +1234,22 @@ public class EnterMarksView extends Div {
 
     private String getCurrentAcademicYear() {
         LocalDate today = LocalDate.now();
-        int currentYear = today.getYear() % 100;
-        int nextYear = today.plusYears(1).getYear() % 100;
-        return String.format("4d-4d", currentYear, nextYear);
+        int year = today.getYear();
+
+        int startYear;
+        int endYear;
+
+        if (today.getMonthValue() < 9) { // до вересня
+            startYear = year - 1;
+            endYear = year;
+        } else { // з вересня
+            startYear = year;
+            endYear = year + 1;
+        }
+
+        return startYear + "-" + endYear;
     }
+
 
     private void generateReportWithLoading(String secondTeacher) {
         String controlType = selectControlType.getValue();
@@ -1273,7 +1311,7 @@ public class EnterMarksView extends Div {
         return switch (controlType) {
             case CONTROL_TYPE_FIRST_MODULE -> generateReportWithModel(FirstModulePdfGenerator.NAME, buildDataModelForMC1(secondTeacher));
             case CONTROL_TYPE_SECOND_MODULE -> generateReportWithModel(SecondModulePdfGenerator.NAME, buildDataModelForMC2(secondTeacher));
-            case "Залік" -> generateReportWithModel(ZalikSheetPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
+            case "Залік" -> generateReportWithModel(BaseZalikStylePdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
             case "Екзамен" -> generateReportWithModel(ExamPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
             case "Диференційний залік" -> generateReportWithModel(DifferentialZalikPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
             case "Курсова робота" -> generateReportWithModel(CourseWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
@@ -1516,7 +1554,13 @@ public class EnterMarksView extends Div {
     }
 
     private DataModelForZalik buildDataModelForZalik(String secondTeacher) {
-        String facultyName = plansEntity.getFaculty().getTitle();
+        String facultyName = selectFaculty.getValue();
+
+        // Якщо компонент порожній (наприклад, для ролі Деканат він прихований), беремо з плану
+        if (facultyName == null || facultyName.isBlank()) {
+            facultyName = (plansEntity.getFaculty() != null) ? plansEntity.getFaculty().getTitle() : "";
+        }
+
         String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
                 .map(EduProgramEntity::getTitle)
                 .orElse("");
@@ -1533,8 +1577,12 @@ public class EnterMarksView extends Div {
         String semesterNumber = String.valueOf(plansEntity.getSemester());
         String controlTypeName = selectControlType.getValue();
         String hours = String.valueOf(plansEntity.getHours());
-        String firstTeacher = getCurrentUserFullNameSurnameFirst();
-        String gradeTeacher = getCurrentUserFullName();
+        UserModel userModel = userRepository.findByEmail(securityService.getAuthenticatedUser().getUsername()).orElseThrow();
+        String last = userModel.getLastname();
+        String first = userModel.getFirstname();
+        String patronymic = userModel.getPatronymic() != null ? userModel.getPatronymic() : "";
+        String firstTeacher = capitalize(last) + " " + capitalize(first) + " " + capitalize(patronymic);
+        String gradeTeacher = capitalize(first) + " " + capitalize(last).toUpperCase();
         FacultyEntity faculty = plansEntity.getFaculty();
         String dean = faculty.getDeanLanding();
         String departmentName = formatDepartmentHeadName(faculty);
@@ -1555,14 +1603,31 @@ public class EnterMarksView extends Div {
         List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
         int index = 1;
         for (StudentEntity student : studentEntities) {
-            String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
-            if (mark == null) {
-                mark = "";
+            String markStr = calculateTotalModuleMark(student);
+            int markInt = 0;
+            try {
+                markInt = (markStr != null && !markStr.isEmpty()) ? Integer.parseInt(markStr) : 0;
+            } catch (NumberFormatException es) {
+                log.error("Invalid mark format for student {}: {}", student.getId(), markStr);
             }
-            students.add(new StudentModelToDocumentGenerate(index,
-                    buildStudentNameWithInitials(student),
-                    student.getRecordBookNumber() != null ? student.getRecordBookNumber() : "",
-                    mark));
+
+            String fullName = String.format("%s %s %s",
+                    Optional.ofNullable(student.getSurname()).orElse(""),
+                    Optional.ofNullable(student.getName()).orElse(""),
+                    Optional.ofNullable(student.getPatronymic()).orElse("")).trim();
+
+            String recordBook = Optional.ofNullable(student.getRecordBookNumber()).orElse("");
+
+            students.add(new StudentModelToDocumentGenerate(
+                    index,
+                    fullName,
+                    recordBook,
+                    convertMarkToNationalGrade(markInt),
+                    markStr,
+                    convertMarkToECTSGrade(markInt),
+                    today,
+                    day + " " + month + " " + year
+            ));
             index++;
         }
         return new DataModelForZalik(facultyName, specialityName, courseNumber, groupName, studyYear,

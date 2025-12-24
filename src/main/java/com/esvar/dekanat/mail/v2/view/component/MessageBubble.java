@@ -29,6 +29,9 @@ public class MessageBubble extends Div {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd.MM HH:mm")
             .withZone(ZoneId.systemDefault());
 
+    private static final String ATTACHMENT_API_URL = "/api/mail/v2/attachments/%d/inline";
+
+
     public MessageBubble(MessageDto message) {
         addClassName("message-bubble");
         addClassName(message.getDirection() == MailMessageEntity.Direction.IN ? "incoming" : "outgoing");
@@ -174,6 +177,7 @@ public class MessageBubble extends Div {
         List<MessageDto.MessageAttachmentDto> remainingInline = inlineAttachments.stream()
                 .filter(attachment -> attachment.getId() != null)
                 .filter(attachment -> !alreadyInlined.contains(attachment.getId()))
+                .filter(this::isImageAttachment) // Перевірка, що це зображення
                 .toList();
 
         if (remainingInline.isEmpty()) {
@@ -183,12 +187,21 @@ public class MessageBubble extends Div {
         Div inlineImages = new Div();
         inlineImages.addClassName("inline-images");
         for (MessageDto.MessageAttachmentDto attachment : remainingInline) {
-            Anchor link = new Anchor("/api/mail/v2/attachments/" + attachment.getId() + "/inline", null);
+            Image image = createImageComponent(attachment);
+            // Використовуємо конструктор без тексту, оскільки додаємо компонент Image
+            Anchor link = new Anchor(image.getSrc());
             link.setTarget("_blank");
+            link.getElement().setAttribute("rel", "noopener noreferrer");
+            // Додаємо опис для доступності (accessibility)
+            String label = String.format("Відкрити зображення %s (%s)",
+                    attachment.getFilename(),
+                    humanReadableSize(attachment.getSize()));
+            link.getElement().setAttribute("aria-label", label);
             link.addClassName("inline-image-link");
-            link.add(createImageComponent(attachment));
+            link.add(image);
             inlineImages.add(link);
         }
+
         body.add(inlineImages);
     }
 
@@ -196,11 +209,17 @@ public class MessageBubble extends Div {
         Div gallery = new Div();
         gallery.addClassName("image-gallery");
         for (MessageDto.MessageAttachmentDto attachment : imageAttachments) {
+            if (attachment.getId() == null) continue;
+
             Div card = new Div();
             card.addClassName("image-card");
 
-            Anchor preview = new Anchor("/api/mail/v2/attachments/" + attachment.getId() + "/inline", null);
+            String url = String.format(ATTACHMENT_API_URL, attachment.getId());
+            // Використовуємо конструктор Anchor(String href), оскільки текст не потрібен (всередині буде Image)
+            Anchor preview = new Anchor(url);
             preview.setTarget("_blank");
+            // Додаємо безпекові атрибути для target="_blank"
+            preview.getElement().setAttribute("rel", "noopener noreferrer");
             preview.addClassName("image-link");
             preview.add(createImageComponent(attachment));
 
@@ -212,6 +231,7 @@ public class MessageBubble extends Div {
         }
         return gallery;
     }
+
 
     private Image createImageComponent(MessageDto.MessageAttachmentDto attachment) {
         String alt = StringUtils.hasText(attachment.getFilename()) ? attachment.getFilename() : "Вкладення";

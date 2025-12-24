@@ -22,6 +22,8 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Base64;
 
+import static org.springframework.http.MediaType.parseMediaType;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -160,16 +162,6 @@ public class AttachmentService {
         return storageKey.getBytes(StandardCharsets.UTF_8);
     }
 
-    private MediaType parseMediaType(String contentType) {
-        if (!StringUtils.hasText(contentType)) {
-            return null;
-        }
-        try {
-            return MediaType.parseMediaType(contentType);
-        } catch (InvalidMediaTypeException ignored) {
-            return null;
-        }
-    }
 
     private Resource fallbackToFileResource(String storageKey) {
         if (!StringUtils.hasText(storageKey)) {

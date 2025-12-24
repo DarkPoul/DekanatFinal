@@ -381,7 +381,7 @@ public class SecondModulePdfGenerator implements PdfGenerator {
         signatureTable.addCell(createSignatureSpacerCell());
         signatureTable.addCell(createSignatureLineCell(bold));
         signatureTable.addCell(createSignatureSpacerCell());
-        signatureTable.addCell(createSignatureNameCell(resolveSignatureName(data), bold));
+        signatureTable.addCell(createSignatureNameCell(data.gradeTeacher(), bold));
 
         signatureTable.addCell(createSignatureSpacerCell());
         signatureTable.addCell(createSignatureSpacerCell());
@@ -440,13 +440,13 @@ public class SecondModulePdfGenerator implements PdfGenerator {
 
     private String resolveSignatureName(DataModelForMC2 data) {
         if (!isBlank(data.secondTeacher())) {
-            return formatExaminerName(data.secondTeacher());
+            return formatExaminerName(data.gradeTeacher());
         }
         if (!isBlank(data.gradeTeacher())) {
             return formatExaminerName(data.gradeTeacher());
         }
         if (!isBlank(data.firstTeacher())) {
-            return formatExaminerName(data.firstTeacher());
+            return formatExaminerName(data.gradeTeacher());
         }
         return "";
     }
