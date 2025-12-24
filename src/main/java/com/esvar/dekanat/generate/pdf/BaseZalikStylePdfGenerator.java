@@ -21,6 +21,7 @@ import com.itextpdf.layout.Document;
 import com.itextpdf.layout.borders.Border;
 import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.Div;
 import com.itextpdf.layout.element.LineSeparator;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
@@ -36,6 +37,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -67,13 +69,7 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
                 document.setFont(regular);
 
                 addHeader(document, regular, bold, zalikData);
-//                addStudentsTable(document, regular, bold, zalikData);
-                document.add(buildStudentsTable(zalikData, regular, bold));
-                buildDeanBlock(document,zalikData, regular);
-                document.add(buildSummaryTable(zalikData, regular, bold));
-//                addSummarySection(document, regular, bold, zalikData);
-
-                addSignatureSection(document, regular, bold, zalikData);
+                addStudentsAndSummarySections(document, regular, bold, zalikData);
 
                 log.info("Generated {} PDF at {}", getName(), outputPath);
             }
@@ -84,13 +80,30 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         }
     }
 
-    private void addSignatureSection(Document document, PdfFont regular, PdfFont bold, DataModelForZalik data) {
-        document.add(new Paragraph("")
-                .setFont(regular)
-                .setFontSize(11)
-                .setMarginTop(12)
-                .setTextAlignment(TextAlignment.CENTER));
+    private void addStudentsAndSummarySections(Document document, PdfFont regular, PdfFont bold,
+                                               DataModelForZalik zalikData) {
+        List<StudentModelToDocumentGenerate> students =
+                zalikData.students() == null ? Collections.emptyList() : zalikData.students();
 
+        if (students.size() > 1) {
+            List<StudentModelToDocumentGenerate> mainRows = students.subList(0, students.size() - 1);
+            document.add(buildStudentsTable(mainRows, regular, bold));
+        }
+
+        List<StudentModelToDocumentGenerate> lastRows = students.isEmpty()
+                ? Collections.emptyList()
+                : List.of(students.get(students.size() - 1));
+
+        Div tailSection = new Div().setKeepTogether(true);
+        tailSection.add(buildStudentsTable(lastRows, regular, bold));
+        tailSection.add(buildDeanBlock(zalikData, regular));
+        tailSection.add(buildSummaryTable(zalikData, regular, bold));
+        tailSection.add(buildSignatureSection(zalikData, regular, bold));
+
+        document.add(tailSection);
+    }
+
+    private Table buildSignatureSection(DataModelForZalik data, PdfFont regular, PdfFont bold) {
         Table signatureTable = new Table(UnitValue.createPercentArray(new float[]{20, 5, 20, 5, 20}))
                 .useAllAvailableWidth();
         signatureTable.setKeepTogether(true);
@@ -107,7 +120,7 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         signatureTable.addCell(createSignatureSpacerCell());
         signatureTable.addCell(createSignatureHintCell("(прізвище,ініціали)", regular));
 
-        document.add(signatureTable);
+        return signatureTable;
     }
 
     private Cell createSignatureLabelCell(PdfFont bold) {
@@ -394,7 +407,8 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         return table;
     }
 
-    private static Table buildStudentsTable(DataModelForZalik dto, PdfFont regular, PdfFont bold) {
+    private static Table buildStudentsTable(List<StudentModelToDocumentGenerate> rows, PdfFont regular,
+                                            PdfFont bold) {
         Table table = new Table(UnitValue.createPercentArray(new float[]{5, 26, 14, 13, 13, 7, 12, 10}))
                 .useAllAvailableWidth();
 
@@ -415,7 +429,6 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
             table.addHeaderCell(numberHeaderCell(String.valueOf(i), regular));
         }
 
-        List<StudentModelToDocumentGenerate> rows = dto.students();
         if (rows.isEmpty()) {
             // Ensure layout stability even with no data rows.
             for (int col = 0; col < 8; col++) {
@@ -597,7 +610,7 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         table.addCell(bodyCell(zalikMark, regular, TextAlignment.CENTER));
     }
 
-    private static void buildDeanBlock(Document document, DataModelForZalik dto, PdfFont regular) {
+    private static Table buildDeanBlock(DataModelForZalik dto, PdfFont regular) {
         Table table = new Table(UnitValue.createPercentArray(new float[]{28, 24, 48}))
                 .useAllAvailableWidth();
         table.setMarginTop(12f);
@@ -610,7 +623,7 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         table.addCell(hintCell("(підпис)", regular));
         table.addCell(hintCell("(прізвище,ініціали)", regular));
 
-        document.add(table);
+        return table;
     }
 
     private static Cell noBorderCell(String text, PdfFont font, TextAlignment alignment) {
