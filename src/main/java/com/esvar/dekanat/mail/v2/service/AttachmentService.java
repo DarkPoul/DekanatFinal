@@ -28,12 +28,16 @@ public class AttachmentService {
 
     public Optional<AttachmentContent> loadAttachment(Long id) {
         return attachmentRepository.findById(id)
-                .map(this::toAttachmentContent);
+                .map(this::toAttachmentContent)
+                .flatMap(this::filterExistingResource);
     }
 
     public Optional<AttachmentContent> loadInline(Long id) {
         return attachmentRepository.findByIdAndInlineTrue(id)
-                .map(this::toAttachmentContent);
+                .or(() -> attachmentRepository.findById(id)
+                        .filter(attachment -> StringUtils.hasText(attachment.getContentId())))
+                .map(this::toAttachmentContent)
+                .flatMap(this::filterExistingResource);
     }
 
     public MediaType resolveMediaType(AttachmentContent content) {
@@ -67,6 +71,20 @@ public class AttachmentService {
             }
         }
         return new ByteArrayResource(bytes);
+    }
+
+    private Optional<AttachmentContent> filterExistingResource(AttachmentContent content) {
+        Resource resource = content.resource();
+        if (resource == null) {
+            return Optional.empty();
+        }
+        try {
+            if (resource.exists() && resource.contentLength() > 0) {
+                return Optional.of(content);
+            }
+        } catch (IOException ignored) {
+        }
+        return Optional.empty();
     }
 
     byte[] decodeStorageKey(String storageKey) {
@@ -110,17 +128,6 @@ public class AttachmentService {
         } catch (IOException ignored) {
         }
         return null;
-    }
-
-    private MediaType parseMediaType(String contentType) {
-        if (!StringUtils.hasText(contentType)) {
-            return null;
-        }
-        try {
-            return MediaType.parseMediaType(contentType);
-        } catch (InvalidMediaTypeException ignored) {
-            return null;
-        }
     }
 
     public record AttachmentContent(String filename, String contentType, Resource resource) {
