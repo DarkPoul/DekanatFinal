@@ -560,12 +560,18 @@ public class ImapMailIngestService implements MailIngestService {
         if (!StringUtils.hasText(html)) {
             return fallbackText;
         }
-        String plainFromHtml = htmlToText(html);
+        String plainFromHtml = htmlToText(removeQuotedBlocks(html));
         String cleanedPlain = stripQuotedText(plainFromHtml);
         if (!StringUtils.hasText(cleanedPlain)) {
             return fallbackText;
         }
         return textToHtml(cleanedPlain);
+    }
+
+    private String removeQuotedBlocks(String html) {
+        Document document = Jsoup.parse(html);
+        document.select("blockquote, blockquote[type=cite], .gmail_quote, .yahoo_quoted").remove();
+        return document.body().html();
     }
 
     private boolean isQuoteMarker(String line) {
