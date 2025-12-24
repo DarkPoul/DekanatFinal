@@ -41,7 +41,7 @@ public class MessageBubble extends Div {
         body.addClassName("message-body");
         List<MessageDto.MessageAttachmentDto> attachments = Objects.requireNonNullElseGet(message.getAttachments(), List::of);
         List<MessageDto.MessageAttachmentDto> inlineAttachments = attachments.stream()
-                .filter(MessageDto.MessageAttachmentDto::isInline)
+                .filter(attachment -> StringUtils.hasText(attachment.getContentId()))
                 .toList();
 
         InlineBody inlineBody = sanitizeBodyHtml(message.getBodyHtml(), inlineAttachments);
@@ -63,7 +63,7 @@ public class MessageBubble extends Div {
 
         List<MessageDto.MessageAttachmentDto> downloadableAttachments = attachments.stream()
                 .filter(attachment -> attachment.getId() != null)
-                .filter(attachment -> !attachment.isInline() || !resolvedInlineIds.contains(attachment.getId()))
+                .filter(attachment -> !resolvedInlineIds.contains(attachment.getId()))
                 .toList();
         if (!downloadableAttachments.isEmpty()) {
             Div attachmentBlock = new Div();
