@@ -4,6 +4,7 @@ import com.esvar.dekanat.mail.v2.entity.MailAttachmentEntity;
 import com.esvar.dekanat.mail.v2.entity.MailMessageEntity;
 import com.esvar.dekanat.mail.v2.entity.MailThreadEntity;
 import com.esvar.dekanat.mail.v2.repository.MailAttachmentRepository;
+import com.esvar.dekanat.mail.v2.repository.MailThreadRepository;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.transaction.Transactional;
@@ -33,6 +34,7 @@ public class SendMailService {
 
     private final JavaMailSender mailSender;
     private final MailAttachmentRepository attachmentRepository;
+    private final MailThreadRepository threadRepository;
     private final MessageService messageService;
 
     @Value("${mail.default-from:}")
@@ -46,18 +48,20 @@ public class SendMailService {
                                   String text,
                                   String subject,
                                   List<MultipartFile> files) {
-        String senderEmail = resolveSenderEmail(thread);
+        MailThreadEntity managedThread = threadRepository.findWithContact(thread.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Thread not found: " + thread.getId()));
+        String senderEmail = resolveSenderEmail(managedThread);
         MailMessageEntity saved = messageService.saveOutgoing(
-                thread,
+                managedThread,
                 senderEmail,
                 subject,
                 null,
                 text,
-                thread.getContact().getEmail());
+                managedThread.getContact().getEmail());
         List<MailAttachmentEntity> attachments = persistAttachments(saved, files);
         saved.setHasAttachments(!attachments.isEmpty());
         try {
-            dispatchEmail(thread, saved, attachments);
+            dispatchEmail(managedThread, saved, attachments);
         } catch (MessagingException | IOException e) {
             // For demo purposes we skip failing the transaction to keep UI responsive.
         }
