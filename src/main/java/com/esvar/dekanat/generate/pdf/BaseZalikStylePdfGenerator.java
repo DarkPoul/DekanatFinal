@@ -14,21 +14,18 @@ import com.itextpdf.io.font.constants.StandardFonts;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.geom.PageSize;
-import com.itextpdf.kernel.geom.Rectangle;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.borders.Border;
 import com.itextpdf.layout.borders.SolidBorder;
-import com.itextpdf.layout.element.*;
-import com.itextpdf.layout.layout.LayoutArea;
-import com.itextpdf.layout.layout.LayoutContext;
-import com.itextpdf.layout.layout.LayoutResult;
-import com.itextpdf.layout.properties.AreaBreakType;
+import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.LineSeparator;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
-import com.itextpdf.layout.renderer.IRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -438,147 +435,6 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
             table.addCell(bodyCell(safe(row.teacherSignPlaceholder()), regular, TextAlignment.CENTER));
         }
 
-
-        return table;
-    }
-
-    private void addStudentsWithFooterGlue(
-            Document document,
-            PdfDocument pdfDocument,
-            DataModelForZalik dto,
-            PdfFont regular,
-            PdfFont bold,
-            Table studentsTable
-    ) {
-        // Нижні блоки (як елементи), щоб можна було порахувати висоту ДО додавання.
-        Table dean = buildDeanBlockElement(dto, regular);
-        Table summary = buildSummaryTable(dto, regular, bold);
-        Table signature = buildExaminerSignatureElement(dto, regular, bold);
-
-        // Ставимо keepTogether на кожен блок (щоб вони самі не рвалися)
-        dean.setKeepTogether(true);
-        summary.setKeepTogether(true);
-        signature.setKeepTogether(true);
-
-        // Скільки висоти треба під футер:
-        float footerHeight = measureHeight(document, pdfDocument, dean)
-                + measureHeight(document, pdfDocument, summary)
-                + measureHeight(document, pdfDocument, signature);
-
-        // Скільки лишилось на поточній сторінці:
-        float available = getAvailableHeight(document);
-
-        // Якщо футер не влазить разом з останнім рядком — переносимо останній рядок на нову.
-        // Для цього: друкуємо таблицю БЕЗ останнього рядка, потім нова сторінка, потім таблиця (з заголовками) + 1 рядок.
-        if (!fitsWithLastRow(document, pdfDocument, studentsTable, footerHeight, available)) {
-            // 1) Виймаємо останній рядок студентів і робимо дві таблиці
-            SplitTables split = splitOffLastStudentRow(studentsTable);
-
-            // 2) Друкуємо першу частину (без останнього рядка)
-            document.add(split.mainPart);
-
-            // 3) Перенос
-            document.add(new AreaBreak(AreaBreakType.NEXT_PAGE));
-
-            // 4) Друкуємо таблицю з заголовками + останній студент
-            document.add(split.lastRowPart);
-
-            // 5) І одразу нижні блоки
-            document.add(dean);
-            document.add(summary);
-            document.add(signature);
-            return;
-        }
-
-
-
-        // Якщо все влазить — просто друкуємо як зараз
-        document.add(studentsTable);
-        document.add(dean);
-        document.add(summary);
-        document.add(signature);
-    }
-
-    private SplitTables splitOffLastStudentRow(Table original) {
-        // Цей метод залишимо тільки як “контейнер” — реальний split роби від dto.students()
-        // Якщо хочеш ідеально: перероби buildStudentsTable так, щоб він приймав список студентів.
-        throw new UnsupportedOperationException("Split should be done using dto.students() list. See alternative below.");
-    }
-
-
-    private float measureHeight(Document document, PdfDocument pdfDocument, com.itextpdf.layout.element.IElement element) {
-        Rectangle bbox = document.getRenderer().getCurrentArea().getBBox();
-        IRenderer renderer = element.createRendererSubTree()
-                .setParent(document.getRenderer());
-
-        LayoutResult result = renderer.layout(new LayoutContext(
-                new LayoutArea(pdfDocument.getNumberOfPages(), new Rectangle(
-                        bbox.getLeft(), bbox.getBottom(), bbox.getWidth(), 10_000 // великий “коридор”
-                ))
-        ));
-
-        return result.getOccupiedArea() != null ? result.getOccupiedArea().getBBox().getHeight() : 0f;
-    }
-
-    private float getAvailableHeight(Document document) {
-        Rectangle bbox = document.getRenderer().getCurrentArea().getBBox();
-        return bbox.getHeight();
-    }
-
-    private boolean fitsWithLastRow(Document document, PdfDocument pdfDocument, Table studentsTable, float footerHeight, float availableHeight) {
-        // Виміряємо висоту таблиці, якщо залишити тільки заголовки + 1 останній рядок
-        SplitTables split = splitOffLastStudentRow(cloneTableForMeasure(studentsTable));
-
-        float lastPartHeight = measureHeight(document, pdfDocument, split.lastRowPart);
-
-        return (lastPartHeight + footerHeight) <= availableHeight;
-    }
-
-    private static class SplitTables {
-        final Table mainPart;
-        final Table lastRowPart;
-
-        private SplitTables(Table mainPart, Table lastRowPart) {
-            this.mainPart = mainPart;
-            this.lastRowPart = lastRowPart;
-        }
-    }
-
-
-
-    private Table buildExaminerSignatureElement(DataModelForZalik data, PdfFont regular, PdfFont bold) {
-        Table signatureTable = new Table(UnitValue.createPercentArray(new float[]{20, 5, 20, 5, 20}))
-                .useAllAvailableWidth();
-        signatureTable.setKeepTogether(true);
-
-        signatureTable.addCell(createSignatureLabelCell(bold));
-        signatureTable.addCell(createSignatureSpacerCell());
-        signatureTable.addCell(createSignatureLineCell(bold));
-        signatureTable.addCell(createSignatureSpacerCell());
-        signatureTable.addCell(createSignatureNameCell(data.gradeTeacher(), bold));
-
-        signatureTable.addCell(createSignatureSpacerCell());
-        signatureTable.addCell(createSignatureSpacerCell());
-        signatureTable.addCell(createSignatureHintCell("(підпис)", regular));
-        signatureTable.addCell(createSignatureSpacerCell());
-        signatureTable.addCell(createSignatureHintCell("(прізвище,ініціали)", regular));
-
-        return signatureTable;
-    }
-
-
-    private static Table buildDeanBlockElement(DataModelForZalik dto, PdfFont regular) {
-        Table table = new Table(UnitValue.createPercentArray(new float[]{28, 24, 48}))
-                .useAllAvailableWidth();
-        table.setMarginTop(12f);
-
-        table.addCell(noBorderCell("Декан факультету", regular, TextAlignment.LEFT));
-        table.addCell(signatureLine("", regular));
-        table.addCell(signatureLine(safe(dto.dean()), regular));
-
-        table.addCell(noBorderCell("", regular, TextAlignment.LEFT));
-        table.addCell(hintCell("(підпис)", regular));
-        table.addCell(hintCell("(прізвище,ініціали)", regular));
 
         return table;
     }
