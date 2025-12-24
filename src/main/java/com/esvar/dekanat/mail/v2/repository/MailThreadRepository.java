@@ -28,5 +28,8 @@ public interface MailThreadRepository extends JpaRepository<MailThreadEntity, Lo
                                   @Param("status") ThreadStatus status,
                                   Pageable pageable);
 
+    @Query("select t from MailThreadEntity t join fetch t.contact where t.id = :id")
+    Optional<MailThreadEntity> findWithContact(@Param("id") Long id);
+
     Optional<MailThreadEntity> findByContactId(Long contactId);
 }
