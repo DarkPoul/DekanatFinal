@@ -10,7 +10,6 @@ import com.vaadin.flow.component.html.Span;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.owasp.html.HtmlSanitizer;
 import org.owasp.html.PolicyFactory;
 import org.owasp.html.Sanitizers;
 import org.springframework.util.StringUtils;
@@ -43,6 +42,10 @@ public class MessageBubble extends Div {
         List<MessageDto.MessageAttachmentDto> inlineAttachments = attachments.stream()
                 .filter(attachment -> StringUtils.hasText(attachment.getContentId()))
                 .toList();
+        Set<Long> inlineAttachmentIds = inlineAttachments.stream()
+                .map(MessageDto.MessageAttachmentDto::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
 
         InlineBody inlineBody = sanitizeBodyHtml(message.getBodyHtml(), inlineAttachments);
         Set<Long> resolvedInlineIds = inlineBody.resolvedInlineIds();
@@ -64,24 +67,36 @@ public class MessageBubble extends Div {
         List<MessageDto.MessageAttachmentDto> downloadableAttachments = attachments.stream()
                 .filter(attachment -> attachment.getId() != null)
                 .filter(attachment -> !resolvedInlineIds.contains(attachment.getId()))
+                .filter(attachment -> !inlineAttachmentIds.contains(attachment.getId()))
                 .toList();
-        if (!downloadableAttachments.isEmpty()) {
-            Div attachmentBlock = new Div();
-            attachmentBlock.addClassName("attachments");
-            for (MessageDto.MessageAttachmentDto attachment : downloadableAttachments) {
-                String size = humanReadableSize(attachment.getSize());
-                String label = attachment.getFilename();
-                if (StringUtils.hasText(size)) {
-                    label = label + " · " + size;
-                }
-                Anchor link = new Anchor("/api/mail/v2/attachments/" + attachment.getId() + "/download", label);
-                link.setTarget("_blank");
-                link.getElement().setAttribute("download", true);
-                link.addClassName("attachment-link");
-                attachmentBlock.add(link);
-            }
-            add(attachmentBlock);
+        List<MessageDto.MessageAttachmentDto> imageAttachments = downloadableAttachments.stream()
+                .filter(this::isImageAttachment)
+                .toList();
+        if (!imageAttachments.isEmpty()) {
+            add(buildImageGallery(imageAttachments));
         }
+
+        List<MessageDto.MessageAttachmentDto> downloadableFiles = downloadableAttachments.stream()
+                .filter(attachment -> !isImageAttachment(attachment))
+                .toList();
+        addDownloadableAttachments(downloadableFiles);
+    }
+
+    private void addDownloadableAttachments(List<MessageDto.MessageAttachmentDto> attachments) {
+        if (attachments.isEmpty()) {
+            return;
+        }
+        Div attachmentBlock = new Div();
+        attachmentBlock.addClassName("attachments");
+        for (MessageDto.MessageAttachmentDto attachment : attachments) {
+            String label = buildAttachmentLabel(attachment);
+            Anchor link = new Anchor("/api/mail/v2/attachments/" + attachment.getId() + "/download", label);
+            link.setTarget("_blank");
+            link.getElement().setAttribute("download", true);
+            link.addClassName("attachment-link");
+            attachmentBlock.add(link);
+        }
+        add(attachmentBlock);
     }
 
     private String buildMeta(MessageDto message) {
@@ -156,14 +171,86 @@ public class MessageBubble extends Div {
     }
 
     private void appendInlineImages(Div body, List<MessageDto.MessageAttachmentDto> inlineAttachments, Set<Long> alreadyInlined) {
-        for (MessageDto.MessageAttachmentDto attachment : inlineAttachments) {
-            if (attachment.getId() == null || alreadyInlined.contains(attachment.getId())) {
-                continue;
-            }
-            Image image = new Image("/api/mail/v2/attachments/" + attachment.getId() + "/inline", attachment.getFilename());
-            image.addClassName("inline-image");
-            body.add(image);
+        List<MessageDto.MessageAttachmentDto> remainingInline = inlineAttachments.stream()
+                .filter(attachment -> attachment.getId() != null)
+                .filter(attachment -> !alreadyInlined.contains(attachment.getId()))
+                .toList();
+
+        if (remainingInline.isEmpty()) {
+            return;
         }
+
+        Div inlineImages = new Div();
+        inlineImages.addClassName("inline-images");
+        for (MessageDto.MessageAttachmentDto attachment : remainingInline) {
+            Anchor link = new Anchor("/api/mail/v2/attachments/" + attachment.getId() + "/inline", null);
+            link.setTarget("_blank");
+            link.addClassName("inline-image-link");
+            link.add(createImageComponent(attachment));
+            inlineImages.add(link);
+        }
+        body.add(inlineImages);
+    }
+
+    private Div buildImageGallery(List<MessageDto.MessageAttachmentDto> imageAttachments) {
+        Div gallery = new Div();
+        gallery.addClassName("image-gallery");
+        for (MessageDto.MessageAttachmentDto attachment : imageAttachments) {
+            Div card = new Div();
+            card.addClassName("image-card");
+
+            Anchor preview = new Anchor("/api/mail/v2/attachments/" + attachment.getId() + "/inline", null);
+            preview.setTarget("_blank");
+            preview.addClassName("image-link");
+            preview.add(createImageComponent(attachment));
+
+            Span caption = new Span(buildAttachmentLabel(attachment));
+            caption.addClassName("image-caption");
+
+            card.add(preview, caption);
+            gallery.add(card);
+        }
+        return gallery;
+    }
+
+    private Image createImageComponent(MessageDto.MessageAttachmentDto attachment) {
+        String alt = StringUtils.hasText(attachment.getFilename()) ? attachment.getFilename() : "Вкладення";
+        Image image = new Image("/api/mail/v2/attachments/" + attachment.getId() + "/inline", alt);
+        image.addClassName("inline-image");
+        image.getElement().setAttribute("loading", "lazy");
+        return image;
+    }
+
+    private String buildAttachmentLabel(MessageDto.MessageAttachmentDto attachment) {
+        String size = humanReadableSize(attachment.getSize());
+        String label = StringUtils.hasText(attachment.getFilename()) ? attachment.getFilename() : "Вкладення";
+        if (StringUtils.hasText(size)) {
+            label = label + " · " + size;
+        }
+        return label;
+    }
+
+    private boolean isImageAttachment(MessageDto.MessageAttachmentDto attachment) {
+        if (!StringUtils.hasText(attachment.getContentType()) && !StringUtils.hasText(attachment.getFilename())) {
+            return false;
+        }
+        String contentType = attachment.getContentType();
+        if (StringUtils.hasText(contentType) && contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+            return true;
+        }
+        String filename = attachment.getFilename();
+        if (!StringUtils.hasText(filename)) {
+            return false;
+        }
+        String lower = filename.toLowerCase(Locale.ROOT);
+        return lower.endsWith(".png")
+                || lower.endsWith(".jpg")
+                || lower.endsWith(".jpeg")
+                || lower.endsWith(".gif")
+                || lower.endsWith(".bmp")
+                || lower.endsWith(".webp")
+                || lower.endsWith(".heic")
+                || lower.endsWith(".heif");
     }
 
     private record InlineBody(String html, Set<Long> resolvedInlineIds) {
