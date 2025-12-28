@@ -132,11 +132,6 @@ public abstract class BaseStatementPdfGenerator implements PdfGenerator {
         List<StudentModelToDocumentGenerate> students =
                 data.students() == null ? Collections.emptyList() : data.students();
 
-        if (students.size() > 1) {
-            Table mainTable = buildStudentsTable(students.subList(0, students.size() - 1), regular, bold);
-            document.add(mainTable);
-        }
-
         List<StudentModelToDocumentGenerate> lastRows = students.isEmpty()
                 ? Collections.emptyList()
                 : List.of(students.get(students.size() - 1));
@@ -145,13 +140,18 @@ public abstract class BaseStatementPdfGenerator implements PdfGenerator {
         tailSection.add(buildStudentsTable(lastRows, regular, bold));
         tailSection.add(buildFooter(data, regular, bold));
 
-        float remainingHeight = remainingHeight(renderer, document);
+        float availableHeight = remainingHeight(renderer, document);
         float tailHeight = measureHeight(tailSection, document);
 
-        if (tailHeight > remainingHeight) {
-            document.add(new AreaBreak(AreaBreakType.NEXT_PAGE));
+        if (students.size() <= 1 || tailHeight <= availableHeight) {
+            document.add(buildStudentsTable(students, regular, bold));
+            document.add(buildFooter(data, regular, bold));
+            return;
         }
 
+        Table mainTable = buildStudentsTable(students.subList(0, students.size() - 1), regular, bold);
+        document.add(mainTable);
+        document.add(new AreaBreak(AreaBreakType.NEXT_PAGE));
         document.add(tailSection);
     }
 
@@ -271,15 +271,16 @@ public abstract class BaseStatementPdfGenerator implements PdfGenerator {
         Table semControlTable = new Table(UnitValue.createPercentArray(new float[]{10, 10, 80}))
                 .useAllAvailableWidth();
         semControlTable.addCell(noBorderCell("за", regular, TextAlignment.LEFT));
-        semControlTable.addCell(underlinedCell(safeText(data.semesterNumber()), regular));
-        semControlTable.addCell(noBorderCell("-й навчальний семестр.", regular, TextAlignment.LEFT));
+        semControlTable.addCell(underlinedCell(safeText(data.semesterNumber()) + "-й", regular));
+        semControlTable.addCell(noBorderCell(" навчальний семестр.", regular, TextAlignment.LEFT));
         return semControlTable;
     }
 
     private Table buildControlTypeRow(StatementDocumentData data, PdfFont regular) {
         Table controlTypeTable = new Table(UnitValue.createPercentArray(new float[]{25, 60, 15}))
                 .useAllAvailableWidth();
-        controlTypeTable.addCell(noBorderCell("Тип контролю: ", regular, TextAlignment.LEFT));
+        String label = documentType == DocumentType.COURSE_PROJECT ? "Вид роботи: " : "Тип контролю: ";
+        controlTypeTable.addCell(noBorderCell(label, regular, TextAlignment.LEFT));
         controlTypeTable.addCell(underlinedCell(safeText(data.controlTypeName()), regular));
         controlTypeTable.addCell(noBorderCell("", regular, TextAlignment.LEFT));
         return controlTypeTable;
