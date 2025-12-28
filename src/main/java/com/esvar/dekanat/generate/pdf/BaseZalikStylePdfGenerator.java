@@ -98,10 +98,16 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         tailSection.add(buildStudentsTable(lastRows, regular, bold));
         tailSection.add(buildDeanBlock(zalikData, regular));
         tailSection.add(buildSummaryTable(zalikData, regular, bold));
+
+        tailSection.add(new Paragraph("\s"));
         tailSection.add(buildSignatureSection(zalikData, regular, bold));
 
         document.add(tailSection);
+        
+
     }
+
+
 
     private Table buildSignatureSection(DataModelForZalik data, PdfFont regular, PdfFont bold) {
         Table signatureTable = new Table(UnitValue.createPercentArray(new float[]{20, 5, 20, 5, 20}))
@@ -166,7 +172,7 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
     private Cell createSignatureSpacerCell() {
         return new Cell().setPadding(0)
                 .setBorder(Border.NO_BORDER)
-                .add(new Paragraph(""));
+                .add(new Paragraph("\s"));
     }
 
     protected abstract String outputSuffix(DataModelForZalik data);
@@ -248,7 +254,7 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         document.add(createTeacherTable("Викладач", Objects.toString(data.secondTeacher(), ""), regular,
                 "(прізвище, ім’я та по батькові викладача, який здійснював поточний контроль)"));
 
-        document.add(new Paragraph("")
+        document.add(new Paragraph("\s")
                 .setFont(regular)
                 .setFontSize(11)
                 .setTextAlignment(TextAlignment.CENTER));
@@ -578,28 +584,95 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
     }
 
     private static Table buildSummaryTable(DataModelForZalik dto, PdfFont regular, PdfFont bold) {
-        Table table = new Table(UnitValue.createPercentArray(new float[]{18, 18, 12, 26, 26}))
+        Table table = new Table(UnitValue.createPercentArray(new float[]{18, 18, 12, 52}))
                 .useAllAvailableWidth();
         table.setMarginTop(12f);
 
+        // Header row 1
         table.addCell(headerCell("ВСЬОГО ОЦІНОК", bold, 2, 1));
         table.addCell(headerCell("СУМА БАЛІВ", bold, 2, 1));
-        table.addCell(headerCell("ОЦІНКА   ECTS", bold, 2, 1));
-        table.addCell(headerCell("ОЦІНКА ЗА НАЦІОНАЛЬНОЮ ШКАЛОЮ", bold, 1, 2));
+        table.addCell(headerCell("ОЦІНКА\nECTS", bold, 2, 1));
+        table.addCell(headerCell("ОЦІНКА ЗА НАЦІОНАЛЬНОЮ ШКАЛОЮ", bold, 1, 1));
 
-        table.addCell(headerCell("екзамен", bold));
+        // Header row 2 (only for last column)
         table.addCell(headerCell("залік", bold));
 
-        addSummaryRow(table, bold, regular, Integer.parseInt(dto.a()), "90-100", "A", "відмінно", "зараховано");
-        addSummaryRow(table, bold, regular, Integer.parseInt(dto.b()), "82-89", "B", "добре", "");
-        addSummaryRow(table, bold, regular, Integer.parseInt(dto.c()), "74-81", "C", "", "");
-        addSummaryRow(table, bold, regular, Integer.parseInt(dto.d()), "64-73", "D", "задовільно", "");
-        addSummaryRow(table, bold, regular, Integer.parseInt(dto.e()), "60-63", "E", "", "");
-        addSummaryRow(table, bold, regular, Integer.parseInt(dto.fx()), "35-59", "FX", "незадовільно", "незараховано");
-        addSummaryRow(table, bold, regular, Integer.parseInt(dto.f()), "1-34", "F", "", "");
+        // A row (put rowspan cell here)
+        addRow3(table, regular, Integer.parseInt(dto.a()), "90-100", "A");
+        Cell passed = bodyCell("Зараховано", regular, TextAlignment.CENTER, 5, 1);
+        passed.setVerticalAlignment(com.itextpdf.layout.properties.VerticalAlignment.MIDDLE);
+        passed.setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER);
+        table.addCell(passed);
+
+        // B–E rows (ONLY 3 cells each!)
+        addRow3(table, regular, Integer.parseInt(dto.b()), "82-89", "B");
+        addRow3(table, regular, Integer.parseInt(dto.c()), "74-81", "C");
+        addRow3(table, regular, Integer.parseInt(dto.d()), "64-73", "D");
+        addRow3(table, regular, Integer.parseInt(dto.e()), "60-63", "E");
+
+        // FX row (put rowspan cell here)
+        addRow3(table, regular, Integer.parseInt(dto.fx()), "35-59", "FX");
+        Cell failed = bodyCell("Незараховано", regular, TextAlignment.CENTER, 2 , 1);
+        failed.setVerticalAlignment(com.itextpdf.layout.properties.VerticalAlignment.MIDDLE);
+        failed.setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER);
+        table.addCell(failed);
+
+        // F row (ONLY 3 cells)
+        addRow3(table, regular, Integer.parseInt(dto.f()), "1-34", "F");
 
         return table;
     }
+
+    private static void addRow3(Table table, PdfFont font, int count, String points, String ects) {
+        table.addCell(bodyCell(String.valueOf(count), font, TextAlignment.CENTER));
+        table.addCell(bodyCell(points, font, TextAlignment.CENTER));
+        table.addCell(bodyCell(ects, font, TextAlignment.CENTER));
+    }
+
+
+    private static void addRowWithoutZalik(
+            Table table,
+            PdfFont font,
+            int count,
+            String points,
+            String ects
+    ) {
+        table.addCell(bodyCell(String.valueOf(count), font, TextAlignment.CENTER));
+        table.addCell(bodyCell(points, font, TextAlignment.CENTER));
+        table.addCell(bodyCell(ects, font, TextAlignment.CENTER));
+    }
+
+
+    private static void addSummaryRowZalik(Table table,
+                                           PdfFont bold,
+                                           PdfFont regular,
+                                           int totalGrades,
+                                           String pointsRange,
+                                           String ects,
+                                           String zalikText) {
+        // 1) ВСЬОГО ОЦІНОК
+        table.addCell(bodyCell(String.valueOf(totalGrades), regular, TextAlignment.CENTER));
+
+        // 2) СУМА БАЛІВ
+        table.addCell(bodyCell(pointsRange, regular, TextAlignment.CENTER));
+
+        // 3) ECTS
+        table.addCell(bodyCell(ects, regular, TextAlignment.CENTER));
+
+        // 4-5) Національна (залік) — створюємо Cell з colspan=2 через конструктор new Cell(rowspan, colspan)
+        table.addCell(bodyCell(zalikText, regular, TextAlignment.CENTER, 1, 2));
+    }
+
+    private static Cell bodyCell(String text, PdfFont font, TextAlignment alignment, int rowSpan, int colSpan) {
+        return new Cell(rowSpan, colSpan)
+                .add(new Paragraph(safe(text))
+                        .setFont(font)
+                        .setFontSize(10f)
+                        .setTextAlignment(alignment))
+                .setBorder(new SolidBorder(0.5f))
+                .setPadding(4f);
+    }
+
 
     private static void addSummaryRow(Table table, PdfFont bold, PdfFont regular, int count,
                                       String points, String ects, String examMark, String zalikMark) {
