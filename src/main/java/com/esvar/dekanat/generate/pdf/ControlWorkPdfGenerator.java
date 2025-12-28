@@ -1,23 +1,21 @@
 package com.esvar.dekanat.generate.pdf;
 
-import com.esvar.dekanat.generate.DataModelForZalik;
 import org.springframework.stereotype.Component;
 
 /**
  * PDF generator for control work statements.
  */
 @Component
-public class ControlWorkPdfGenerator extends BaseZalikStylePdfGenerator {
+public class ControlWorkPdfGenerator extends BaseStatementPdfGenerator {
 
     public static final String NAME = "control-work";
+
+    public ControlWorkPdfGenerator() {
+        super(DocumentType.CONTROL_WORK);
+    }
 
     @Override
     public String getName() {
         return NAME;
-    }
-
-    @Override
-    protected String outputSuffix(DataModelForZalik data) {
-        return "control-work";
     }
 }
