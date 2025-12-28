@@ -116,6 +116,9 @@ public abstract class BaseStatementPdfGenerator implements PdfGenerator {
         document.add(centered(data.formattedDate(), bold, DEFAULT_FONT_SIZE).setUnderline());
 
         document.add(buildDisciplineRow(data, regular));
+        if (!safeText(data.controlTypeName()).isBlank()) {
+            document.add(buildControlTypeRow(data, regular));
+        }
         document.add(buildSemesterRow(data, regular));
         document.add(buildTeacherRow("Викладач", data.teacherFullName(), regular));
         document.add(new Paragraph(" "));
@@ -165,7 +168,6 @@ public abstract class BaseStatementPdfGenerator implements PdfGenerator {
     private Table buildStudentsTable(List<StudentModelToDocumentGenerate> rows, PdfFont regular, PdfFont bold) {
         Table table = new Table(UnitValue.createPercentArray(new float[]{7, 34, 18, 18, 12, 11}))
                 .useAllAvailableWidth();
-//        table.setHeaderRows(2);
 
         table.addHeaderCell(headerCell("№ з/п", bold));
         table.addHeaderCell(headerCell("Прізвище та ініціали студента", bold));
@@ -272,6 +274,15 @@ public abstract class BaseStatementPdfGenerator implements PdfGenerator {
         semControlTable.addCell(underlinedCell(safeText(data.semesterNumber()), regular));
         semControlTable.addCell(noBorderCell("-й навчальний семестр.", regular, TextAlignment.LEFT));
         return semControlTable;
+    }
+
+    private Table buildControlTypeRow(StatementDocumentData data, PdfFont regular) {
+        Table controlTypeTable = new Table(UnitValue.createPercentArray(new float[]{25, 60, 15}))
+                .useAllAvailableWidth();
+        controlTypeTable.addCell(noBorderCell("Тип контролю: ", regular, TextAlignment.LEFT));
+        controlTypeTable.addCell(underlinedCell(safeText(data.controlTypeName()), regular));
+        controlTypeTable.addCell(noBorderCell("", regular, TextAlignment.LEFT));
+        return controlTypeTable;
     }
 
     private Table buildTeacherRow(String label, String value, PdfFont font) {
