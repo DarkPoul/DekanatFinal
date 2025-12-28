@@ -47,7 +47,7 @@ public class ExamPdfGenerator implements PdfGenerator {
 
     @Override
     public String getName() {
-        return "";
+        return NAME;
     }
 
     @Override
@@ -81,8 +81,9 @@ public class ExamPdfGenerator implements PdfGenerator {
         }
     }
 
-    private void addStudentsAndSummarySections(Document document, PdfFont regular, PdfFont bold,
-                                               DataModelForZalik zalikData) {
+
+    protected void addStudentsAndSummarySections(Document document, PdfFont regular, PdfFont bold,
+                                                 DataModelForZalik zalikData) {
         List<StudentModelToDocumentGenerate> students =
                 zalikData.students() == null ? Collections.emptyList() : zalikData.students();
 
@@ -96,16 +97,18 @@ public class ExamPdfGenerator implements PdfGenerator {
                 : List.of(students.get(students.size() - 1));
 
         Div tailSection = new Div().setKeepTogether(true);
+        // Додаємо останнього студента
         tailSection.add(buildStudentsTable(lastRows, regular, bold));
+        // Додаємо блок декана
         tailSection.add(buildDeanBlock(zalikData, regular));
-        tailSection.add(buildSummaryTable(zalikData, regular, bold));
+        // ВИПРАВЛЕННЯ: Використовуємо існуючий метод buildExamSummaryTable замість buildE
+        tailSection.add(buildExamSummaryTable(zalikData, regular, bold));
 
-        tailSection.add(new Paragraph("\s"));
+        tailSection.add(new Paragraph("\n"));
+        // Додаємо секцію підписів
         tailSection.add(buildSignatureSection(zalikData, regular, bold));
 
         document.add(tailSection);
-
-
     }
 
 
@@ -136,6 +139,58 @@ public class ExamPdfGenerator implements PdfGenerator {
                 .add(new Paragraph("Екзаменатор (Викладач)")
                         .setFont(bold)
                         .setFontSize(10));
+    }
+
+
+    private static void addExamSummaryRow(Table table, PdfFont bold, PdfFont regular,
+                                          int count, String points, String ects, String national) {
+        table.addCell(bodyCell(String.valueOf(count), bold, TextAlignment.CENTER));
+        table.addCell(bodyCell(points, regular, TextAlignment.CENTER));
+        table.addCell(bodyCell(ects, regular, TextAlignment.CENTER));
+        table.addCell(bodyCell(national, regular, TextAlignment.CENTER));
+    }
+
+    private static Table buildExamSummaryTable(DataModelForZalik dto, PdfFont regular, PdfFont bold) {
+        Table table = new Table(UnitValue.createPercentArray(new float[]{18, 18, 12, 52}))
+                .useAllAvailableWidth();
+        table.setMarginTop(12f);
+
+        // Заголовки таблиці
+        table.addCell(headerCell("ВСЬОГО ОЦІНОК", bold, 2, 1));
+        table.addCell(headerCell("СУМА БАЛІВ", bold, 2, 1));
+        table.addCell(headerCell("ОЦІНКА\nECTS", bold, 2, 1));
+        table.addCell(headerCell("ОЦІНКА ЗА НАЦІОНАЛЬНОЮ ШКАЛОЮ", bold, 1, 1));
+        table.addCell(headerCell("екзамен", bold));
+
+        // 1. Відмінно (A)
+        addRow3(table, regular, Integer.parseInt(dto.a()), "90-100", "A");
+        table.addCell(bodyCell("відмінно", regular, TextAlignment.CENTER));
+
+        // 2. Добре (B, C) - Об'єднуємо 2 рядки
+        addRow3(table, regular, Integer.parseInt(dto.b()), "82-89", "B");
+        Cell goodCell = bodyCell("добре", regular, TextAlignment.CENTER, 2, 1);
+        goodCell.setVerticalAlignment(com.itextpdf.layout.properties.VerticalAlignment.MIDDLE);
+        table.addCell(goodCell);
+
+        addRow3(table, regular, Integer.parseInt(dto.c()), "74-81", "C");
+
+        // 3. Задовільно (D, E) - Об'єднуємо 2 рядки
+        addRow3(table, regular, Integer.parseInt(dto.d()), "64-73", "D");
+        Cell satisfactoryCell = bodyCell("задовільно", regular, TextAlignment.CENTER, 2, 1);
+        satisfactoryCell.setVerticalAlignment(com.itextpdf.layout.properties.VerticalAlignment.MIDDLE);
+        table.addCell(satisfactoryCell);
+
+        addRow3(table, regular, Integer.parseInt(dto.e()), "60-63", "E");
+
+        // 4. Незадовільно (FX, F) - Об'єднуємо 2 рядки
+        addRow3(table, regular, Integer.parseInt(dto.fx()), "35-59", "FX");
+        Cell unsatisfactoryCell = bodyCell("незадовільно", regular, TextAlignment.CENTER, 2, 1);
+        unsatisfactoryCell.setVerticalAlignment(com.itextpdf.layout.properties.VerticalAlignment.MIDDLE);
+        table.addCell(unsatisfactoryCell);
+
+        addRow3(table, regular, Integer.parseInt(dto.f()), "1-34", "F");
+
+        return table;
     }
 
     private Cell createSignatureLineCell(PdfFont bold) {
