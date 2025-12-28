@@ -116,6 +116,9 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
         document.add(centered(formatDate(data), bold, DEFAULT_FONT_SIZE).setUnderline());
 
         document.add(buildDisciplineRow(data, regular));
+        if (!safeText(data.controlTypeName()).isBlank()) {
+            document.add(buildWorkTypeRow(data, regular));
+        }
         document.add(buildSemesterRow(data, regular));
         document.add(buildTeacherRow("Викладач", data.teacherFullName1(),
                 "( прізвище, ім’я та по батькові викладача, який виставляє підсумкову оцінку)", regular));
@@ -131,11 +134,6 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
                                        MeasuringDocumentRenderer renderer) {
         List<StudentRow> students = data.students() == null ? Collections.emptyList() : data.students();
 
-        if (students.size() > 1) {
-            Table mainTable = buildStudentsTable(students.subList(0, students.size() - 1), regular, bold);
-            document.add(mainTable);
-        }
-
         List<StudentRow> lastRows = students.isEmpty()
                 ? Collections.emptyList()
                 : List.of(students.get(students.size() - 1));
@@ -144,13 +142,18 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
         tailSection.add(buildStudentsTable(lastRows, regular, bold));
         tailSection.add(buildFooter(data, regular, bold));
 
-        float availableHeight = getAvailableHeight(document, renderer);
         float tailHeight = measureHeight(tailSection, document);
+        float availableHeight = getAvailableHeight(document, renderer);
 
-        if (tailHeight > availableHeight) {
-            document.add(new AreaBreak(AreaBreakType.NEXT_PAGE));
+        if (students.size() <= 1 || tailHeight <= availableHeight) {
+            document.add(buildStudentsTable(students, regular, bold));
+            document.add(buildFooter(data, regular, bold));
+            return;
         }
 
+        Table mainTable = buildStudentsTable(students.subList(0, students.size() - 1), regular, bold);
+        document.add(mainTable);
+        document.add(new AreaBreak(AreaBreakType.NEXT_PAGE));
         document.add(tailSection);
     }
 
@@ -265,12 +268,25 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
         return disciplineTable;
     }
 
+    private Table buildWorkTypeRow(CourseProjectData data, PdfFont regular) {
+        Table workTypeTable = new Table(UnitValue.createPercentArray(new float[]{25, 60, 15}))
+                .useAllAvailableWidth();
+        workTypeTable.addCell(noBorderCell("Вид роботи: ", regular, TextAlignment.LEFT));
+        String workType = safeText(data.controlTypeName());
+        if (workType.isBlank()) {
+            workType = "Курсовий проєкт";
+        }
+        workTypeTable.addCell(underlinedCell(workType, regular));
+        workTypeTable.addCell(noBorderCell("", regular, TextAlignment.LEFT));
+        return workTypeTable;
+    }
+
     private Table buildSemesterRow(CourseProjectData data, PdfFont regular) {
         Table semControlTable = new Table(UnitValue.createPercentArray(new float[]{10, 10, 80}))
                 .useAllAvailableWidth();
         semControlTable.addCell(noBorderCell("за", regular, TextAlignment.LEFT));
-        semControlTable.addCell(underlinedCell(safeText(data.semesterNumber()), regular));
-        semControlTable.addCell(noBorderCell("-й навчальний семестр.", regular, TextAlignment.LEFT));
+        semControlTable.addCell(underlinedCell(safeText(data.semesterNumber()) + "-й", regular));
+        semControlTable.addCell(noBorderCell(" навчальний семестр.", regular, TextAlignment.LEFT));
         return semControlTable;
     }
 
@@ -445,8 +461,9 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
     }
 
     private String resolveMarkText(StudentRow row) {
-        if (!safeText(row.markText()).isBlank()) {
-            return safeText(row.markText());
+        String textMark = safeText(row.markText());
+        if (!textMark.isBlank()) {
+            return textMark;
         }
         return safeText(row.mark());
     }
@@ -496,6 +513,7 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
             String dateText,
             String disciplineName,
             String semesterNumber,
+            String controlTypeName,
             String teacherFullName1,
             String teacherFullName2,
             String dean,
@@ -520,6 +538,7 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
                         null,
                         zalik.disciplineName(),
                         zalik.semesterNumber(),
+                        zalik.controlTypeName(),
                         zalik.firstTeacher(),
                         zalik.secondTeacher(),
                         zalik.dean(),
@@ -552,7 +571,7 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
                     student.index(),
                     student.name(),
                     student.studentNumber(),
-                    student.nationalMark(),
+                    student.markText(),
                     student.mark(),
                     student.date(),
                     student.dateText(),

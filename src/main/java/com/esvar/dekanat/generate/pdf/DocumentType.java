@@ -10,7 +10,7 @@ import java.util.Objects;
 public enum DocumentType {
     CONTROL_WORK("control-work", "Відмітка про зарахування контрольної роботи («зараховано»)", false),
     COURSE_WORK("course-work", "Відмітка про зарахування курсової роботи", true),
-    COURSE_PROJECT("course-project", "Відмітка про зарахування курсового проєкту", true);
+    COURSE_PROJECT("course-project", "Оцінка за курсовий проєкт", true);
 
     private final String outputSuffix;
     private final String markColumnHeader;
@@ -42,6 +42,12 @@ public enum DocumentType {
     public String resolveMark(StudentModelToDocumentGenerate student) {
         if (student == null) {
             return "";
+        }
+        if (this == COURSE_PROJECT) {
+            String markText = Objects.toString(student.markText(), "");
+            if (!markText.isBlank()) {
+                return markText;
+            }
         }
         String mark = Objects.toString(student.nationalMark(), "");
         if (mark.isBlank()) {
