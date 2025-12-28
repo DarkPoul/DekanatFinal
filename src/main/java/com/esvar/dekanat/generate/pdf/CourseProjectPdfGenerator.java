@@ -179,8 +179,6 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
             table.addHeaderCell(numberHeaderCell(String.valueOf(i), regular));
         }
 
-        table.setHeaderRows(2);
-
         if (rows.isEmpty()) {
             addEmptyRow(table, regular);
             return table;
