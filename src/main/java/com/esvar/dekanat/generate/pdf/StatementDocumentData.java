@@ -23,6 +23,7 @@ public record StatementDocumentData(
         String year,
         String disciplineName,
         String semesterNumber,
+        String controlTypeName,
         String teacherFullName,
         String headName,
         List<StudentModelToDocumentGenerate> students
@@ -49,6 +50,7 @@ public record StatementDocumentData(
                     zalik.year(),
                     zalik.disciplineName(),
                     zalik.semesterNumber(),
+                    zalik.controlTypeName(),
                     zalik.firstTeacher(),
                     zalik.dean(),
                     zalik.students()
