@@ -498,8 +498,8 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
                 .setFont(font)
                 .setFontSize(10f)
                 .setTextAlignment(alignment)
-                .setProperty(Property.NO_WRAP, true)
-                .setProperty(Property.OVERFLOW, OverflowPropertyValue.HIDDEN);
+                .setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN)
+                .setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
 
         return new Cell()
                 .add(paragraph)
@@ -674,8 +674,8 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
                 .setFont(font)
                 .setFontSize(10f)
                 .setTextAlignment(alignment)
-                .setProperty(Property.NO_WRAP, true)
-                .setProperty(Property.OVERFLOW, OverflowPropertyValue.HIDDEN);
+                .setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN)
+                .setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
 
         return new Cell(rowSpan, colSpan)
                 .add(paragraph)
@@ -755,8 +755,8 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
                 .setFont(font)
                 .setFontSize(10)
                 .setTextAlignment(alignment)
-                .setProperty(Property.NO_WRAP, true)
-                .setProperty(Property.OVERFLOW, OverflowPropertyValue.HIDDEN);
+                .setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN)
+                .setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
 
         return new Cell().add(paragraph)
                 .setPadding(4);
