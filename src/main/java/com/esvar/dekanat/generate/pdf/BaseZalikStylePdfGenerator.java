@@ -497,9 +497,10 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         Paragraph paragraph = new Paragraph(safe(text))
                 .setFont(font)
                 .setFontSize(10f)
-                .setTextAlignment(alignment)
-                .setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN)
-                .setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
+                .setTextAlignment(alignment);
+
+        paragraph.setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN);
+        paragraph.setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
 
         return new Cell()
                 .add(paragraph)
@@ -683,9 +684,10 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         Paragraph paragraph = new Paragraph(safe(text))
                 .setFont(font)
                 .setFontSize(10f)
-                .setTextAlignment(alignment)
-                .setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN)
-                .setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
+                .setTextAlignment(alignment);
+
+        paragraph.setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN);
+        paragraph.setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
 
         return new Cell(rowSpan, colSpan)
                 .add(paragraph)
@@ -763,9 +765,10 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         Paragraph paragraph = new Paragraph(text == null ? "" : text)
                 .setFont(font)
                 .setFontSize(10)
-                .setTextAlignment(alignment)
-                .setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN)
-                .setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
+                .setTextAlignment(alignment);
+
+        paragraph.setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN);
+        paragraph.setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
 
         return new Cell().add(paragraph)
                 .setPadding(4);
