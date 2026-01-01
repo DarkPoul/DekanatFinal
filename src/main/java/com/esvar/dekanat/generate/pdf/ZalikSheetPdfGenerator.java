@@ -445,7 +445,7 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
         if (row.dateText() != null && !row.dateText().isBlank()) {
             return row.dateText();
         }
-        return "";
+        return "____.__.____";
     }
 
     private static String formatDate(LocalDate date) {

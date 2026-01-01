@@ -57,6 +57,7 @@ public abstract class BaseStatementPdfGenerator implements PdfGenerator {
     private static final Logger log = LoggerFactory.getLogger(BaseStatementPdfGenerator.class);
     private static final float BORDER_WIDTH = 0.5f;
     private static final float DEFAULT_FONT_SIZE = 11f;
+    private static final String MISSING_DATE_PLACEHOLDER = "____.__.____";
     private final DocumentType documentType;
 
     protected BaseStatementPdfGenerator(DocumentType documentType) {
@@ -459,7 +460,11 @@ public abstract class BaseStatementPdfGenerator implements PdfGenerator {
         if (row.date() != null) {
             return formatDate(row.date());
         }
-        return safeText(row.dateText());
+        String dateText = safeText(row.dateText());
+        if (!dateText.isBlank()) {
+            return dateText;
+        }
+        return MISSING_DATE_PLACEHOLDER;
     }
 
     private static String formatDate(LocalDate date) {
