@@ -25,8 +25,8 @@ import com.itextpdf.layout.element.Div;
 import com.itextpdf.layout.element.LineSeparator;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
-import com.itextpdf.layout.properties.Overflow;
 import com.itextpdf.layout.properties.Property;
+import com.itextpdf.layout.properties.OverflowPropertyValue;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import org.slf4j.Logger;
@@ -499,7 +499,7 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
                 .setFontSize(10f)
                 .setTextAlignment(alignment)
                 .setProperty(Property.NO_WRAP, true)
-                .setProperty(Property.OVERFLOW, Overflow.HIDDEN);
+                .setProperty(Property.OVERFLOW, OverflowPropertyValue.HIDDEN);
 
         return new Cell()
                 .add(paragraph)
@@ -675,7 +675,7 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
                 .setFontSize(10f)
                 .setTextAlignment(alignment)
                 .setProperty(Property.NO_WRAP, true)
-                .setProperty(Property.OVERFLOW, Overflow.HIDDEN);
+                .setProperty(Property.OVERFLOW, OverflowPropertyValue.HIDDEN);
 
         return new Cell(rowSpan, colSpan)
                 .add(paragraph)
@@ -756,7 +756,7 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
                 .setFontSize(10)
                 .setTextAlignment(alignment)
                 .setProperty(Property.NO_WRAP, true)
-                .setProperty(Property.OVERFLOW, Overflow.HIDDEN);
+                .setProperty(Property.OVERFLOW, OverflowPropertyValue.HIDDEN);
 
         return new Cell().add(paragraph)
                 .setPadding(4);
