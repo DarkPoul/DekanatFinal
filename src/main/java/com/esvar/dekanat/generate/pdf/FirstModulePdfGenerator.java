@@ -132,7 +132,7 @@ public class FirstModulePdfGenerator implements PdfGenerator {
                         .setFontSize(11))
                 .setBorder(Border.NO_BORDER));
         groupTable.addCell(new Cell().setPadding(0)
-                .add(new Paragraph(Objects.toString(data.groupName(), ""))
+                .add(new Paragraph(Objects.toString(data.groupName().split(" ")[0], ""))
                         .setFont(regular)
                         .setFontSize(11)
                         .setTextAlignment(TextAlignment.CENTER))

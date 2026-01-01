@@ -75,6 +75,7 @@ public class EnterMarksView extends Div {
     private static final Logger log = LoggerFactory.getLogger(EnterMarksView.class);
     private static final String CONTROL_TYPE_FIRST_MODULE = "Перший модульний контроль";
     private static final String CONTROL_TYPE_SECOND_MODULE = "Другий модульний контроль";
+    private static final String CONTROL_TYPE_ZALIK = "Другий модульний контроль";
     private static final String CONTROL_TYPE_CONTROL_WORK = "Контрольна робота";
     private static final String SYSTEM_USER_DISPLAY_NAME = "Система";
     private static final String DATE_TIME_PATTERN = "dd.MM.yyyy HH:mm";
@@ -737,11 +738,11 @@ public class EnterMarksView extends Div {
                     dto.setECTSGrade(convertMarkToECTSGrade(finalGrade));
 
                     // Отримуємо оцінки для першого і другого модулів
-                    String firstModule = marksService.getMarkForFirstModalControl(mark.getStudent(), plansEntity, "Перший модульний контроль");
+                    String firstModule = marksService.getMarkForFir(mark.getStudent(), plansEntity, "Перший модульний контроль");
                     if (firstModule == null || firstModule.isEmpty()) {
                         firstModule = "0";
                     }
-                    String secondModule = marksService.getMarkForFirstModalControl(mark.getStudent(), plansEntity, "Другий модульний контроль");
+                    String secondModule = marksService.getMarkForFir(mark.getStudent(), plansEntity, "Другий модульний контроль");
                     if (secondModule == null || secondModule.isEmpty()) {
                         secondModule = "0"; // якщо немає другого, підставляємо перший
                     }
@@ -818,6 +819,8 @@ public class EnterMarksView extends Div {
             return "Задовільно";
         } else if (mark >= 35) {
             return "Незадовільно";
+        } else if (mark == 0) {
+            return "Не з'явився";
         } else {
             return "Незадовільно";
         }
@@ -933,12 +936,12 @@ public class EnterMarksView extends Div {
             return new ModuleData("0", "0", 0);
         }
         String firstModule = normalizeModuleValue(
-                marksService.getMarkForFirstModalControl(student, plansEntity, CONTROL_TYPE_FIRST_MODULE));
+                marksService.getMarkForTypeControl(student, plansEntity, CONTROL_TYPE_FIRST_MODULE));
         String secondModule = normalizeModuleValue(
-                marksService.getMarkForFirstModalControl(student, plansEntity, CONTROL_TYPE_SECOND_MODULE));
+                marksService.getMarkForTypeControl(student, plansEntity, CONTROL_TYPE_SECOND_MODULE));
         if (!student.isFullTime()) {
             String controlWork = normalizeModuleValue(
-                    marksService.getMarkForFirstModalControl(student, plansEntity, CONTROL_TYPE_CONTROL_WORK));
+                    marksService.getMarkForTypeControl(student, plansEntity, CONTROL_TYPE_CONTROL_WORK));
             firstModule = controlWork;
             secondModule = "0";
         }
@@ -1034,7 +1037,7 @@ public class EnterMarksView extends Div {
         int index = 1;
         for (StudentEntity student : studentEntities) {
             // Припустимо, student.getRecordBookNumber() використовується як studentNumber
-            String mark = marksService.getMarkForFirstModalControl(student, plansEntity, controlTypeName);
+            String mark = marksService.getMarkForTypeControl(student, plansEntity, controlTypeName);
             if (mark == null) {
                 mark = "";
             }
@@ -1214,8 +1217,8 @@ public class EnterMarksView extends Div {
     }
 
     private String calculateTotalModuleMark(StudentEntity student) {
-        String firstModuleMark = marksService.getMarkForFirstModalControl(student, plansEntity, CONTROL_TYPE_FIRST_MODULE);
-        String secondModuleMark = marksService.getMarkForFirstModalControl(student, plansEntity, CONTROL_TYPE_SECOND_MODULE);
+        String firstModuleMark = marksService.getMarkForTypeControl(student, plansEntity, CONTROL_TYPE_FIRST_MODULE);
+        String secondModuleMark = marksService.getMarkForTypeControl(student, plansEntity, CONTROL_TYPE_SECOND_MODULE);
 
         int totalMark = parseModuleMark(firstModuleMark) + parseModuleMark(secondModuleMark);
         return String.valueOf(totalMark);
@@ -1603,7 +1606,7 @@ public class EnterMarksView extends Div {
         List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
         int index = 1;
         for (StudentEntity student : studentEntities) {
-            String markStr = calculateTotalModuleMark(student);
+            String markStr = marksService.getMarkForTypeControl(student, plansEntity, CONTROL_TYPE_ZALIK);
             int markInt = 0;
             try {
                 markInt = (markStr != null && !markStr.isEmpty()) ? Integer.parseInt(markStr) : 0;

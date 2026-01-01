@@ -134,7 +134,7 @@ public class MarksService {
         return marksRepository.findByPlanAndControlMethod(plan, controlMethod);
     }
 
-    public String getMarkForFirstModalControl(StudentEntity studentEntity, PlansEntity plansEntity, String typeControl) {
+    public String getMarkForTypeControl(StudentEntity studentEntity, PlansEntity plansEntity, String typeControl) {
         ControlMethodEntity method = controlMethodRepository.findByName(typeControl);
         if (method == null) {
             return "0";
@@ -202,5 +202,6 @@ public class MarksService {
             marksRepository.deleteByPlanIdAndStudentIds(planId, studentIds);
         }
     }
+
 
 }
