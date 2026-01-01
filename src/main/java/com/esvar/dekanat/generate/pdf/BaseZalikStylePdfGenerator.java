@@ -223,7 +223,7 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
                         .setFontSize(11))
                 .setBorder(Border.NO_BORDER));
         groupTable.addCell(new Cell().setPadding(0)
-                .add(new Paragraph(Objects.toString(data.groupName().split(" ")[0], ""))
+                .add(new Paragraph(firstGroupToken(data.groupName()))
                         .setFont(regular)
                         .setFontSize(11)
                         .setTextAlignment(TextAlignment.CENTER))
@@ -536,7 +536,9 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         addHeaderCell(table, "Підпис", bold);
 
         String date = formatDate(data);
-        List<StudentModelToDocumentGenerate> students = data.students();
+        List<StudentModelToDocumentGenerate> students = data.students() == null
+                ? Collections.emptyList()
+                : data.students();
         for (StudentModelToDocumentGenerate student : students) {
             int numericMark = parseToInt(student.mark());
             String nationalGrade = convertMarkToNationalGrade(numericMark);
@@ -604,27 +606,27 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         table.addCell(headerCell("залік", bold));
 
         // A row (put rowspan cell here)
-        addRow3(table, regular, Integer.parseInt(dto.a()), "90-100", "A");
+        addRow3(table, regular, parseCount(dto.a()), "90-100", "A");
         Cell passed = bodyCell("Зараховано", regular, TextAlignment.CENTER, 5, 1);
         passed.setVerticalAlignment(com.itextpdf.layout.properties.VerticalAlignment.MIDDLE);
         passed.setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER);
         table.addCell(passed);
 
         // B–E rows (ONLY 3 cells each!)
-        addRow3(table, regular, Integer.parseInt(dto.b()), "82-89", "B");
-        addRow3(table, regular, Integer.parseInt(dto.c()), "74-81", "C");
-        addRow3(table, regular, Integer.parseInt(dto.d()), "64-73", "D");
-        addRow3(table, regular, Integer.parseInt(dto.e()), "60-63", "E");
+        addRow3(table, regular, parseCount(dto.b()), "82-89", "B");
+        addRow3(table, regular, parseCount(dto.c()), "74-81", "C");
+        addRow3(table, regular, parseCount(dto.d()), "64-73", "D");
+        addRow3(table, regular, parseCount(dto.e()), "60-63", "E");
 
         // FX row (put rowspan cell here)
-        addRow3(table, regular, Integer.parseInt(dto.fx()), "35-59", "FX");
+        addRow3(table, regular, parseCount(dto.fx()), "35-59", "FX");
         Cell failed = bodyCell("Незараховано", regular, TextAlignment.CENTER, 2 , 1);
         failed.setVerticalAlignment(com.itextpdf.layout.properties.VerticalAlignment.MIDDLE);
         failed.setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER);
         table.addCell(failed);
 
         // F row (ONLY 3 cells)
-        addRow3(table, regular, Integer.parseInt(dto.f()), "1-34", "F");
+        addRow3(table, regular, parseCount(dto.f()), "1-34", "F");
 
         return table;
     }
@@ -633,6 +635,14 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
         table.addCell(bodyCell(String.valueOf(count), font, TextAlignment.CENTER));
         table.addCell(bodyCell(points, font, TextAlignment.CENTER));
         table.addCell(bodyCell(ects, font, TextAlignment.CENTER));
+    }
+
+    private static int parseCount(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
 
@@ -682,7 +692,6 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
                 .setBorder(new SolidBorder(0.5f))
                 .setPadding(4f);
     }
-
 
     private static void addSummaryRow(Table table, PdfFont bold, PdfFont regular, int count,
                                       String points, String ects, String examMark, String zalikMark) {
@@ -850,5 +859,13 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
             return String.format("%s.%s.%s", day, month, year);
         }
         return "";
+    }
+
+    private static String firstGroupToken(String groupName) {
+        if (groupName == null || groupName.isBlank()) {
+            return "";
+        }
+        String[] tokens = groupName.trim().split("\\s+");
+        return tokens.length > 0 ? tokens[0] : "";
     }
 }
