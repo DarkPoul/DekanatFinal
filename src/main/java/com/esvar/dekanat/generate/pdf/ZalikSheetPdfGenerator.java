@@ -23,6 +23,8 @@ import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.LineSeparator;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.properties.Overflow;
+import com.itextpdf.layout.properties.Property;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import org.springframework.stereotype.Component;
@@ -343,11 +345,15 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
     }
 
     private static Cell bodyCell(String text, PdfFont font, TextAlignment alignment) {
+        Paragraph paragraph = new Paragraph(safe(text))
+                .setFont(font)
+                .setFontSize(BODY_FONT_SIZE)
+                .setTextAlignment(alignment)
+                .setProperty(Property.NO_WRAP, true)
+                .setProperty(Property.OVERFLOW, Overflow.HIDDEN);
+
         return new Cell()
-                .add(new Paragraph(safe(text))
-                        .setFont(font)
-                        .setFontSize(BODY_FONT_SIZE)
-                        .setTextAlignment(alignment))
+                .add(paragraph)
                 .setBorder(new SolidBorder(0.5f))
                 .setPadding(4f);
     }
