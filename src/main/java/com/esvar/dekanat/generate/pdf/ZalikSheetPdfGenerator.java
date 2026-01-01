@@ -43,9 +43,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
-import static com.esvar.dekanat.generate.pdf.BaseStatementPdfGenerator.BORDER_WIDTH;
-import static com.esvar.dekanat.generate.pdf.BaseStatementPdfGenerator.safeText;
-
 /**
  * iText 7 generator for "ВІДОМІСТЬ ОБЛІКУ УСПІШНОСТІ" (залік/екзамен) sheets.
  *
@@ -61,6 +58,7 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
     private static final float HEADER_FONT_SIZE = 12f;
     private static final float BODY_FONT_SIZE = 10f;
     private static final float SMALL_FONT_SIZE = 8f;
+    private static final float BORDER_WIDTH = 0.5f;
 
     @Override
     public String getName() {
@@ -348,8 +346,8 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
                 .setPadding(3f);
     }
 
-    private Cell bodyCell(String text, PdfFont font, TextAlignment alignment) {
-        Paragraph p = new Paragraph(safeText(text));
+    private static Cell bodyCell(String text, PdfFont font, TextAlignment alignment) {
+        Paragraph p = new Paragraph(safe(text));
         p.setFont(font);
         p.setFontSize(10f);
         p.setTextAlignment(alignment);
