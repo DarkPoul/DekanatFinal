@@ -19,6 +19,7 @@ import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
@@ -984,6 +985,9 @@ public class EnterMarksView extends Div {
     private record ModuleData(String firstModule, String secondModule, int total) {
     }
 
+    private record DateParts(LocalDate date, String day, String month, String year, String dateText) {
+    }
+
     private List<StudentEntity> getSortedStudentsForPlan(StudentGroupEntity studentGroupEntity) {
         if (plansEntity.isElective()) {
             return sortStudentsByFullName(studentPlansService.getStudentByPlan(plansEntity));
@@ -995,6 +999,17 @@ public class EnterMarksView extends Div {
         return sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
     }
 
+    private DateParts resolveDateParts(LocalDate selectedDate) {
+        if (selectedDate == null) {
+            return new DateParts(null, "", "", "", "");
+        }
+        String day = selectedDate.format(DateTimeFormatter.ofPattern("dd"));
+        String month = selectedDate.format(DateTimeFormatter.ofPattern("MM"));
+        String year = selectedDate.format(DateTimeFormatter.ofPattern("yyyy"));
+        String dateText = String.format("%s %s %s", day, month, year);
+        return new DateParts(selectedDate, day, month, year, dateText);
+    }
+
 
 
 
@@ -1003,7 +1018,7 @@ public class EnterMarksView extends Div {
 
 
     // Приклад допоміжних методів для побудови моделей даних для друку
-    private DataModelForMC1 buildDataModelForMC1(String secondTeacher) {
+    private DataModelForMC1 buildDataModelForMC1(String secondTeacher, LocalDate reportDate) {
         // Припущення: дані беруться з плану та пов'язаних сервісів.
         String facultyName = plansEntity.getFaculty().getTitle();
         String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
@@ -1013,11 +1028,7 @@ public class EnterMarksView extends Div {
         String courseNumber = String.valueOf(group.getCourse());
         String groupName = group.getGroupCode();
         String studyYear = getCurrentAcademicYear();
-        // Використовуємо поточну дату
-        LocalDate today = LocalDate.now();
-        String day = today.format(DateTimeFormatter.ofPattern("dd"));
-        String month = today.format(DateTimeFormatter.ofPattern("MM"));
-        String year = today.format(DateTimeFormatter.ofPattern("yyyy"));
+        DateParts dateParts = resolveDateParts(reportDate);
         String disciplineName = plansEntity.getDiscipline().getTitle();
         String semesterNumber = String.valueOf(plansEntity.getSemester());
         String controlTypeName = selectControlType.getValue();
@@ -1052,14 +1063,14 @@ public class EnterMarksView extends Div {
                     convertMarkToNationalGrade(mark.isEmpty() ? 0 : Integer.parseInt(mark)),
                     mark,
                     convertMarkToECTSGrade(Integer.parseInt(mark)),
-                    today,
-                    day + " " + month + " " + year
+                    dateParts.date(),
+                    dateParts.dateText()
                     ));
             index++;
         }
 
         return new DataModelForMC1(facultyName, specialityName, courseNumber, groupName, studyYear,
-                day, month, year, disciplineName, semesterNumber, controlTypeName,
+                dateParts.day(), dateParts.month(), dateParts.year(), disciplineName, semesterNumber, controlTypeName,
                 hours, firstTeacher, secondTeacher, gradeTeacher, students);
     }
 
@@ -1095,10 +1106,15 @@ public class EnterMarksView extends Div {
         teacherField.setValueChangeMode(ValueChangeMode.EAGER);
 
 
+        DatePicker datePicker = new DatePicker();
+        datePicker.setWidthFull();
+        datePicker.setPlaceholder("Дата відомості (необов'язково)");
+        datePicker.setClearButtonVisible(true);
+
         Button okButton = new Button("Підтвердити", e -> {
             String secondTeacher = formatTeacherName(teacherField.getValue());
             dialog.close();
-            generateReportWithLoading(secondTeacher);
+            generateReportWithLoading(secondTeacher, datePicker.getValue());
         });
         okButton.setEnabled(false);
 
@@ -1111,7 +1127,9 @@ public class EnterMarksView extends Div {
 
         VerticalLayout layout = new VerticalLayout(
                 new Span("Прізвище, ім'я та по батькові викладача, який здійснював поточний контроль"),
-                teacherField, okButton);
+                teacherField,
+                datePicker,
+                okButton);
         layout.setPadding(false);
         layout.setSpacing(true);
         layout.setAlignItems(FlexComponent.Alignment.STRETCH);
@@ -1153,7 +1171,7 @@ public class EnterMarksView extends Div {
     private record ReportGenerationResult(String filePath, SummaryReportResult pdfReport, String placeholderMessage) {}
 
 
-    private DataModelForMC2 buildDataModelForMC2(String secondTeacher) {
+    private DataModelForMC2 buildDataModelForMC2(String secondTeacher, LocalDate reportDate) {
         String facultyName = plansEntity.getFaculty().getTitle();
         String specialityName = Optional.ofNullable(plansEntity.getSpecialty().getEduProgram())
                 .map(EduProgramEntity::getTitle)
@@ -1162,10 +1180,7 @@ public class EnterMarksView extends Div {
         String courseNumber = String.valueOf(group.getCourse());
         String groupName = group.getGroupCode();
         String studyYear = getCurrentAcademicYear();
-        LocalDate today = LocalDate.now();
-        String day = today.format(DateTimeFormatter.ofPattern("dd"));
-        String month = today.format(DateTimeFormatter.ofPattern("MM"));
-        String year = today.format(DateTimeFormatter.ofPattern("yyyy"));
+        DateParts dateParts = resolveDateParts(reportDate);
         String disciplineName = plansEntity.getDiscipline().getTitle();
         String semesterNumber = String.valueOf(plansEntity.getSemester());
         String controlTypeName = selectControlType.getValue();
@@ -1205,14 +1220,14 @@ public class EnterMarksView extends Div {
                     convertMarkToNationalGrade(markInt),
                     markStr,
                     convertMarkToECTSGrade(markInt),
-                    today,
-                    day + " " + month + " " + year
+                    dateParts.date(),
+                    dateParts.dateText()
             ));
             index++;
         }
 
         return new DataModelForMC2(facultyName, specialityName, courseNumber, groupName, studyYear,
-                day, month, year, disciplineName, semesterNumber, controlTypeName,
+                dateParts.day(), dateParts.month(), dateParts.year(), disciplineName, semesterNumber, controlTypeName,
                 hours, firstTeacher, secondTeacher, gradeTeacher, qualityTrue, qualityFalse, students);
     }
 
@@ -1255,6 +1270,10 @@ public class EnterMarksView extends Div {
 
 
     private void generateReportWithLoading(String secondTeacher) {
+        generateReportWithLoading(secondTeacher, null);
+    }
+
+    private void generateReportWithLoading(String secondTeacher, LocalDate reportDate) {
         String controlType = selectControlType.getValue();
         if (controlType == null) {
             Notification.show("Спочатку оберіть тип контролю!");
@@ -1267,7 +1286,7 @@ public class EnterMarksView extends Div {
         CompletableFuture.supplyAsync(() -> {
             SecurityContextHolder.setContext(securityContext);
             try {
-                return generateReportFile(controlType, secondTeacher);
+                return generateReportFile(controlType, secondTeacher, reportDate);
             } catch (Exception e) {
                 throw new CompletionException(e);
             } finally {
@@ -1310,18 +1329,18 @@ public class EnterMarksView extends Div {
         });
     }
 
-    private ReportGenerationResult generateReportFile(String controlType, String secondTeacher) throws Exception {
+    private ReportGenerationResult generateReportFile(String controlType, String secondTeacher, LocalDate reportDate) throws Exception {
         return switch (controlType) {
-            case CONTROL_TYPE_FIRST_MODULE -> generateReportWithModel(FirstModulePdfGenerator.NAME, buildDataModelForMC1(secondTeacher));
-            case CONTROL_TYPE_SECOND_MODULE -> generateReportWithModel(SecondModulePdfGenerator.NAME, buildDataModelForMC2(secondTeacher));
-            case "Залік" -> generateReportWithModel(BaseZalikStylePdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
-            case "Екзамен" -> generateReportWithModel(ExamPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
-            case "Диференційний залік" -> generateReportWithModel(DifferentialZalikPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
-            case "Курсова робота" -> generateReportWithModel(CourseWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
-            case "Курсовий проєкт" -> generateReportWithModel(CourseProjectPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
-            case "Контрольна робота" -> generateReportWithModel(ControlWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
-            case "Розрахункова робота" -> generateReportWithModel(CalculationWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
-            case "Розрахунково-графічна робота" -> generateReportWithModel(CalculationGraphicWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher));
+            case CONTROL_TYPE_FIRST_MODULE -> generateReportWithModel(FirstModulePdfGenerator.NAME, buildDataModelForMC1(secondTeacher, reportDate));
+            case CONTROL_TYPE_SECOND_MODULE -> generateReportWithModel(SecondModulePdfGenerator.NAME, buildDataModelForMC2(secondTeacher, reportDate));
+            case "Залік" -> generateReportWithModel(BaseZalikStylePdfGenerator.NAME, buildDataModelForZalik(secondTeacher, reportDate));
+            case "Екзамен" -> generateReportWithModel(ExamPdfGenerator.NAME, buildDataModelForZalik(secondTeacher, reportDate));
+            case "Диференційний залік" -> generateReportWithModel(DifferentialZalikPdfGenerator.NAME, buildDataModelForZalik(secondTeacher, reportDate));
+            case "Курсова робота" -> generateReportWithModel(CourseWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher, reportDate));
+            case "Курсовий проєкт" -> generateReportWithModel(CourseProjectPdfGenerator.NAME, buildDataModelForZalik(secondTeacher, reportDate));
+            case "Контрольна робота" -> generateReportWithModel(ControlWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher, reportDate));
+            case "Розрахункова робота" -> generateReportWithModel(CalculationWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher, reportDate));
+            case "Розрахунково-графічна робота" -> generateReportWithModel(CalculationGraphicWorkPdfGenerator.NAME, buildDataModelForZalik(secondTeacher, reportDate));
             default -> {
                 BasicControlPdfData data = new BasicControlPdfData(controlType);
                 Path path = documentGenerationService.generate(BasicControlPdfGenerator.NAME, data);
@@ -1556,7 +1575,7 @@ public class EnterMarksView extends Div {
         return Optional.ofNullable(user.getEmail()).orElse(SYSTEM_USER_DISPLAY_NAME);
     }
 
-    private DataModelForZalik buildDataModelForZalik(String secondTeacher) {
+    private DataModelForZalik buildDataModelForZalik(String secondTeacher, LocalDate reportDate) {
         String facultyName = selectFaculty.getValue();
 
         // Якщо компонент порожній (наприклад, для ролі Деканат він прихований), беремо з плану
@@ -1572,10 +1591,7 @@ public class EnterMarksView extends Div {
         String groupName = group.getGroupCode();
         String studyYear = getCurrentAcademicYear();
         String order = plansEntity.getStatementNumber();
-        LocalDate today = LocalDate.now();
-        String day = today.format(DateTimeFormatter.ofPattern("dd"));
-        String month = today.format(DateTimeFormatter.ofPattern("MM"));
-        String year = today.format(DateTimeFormatter.ofPattern("yyyy"));
+        DateParts dateParts = resolveDateParts(reportDate);
         String disciplineName = plansEntity.getDiscipline().getTitle();
         String semesterNumber = String.valueOf(plansEntity.getSemester());
         String controlTypeName = selectControlType.getValue();
@@ -1628,13 +1644,13 @@ public class EnterMarksView extends Div {
                     convertMarkToNationalGrade(markInt),
                     markStr,
                     convertMarkToECTSGrade(markInt),
-                    today,
-                    day + " " + month + " " + year
+                    dateParts.date(),
+                    dateParts.dateText()
             ));
             index++;
         }
         return new DataModelForZalik(facultyName, specialityName, courseNumber, groupName, studyYear,
-                order, day, month, year, disciplineName, semesterNumber, controlTypeName,
+                order, dateParts.day(), dateParts.month(), dateParts.year(), disciplineName, semesterNumber, controlTypeName,
                 hours, firstTeacher, secondTeacher, dean, departmentName,
                 a, b, c, d, e, fx, f, gradeTeacher, students);
     }
