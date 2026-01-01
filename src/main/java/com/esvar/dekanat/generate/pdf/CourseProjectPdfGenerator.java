@@ -457,7 +457,11 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
         if (row.date() != null) {
             return row.date().format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
         }
-        return safeText(row.dateText());
+        String dateText = safeText(row.dateText());
+        if (!dateText.isBlank()) {
+            return dateText;
+        }
+        return "____.__.____";
     }
 
     private String resolveMarkText(StudentRow row) {
