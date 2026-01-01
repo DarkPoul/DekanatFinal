@@ -26,8 +26,10 @@ import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.layout.LayoutArea;
 import com.itextpdf.layout.layout.LayoutContext;
 import com.itextpdf.layout.layout.LayoutResult;
+import com.itextpdf.layout.properties.OverflowPropertyValue;
+import com.itextpdf.layout.properties.Property;
+
 import com.itextpdf.layout.properties.AreaBreakType;
-import com.itextpdf.layout.properties.Overflow;
 import com.itextpdf.layout.properties.Property;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
@@ -355,18 +357,22 @@ public abstract class BaseStatementPdfGenerator implements PdfGenerator {
     }
 
     private Cell bodyCell(String text, PdfFont font, TextAlignment alignment) {
-        Paragraph paragraph = new Paragraph(text)
-                .setFont(font)
-                .setFontSize(10f)
-                .setTextAlignment(alignment)
-                .setProperty(Property.NO_WRAP, true)
-                .setProperty(Property.OVERFLOW, Overflow.HIDDEN);
+        Paragraph p = new Paragraph(safeText(text));
+        p.setFont(font);
+        p.setFontSize(10f);
+        p.setTextAlignment(alignment);
+
+        // У твоїй версії setProperty(...) -> void, тому тільки так:
+        p.setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN);
+        p.setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
 
         return new Cell()
-                .add(paragraph)
+                .add(p)
                 .setBorder(new SolidBorder(BORDER_WIDTH))
                 .setPadding(4f);
     }
+
+
 
     private Cell signatureLine(String text, PdfFont font) {
         return new Cell()

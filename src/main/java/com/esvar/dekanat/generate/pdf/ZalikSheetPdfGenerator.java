@@ -23,7 +23,8 @@ import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.LineSeparator;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
-import com.itextpdf.layout.properties.Overflow;
+
+import com.itextpdf.layout.properties.OverflowPropertyValue;
 import com.itextpdf.layout.properties.Property;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
@@ -41,6 +42,9 @@ import java.time.format.TextStyle;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+
+import static com.esvar.dekanat.generate.pdf.BaseStatementPdfGenerator.BORDER_WIDTH;
+import static com.esvar.dekanat.generate.pdf.BaseStatementPdfGenerator.safeText;
 
 /**
  * iText 7 generator for "ВІДОМІСТЬ ОБЛІКУ УСПІШНОСТІ" (залік/екзамен) sheets.
@@ -344,17 +348,19 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
                 .setPadding(3f);
     }
 
-    private static Cell bodyCell(String text, PdfFont font, TextAlignment alignment) {
-        Paragraph paragraph = new Paragraph(safe(text))
-                .setFont(font)
-                .setFontSize(BODY_FONT_SIZE)
-                .setTextAlignment(alignment)
-                .setProperty(Property.NO_WRAP, true)
-                .setProperty(Property.OVERFLOW, Overflow.HIDDEN);
+    private Cell bodyCell(String text, PdfFont font, TextAlignment alignment) {
+        Paragraph p = new Paragraph(safeText(text));
+        p.setFont(font);
+        p.setFontSize(10f);
+        p.setTextAlignment(alignment);
+
+        // У твоїй версії setProperty(...) -> void, тому тільки так:
+        p.setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN);
+        p.setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
 
         return new Cell()
-                .add(paragraph)
-                .setBorder(new SolidBorder(0.5f))
+                .add(p)
+                .setBorder(new SolidBorder(BORDER_WIDTH))
                 .setPadding(4f);
     }
 
