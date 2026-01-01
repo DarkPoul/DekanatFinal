@@ -75,7 +75,6 @@ public class EnterMarksView extends Div {
     private static final Logger log = LoggerFactory.getLogger(EnterMarksView.class);
     private static final String CONTROL_TYPE_FIRST_MODULE = "Перший модульний контроль";
     private static final String CONTROL_TYPE_SECOND_MODULE = "Другий модульний контроль";
-    private static final String CONTROL_TYPE_ZALIK = "Другий модульний контроль";
     private static final String CONTROL_TYPE_CONTROL_WORK = "Контрольна робота";
     private static final String SYSTEM_USER_DISPLAY_NAME = "Система";
     private static final String DATE_TIME_PATTERN = "dd.MM.yyyy HH:mm";
@@ -738,14 +737,8 @@ public class EnterMarksView extends Div {
                     dto.setECTSGrade(convertMarkToECTSGrade(finalGrade));
 
                     // Отримуємо оцінки для першого і другого модулів
-                    String firstModule = marksService.getMarkForFir(mark.getStudent(), plansEntity, "Перший модульний контроль");
-                    if (firstModule == null || firstModule.isEmpty()) {
-                        firstModule = "0";
-                    }
-                    String secondModule = marksService.getMarkForFir(mark.getStudent(), plansEntity, "Другий модульний контроль");
-                    if (secondModule == null || secondModule.isEmpty()) {
-                        secondModule = "0"; // якщо немає другого, підставляємо перший
-                    }
+                    String firstModule = marksService.getMarkForTypeControl(mark.getStudent(), plansEntity, CONTROL_TYPE_FIRST_MODULE);
+                    String secondModule = marksService.getMarkForTypeControl(mark.getStudent(), plansEntity, CONTROL_TYPE_SECOND_MODULE);
                     dto.setMarkByFirstModule(firstModule);
                     int sumModules = Integer.parseInt(firstModule) + Integer.parseInt(secondModule);
                     dto.setTotalMarkByFirstAndSecondModule(String.valueOf(sumModules));
@@ -1606,7 +1599,7 @@ public class EnterMarksView extends Div {
         List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
         int index = 1;
         for (StudentEntity student : studentEntities) {
-            String markStr = marksService.getMarkForTypeControl(student, plansEntity, CONTROL_TYPE_ZALIK);
+            String markStr = marksService.getMarkForTypeControl(student, plansEntity, controlTypeName);
             int markInt = 0;
             try {
                 markInt = (markStr != null && !markStr.isEmpty()) ? Integer.parseInt(markStr) : 0;
