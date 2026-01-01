@@ -25,6 +25,8 @@ import com.itextpdf.layout.element.Div;
 import com.itextpdf.layout.element.LineSeparator;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.properties.Overflow;
+import com.itextpdf.layout.properties.Property;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import org.slf4j.Logger;
@@ -492,11 +494,15 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
     }
 
     private static Cell bodyCell(String text, PdfFont font, TextAlignment alignment) {
+        Paragraph paragraph = new Paragraph(safe(text))
+                .setFont(font)
+                .setFontSize(10f)
+                .setTextAlignment(alignment)
+                .setProperty(Property.NO_WRAP, true)
+                .setProperty(Property.OVERFLOW, Overflow.HIDDEN);
+
         return new Cell()
-                .add(new Paragraph(safe(text))
-                        .setFont(font)
-                        .setFontSize(10f)
-                        .setTextAlignment(alignment))
+                .add(paragraph)
                 .setBorder(new SolidBorder(0.5f))
                 .setPadding(4f);
     }
@@ -664,11 +670,15 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
     }
 
     private static Cell bodyCell(String text, PdfFont font, TextAlignment alignment, int rowSpan, int colSpan) {
+        Paragraph paragraph = new Paragraph(safe(text))
+                .setFont(font)
+                .setFontSize(10f)
+                .setTextAlignment(alignment)
+                .setProperty(Property.NO_WRAP, true)
+                .setProperty(Property.OVERFLOW, Overflow.HIDDEN);
+
         return new Cell(rowSpan, colSpan)
-                .add(new Paragraph(safe(text))
-                        .setFont(font)
-                        .setFontSize(10f)
-                        .setTextAlignment(alignment))
+                .add(paragraph)
                 .setBorder(new SolidBorder(0.5f))
                 .setPadding(4f);
     }
@@ -741,10 +751,14 @@ public abstract class BaseZalikStylePdfGenerator implements PdfGenerator {
     }
 
     private Cell defaultCell(String text, PdfFont font, TextAlignment alignment) {
-        return new Cell().add(new Paragraph(text == null ? "" : text)
-                        .setFont(font)
-                        .setFontSize(10)
-                        .setTextAlignment(alignment))
+        Paragraph paragraph = new Paragraph(text == null ? "" : text)
+                .setFont(font)
+                .setFontSize(10)
+                .setTextAlignment(alignment)
+                .setProperty(Property.NO_WRAP, true)
+                .setProperty(Property.OVERFLOW, Overflow.HIDDEN);
+
+        return new Cell().add(paragraph)
                 .setPadding(4);
     }
 
