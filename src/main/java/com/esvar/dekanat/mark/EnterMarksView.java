@@ -90,6 +90,7 @@ public class EnterMarksView extends Div {
     private final SecurityService securityService;
     private final UserRepository userRepository;
     private final MarksService marksService;
+    private final MarksFacade marksFacade;
     private final ControlMethodService controlMethodService;
     private final MarksPartsService marksPartsService;
     private final ControlPartsService controlPartsService;
@@ -132,7 +133,7 @@ public class EnterMarksView extends Div {
 
     public EnterMarksView(FacultyService facultyService, DepartmentService departmentService, PlanService planService,
                           StudentService studentService, StudentPlansService studentPlansService, SecurityService securityService,
-                          UserRepository userRepository, MarksService marksService, ControlMethodService controlMethodService,
+                          UserRepository userRepository, MarksService marksService, MarksFacade marksFacade, ControlMethodService controlMethodService,
                           MarksPartsService marksPartsService, ControlPartsService controlPartsService, DocumentGenerationService documentGenerationService, GroupService groupService, SummaryReportService summaryReportService) {
         this.facultyService = facultyService;
         this.departmentService = departmentService;
@@ -142,6 +143,7 @@ public class EnterMarksView extends Div {
         this.securityService = securityService;
         this.userRepository = userRepository;
         this.marksService = marksService;
+        this.marksFacade = marksFacade;
         this.controlMethodService = controlMethodService;
         this.marksPartsService = marksPartsService;
         this.controlPartsService = controlPartsService;
@@ -382,7 +384,7 @@ public class EnterMarksView extends Div {
 
                 String controlType = selectControlType.getValue();
                 MarkProcessor processor = MarkProcessorFactory.getProcessor(controlType, marksService, userRepository,
-                        securityService, studentService, marksPartsService, controlMethodService, controlPartsService);
+                        securityService, studentService, marksFacade, controlMethodService);
 
                 List<MarksEntity> toSave = new ArrayList<>();
 
@@ -414,7 +416,7 @@ public class EnterMarksView extends Div {
                 List<MarkDTO> markDTOList = getSelectedOrAllMarks();
                 String controlType = selectControlType.getValue();
                 MarkProcessor processor = MarkProcessorFactory.getProcessor(controlType, marksService, userRepository,
-                        securityService, studentService, marksPartsService, controlMethodService, controlPartsService);
+                        securityService, studentService, marksFacade, controlMethodService);
                 List<MarksEntity> toSave = new ArrayList<>();
                 for (MarkDTO markDTO : markDTOList) {
                     if (markDTO.isLocked()) {
