@@ -11,14 +11,13 @@ public class MarkProcessorFactory {
                                              UserRepository userRepository,
                                              SecurityService securityService,
                                              StudentService studentService,
-                                             MarksPartsService marksPartsService,
-                                             ControlMethodService controlMethodService,
-                                             ControlPartsService controlPartsService) {
+                                             MarksFacade marksFacade,
+                                             ControlMethodService controlMethodService) {
         return switch (controlType) {
             case "Перший модульний контроль", "Другий модульний контроль", "Контрольна робота", "Залік", "Екзамен", "Курсова робота", "Курсовий проєкт", "Диференційний залік" ->
                     new ModularMarkProcessor(marksService, userRepository, securityService, studentService, controlMethodService);
             case "Розрахункова робота", "Розрахунково-графічна робота" ->
-                    new CalculationMarkProcessor(marksService, securityService, studentService, marksPartsService, controlMethodService, controlPartsService);
+                    new CalculationMarkProcessor(marksFacade, studentService, controlMethodService);
             default -> throw new IllegalArgumentException("Unsupported control type: " + controlType);
         };
     }

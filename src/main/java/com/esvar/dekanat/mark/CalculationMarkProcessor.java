@@ -2,89 +2,57 @@ package com.esvar.dekanat.mark;
 
 import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.ControlMethodEntity;
-import com.esvar.dekanat.entity.ControlPartsEntity;
 import com.esvar.dekanat.entity.MarksEntity;
-import com.esvar.dekanat.entity.MarksPartsEntity;
 import com.esvar.dekanat.entity.PlansEntity;
 import com.esvar.dekanat.entity.StudentGroupEntity;
-import com.esvar.dekanat.service.*;
-import com.esvar.dekanat.security.SecurityService;
+import com.esvar.dekanat.service.ControlMethodService;
+import com.esvar.dekanat.service.MarksFacade;
+import com.esvar.dekanat.service.StudentService;
 
-import java.sql.Timestamp;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class CalculationMarkProcessor implements MarkProcessor {
 
-    private final MarksService marksService;
-    private final SecurityService securityService;
+    private final MarksFacade marksFacade;
     private final StudentService studentService;
-    private final MarksPartsService marksPartsService;
     private final ControlMethodService controlMethodService;
-    private final ControlPartsService controlPartsService;
 
-    public CalculationMarkProcessor(MarksService marksService, SecurityService securityService,
-                                    StudentService studentService, MarksPartsService marksPartsService, ControlMethodService controlMethodService, ControlPartsService controlPartsService) {
-        this.marksService = marksService;
-        this.securityService = securityService;
+    public CalculationMarkProcessor(MarksFacade marksFacade, StudentService studentService, ControlMethodService controlMethodService) {
+        this.marksFacade = marksFacade;
         this.studentService = studentService;
-        this.marksPartsService = marksPartsService;
         this.controlMethodService = controlMethodService;
-        this.controlPartsService = controlPartsService;
     }
 
     @Override
     public MarksEntity processMark(MarkDTO markDTO, PlansEntity plan, StudentGroupEntity group, String controlType) {
-        int sum = 0;
         StudentGroupEntity targetGroup = group != null ? group : plan.getGroup();
         if (targetGroup == null) {
             throw new IllegalArgumentException("Не вдалося визначити групу для студента.");
         }
         ControlMethodEntity controlMethod = controlMethodService.getControlMethodByName(controlType);
-        Map<Integer, ControlPartsEntity> partsMap =
-                controlPartsService.getOrCreatePartsMap(controlMethod, plan.getParts());
 
-        Map<Integer, Integer> partGrades = partsMap.entrySet().stream()
+        Map<Integer, Integer> partGrades = IntStream.rangeClosed(1, plan.getParts())
+                .boxed()
                 .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> {
-                            String partMarkStr = getPartMarkValue(markDTO, entry.getKey());
+                        i -> i,
+                        i -> {
+                            String partMarkStr = getPartMarkValue(markDTO, i);
                             if (partMarkStr != null && !partMarkStr.isEmpty()) {
                                 return Integer.parseInt(partMarkStr);
                             }
                             return 0;
                         }
                 ));
-        sum = partGrades.values().stream().mapToInt(Integer::intValue).sum();
 
-        MarksEntity marksEntity = new MarksEntity();
-        marksEntity.setStudent(studentService.getStudentByStudentPIB_AndGroup(markDTO.getStudentPIB(), targetGroup));
-        marksEntity.setPlan(plan);
-        marksEntity.setControlMethod(controlMethod);
-        marksEntity.setSemester(plan.getSemester());
-        marksEntity.setLocked(markDTO.isLocked());
-        marksEntity.setFinalGrade(sum);
-        marksEntity.setLastUpdated(new Timestamp(System.currentTimeMillis()));
-        marksEntity.setLastUpdatedBy(
-                securityService.getCurrentUserModel()
-                        .orElseThrow(() -> new IllegalStateException("No authenticated user"))
+        return marksFacade.saveCalculationMark(
+                plan,
+                controlMethod,
+                studentService.getStudentByStudentPIB_AndGroup(markDTO.getStudentPIB(), targetGroup),
+                partGrades,
+                markDTO.isLocked()
         );
-
-        MarksEntity persistedMark = marksService.saveMark(marksEntity);
-
-        for (Map.Entry<Integer, Integer> entry : partGrades.entrySet()) {
-            ControlPartsEntity controlPart = partsMap.get(entry.getKey());
-            MarksPartsEntity markPart = marksPartsService.getMarksPartByMarkAndPart(persistedMark, controlPart);
-            if (markPart == null) {
-                markPart = new MarksPartsEntity();
-                markPart.setMark(persistedMark);
-                markPart.setControlPart(controlPart);
-            }
-            markPart.setGrade(entry.getValue());
-            marksPartsService.saveMarksPart(markPart);
-        }
-
-        return persistedMark;
     }
 
     @Override
