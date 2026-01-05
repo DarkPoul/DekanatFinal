@@ -753,18 +753,12 @@ public class EnterMarksView extends Div {
                     dto.setId(mark.getId());
                     dto.setStudentPIB(mark.getStudent().getFullName());
 
-                    // Використовуємо finalGrade для конвертації
-                    int finalGrade = mark.getFinalGrade();
-                    dto.setEnterMark(String.valueOf(finalGrade));
-                    dto.setNationalGrade(convertMarkToNationalGrade(finalGrade));
-                    dto.setECTSGrade(convertMarkToECTSGrade(finalGrade));
-
-                    // Отримуємо оцінки для першого і другого модулів
-                    String firstModule = marksService.getMarkForTypeControl(mark.getStudent(), plansEntity, CONTROL_TYPE_FIRST_MODULE);
-                    String secondModule = marksService.getMarkForTypeControl(mark.getStudent(), plansEntity, CONTROL_TYPE_SECOND_MODULE);
-                    dto.setMarkByFirstModule(firstModule);
-                    int sumModules = Integer.parseInt(firstModule) + Integer.parseInt(secondModule);
-                    dto.setTotalMarkByFirstAndSecondModule(String.valueOf(sumModules));
+                    ModuleData moduleData = resolveModuleDataForStudent(mark.getStudent());
+                    dto.setEnterMark(String.valueOf(mark.getFinalGrade()));
+                    dto.setMarkByFirstModule(moduleData.firstModule());
+                    dto.setTotalMarkByFirstAndSecondModule(String.valueOf(moduleData.total()));
+                    dto.setNationalGrade(convertMarkToNationalGrade(moduleData.total()));
+                    dto.setECTSGrade(convertMarkToECTSGrade(moduleData.total()));
 
                     dto.setLocked(mark.isLocked());
                     populateAuditInfo(dto, mark);
