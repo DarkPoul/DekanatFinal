@@ -2,7 +2,6 @@ package com.esvar.dekanat.card;
 
 import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.entity.*;
-import com.esvar.dekanat.repository.StudentRatingRepository;
 import com.esvar.dekanat.service.*;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -17,24 +16,16 @@ import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.TextField;
-import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.Timestamp;
 import java.text.Collator;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class AddStudentDialog extends Dialog {
 
     private final GroupService groupService;
-    private final StudentService studentService;
-    private final StudentPassportService passportService;
-    private final StudentInfoService infoService;
-    private final StudentEducationService educationService;
-    private final StudentRatingRepository ratingRepository;
-    private final ReportService reportService;
+    private final StudentRegistrationService registrationService;
 
     private final Tabs tabs = new Tabs();
     private final Tab tab1 = new Tab("Персональні дані");
@@ -83,25 +74,27 @@ public class AddStudentDialog extends Dialog {
     private final Button next = new Button("Далі");
     private final Button save = new Button("Зберегти");
     private final Button cancel = new Button("Скасувати");
+    private final Map<TextField, Pattern> validationPatterns = new LinkedHashMap<>();
 
     public AddStudentDialog(GroupService groupService,
-                            StudentService studentService,
-                            StudentPassportService passportService,
-                            StudentInfoService infoService,
-                            StudentEducationService educationService,
-                            StudentRatingRepository ratingRepository, ReportService reportService) {
+                            StudentRegistrationService registrationService) {
         this.groupService = groupService;
-        this.studentService = studentService;
-        this.passportService = passportService;
-        this.infoService = infoService;
-        this.educationService = educationService;
-        this.ratingRepository = ratingRepository;
-        this.reportService = reportService;
+        this.registrationService = registrationService;
 
         configureTabs();
         configurePages();
         configureNavigation();
         updateView();
+    }
+
+    private void registerPatternValidation(TextField field, String allowedCharPattern, String valueRegex, String errorMessage) {
+        field.setAllowedCharPattern(allowedCharPattern);
+        field.setPreventInvalidInput(true);
+        field.setErrorMessage(errorMessage);
+        if (valueRegex != null) {
+            validationPatterns.put(field, Pattern.compile(valueRegex));
+            field.setPattern(valueRegex);
+        }
     }
 
     private void configureTabs() {
@@ -140,17 +133,13 @@ public class AddStudentDialog extends Dialog {
         );
         reportType.setClearButtonVisible(true);
 
-        recordBook.setPattern("[0-9]+");
-        recordBook.setPreventInvalidInput(true);
+        registerPatternValidation(recordBook, "[0-9]", "\\d+", "Введіть тільки цифри");
 
         passportSeries.setRequiredIndicatorVisible(true);
-        passportSeries.setPattern("[\\p{L}0-9]+");
-        passportSeries.setErrorMessage("Введіть серію паспорта");
+        registerPatternValidation(passportSeries, "[\\p{L}0-9]", "[\\p{L}0-9]+", "Введіть серію паспорта");
 
         passportNumber.setRequiredIndicatorVisible(true);
-        passportNumber.setPattern("\\d+");
-        passportNumber.setPreventInvalidInput(true);
-        passportNumber.setErrorMessage("Введіть номер паспорта");
+        registerPatternValidation(passportNumber, "[0-9]", "\\d+", "Введіть номер паспорта");
 
         issueDate.setRequiredIndicatorVisible(true);
         expireDate.setRequiredIndicatorVisible(true);
@@ -170,16 +159,15 @@ public class AddStudentDialog extends Dialog {
         gender.setItems(Gender.values());
         gender.setRequiredIndicatorVisible(true);
         phone.setRequiredIndicatorVisible(true);
-        phone.setPattern("\\d+");
-        phone.setPreventInvalidInput(true);
-        phone.setErrorMessage("Введіть тільки цифри");
+        registerPatternValidation(phone, "[0-9]", "\\d+", "Введіть тільки цифри");
         email.setRequiredIndicatorVisible(true);
-        email.setPattern("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
-        email.setErrorMessage("Некоректний email");
+        registerPatternValidation(email, "[^\\s]", "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", "Некоректний email");
         address.setRequiredIndicatorVisible(true);
         page2.add(passportSeries, passportNumber, issueDate, expireDate, nationality, gender);
 
         page3.add(phone, email, address);
+        registerPatternValidation(docSeries, "[\\p{L}0-9]", "[\\p{L}0-9]+", "Введіть серію документу");
+        registerPatternValidation(docNumber, "[0-9]", "\\d+", "Введіть номер документу");
         page4.add(docSeries, docNumber);
 
         add(page1, page2, page3, page4);
@@ -225,6 +213,21 @@ public class AddStudentDialog extends Dialog {
             Notification.show("Оберіть коректну групу.");
             return;
         }
+        StudentEntity student = buildStudentEntity(group);
+        StudentPassportEntity passport = buildPassportEntity();
+        StudentInfoEntity info = buildInfoEntity();
+        StudentEducationEntity edu = buildEducationEntity();
+
+        try {
+            registrationService.saveStudentWithDetails(student, passport, info, edu, normalize(reportType.getValue()));
+            Notification.show("Студента збережено.");
+            close();
+        } catch (Exception exception) {
+            Notification.show("Не вдалося зберегти студента: " + exception.getMessage());
+        }
+    }
+
+    private StudentEntity buildStudentEntity(StudentGroupEntity group) {
         StudentEntity student = new StudentEntity();
         student.setSurname(normalize(lastName.getValue()));
         student.setName(normalize(firstName.getValue()));
@@ -232,64 +235,44 @@ public class AddStudentDialog extends Dialog {
         student.setGroup(group);
         student.setFaculty(group.getSpecialty().getFaculty());
         student.setRecordBookNumber(normalize(recordBook.getValue()));
-        studentService.save(student);
+        return student;
+    }
 
+    private StudentPassportEntity buildPassportEntity() {
         StudentPassportEntity passport = new StudentPassportEntity();
-        passport.setStudent(student);
         passport.setSeries(normalize(passportSeries.getValue()));
         passport.setNumber(normalize(passportNumber.getValue()));
         passport.setNameEng(normalize(firstNameEng.getValue()));
         passport.setSurnameEng(normalize(lastNameEng.getValue()));
-        if (issueDate.getValue() != null)
+        if (issueDate.getValue() != null) {
             passport.setIssueDate(String.valueOf(Date.valueOf(issueDate.getValue())));
-        if (expireDate.getValue() != null)
+        }
+        if (expireDate.getValue() != null) {
             passport.setExpireDate(String.valueOf(Date.valueOf(expireDate.getValue())));
+        }
         passport.setNationality(normalize(nationality.getValue()));
         passport.setSex(gender.getValue());
-        passportService.save(passport);
+        return passport;
+    }
 
+    private StudentInfoEntity buildInfoEntity() {
         StudentInfoEntity info = new StudentInfoEntity();
-        info.setStudent(student);
         info.setAddress(normalize(address.getValue()));
         info.setPhone(normalize(phone.getValue()));
         info.setEmail(normalize(email.getValue()));
-        infoService.save(info);
+        return info;
+    }
 
+    private StudentEducationEntity buildEducationEntity() {
         StudentEducationEntity edu = new StudentEducationEntity();
-        edu.setStudent(student);
         edu.setSeries(normalize(docSeries.getValue()));
         edu.setNumber(normalize(docNumber.getValue()));
-        educationService.save(edu);
-
-        StudentRatingEntity rating = new StudentRatingEntity();
-        rating.setStudent(student);
-        rating.setAverageScore(BigDecimal.ZERO);
-        rating.setCount3(0);
-        rating.setCount4(0);
-        rating.setCount5(0);
-        rating.setTotalSubjects(0);
-        rating.setFaculty(student.getFaculty());
-        rating.setSpecialty(group.getSpecialty());
-        rating.setCourse(group.getCourse());
-        rating.setGroup(group);
-        rating.setLastUpdated(new Timestamp(System.currentTimeMillis()));
-        ratingRepository.save(rating);
-
-        if (reportType.getValue() != null && !reportType.getValue().isEmpty()) {
-            ReportEntity report = new ReportEntity();
-            report.setStudent(student);
-            report.setStatus(reportType.getValue());
-            report.setDate(new Date(System.currentTimeMillis()));
-            report.setOrderNumber(reportService.getNextOrderNumber());
-            reportService.saveReport(report);
-        }
-
-        close();
+        return edu;
     }
 
     private boolean validateForm() {
         clearValidation();
-        List<String> errors = new ArrayList<>();
+        List<String> errors = new ArrayList<>(validatePatterns());
         if (!hasText(lastName.getValue())) {
             lastName.setInvalid(true);
             errors.add("Прізвище обов'язкове");
@@ -329,16 +312,10 @@ public class AddStudentDialog extends Dialog {
         if (!hasText(phone.getValue())) {
             phone.setInvalid(true);
             errors.add("Телефон обов'язковий");
-        } else if (!phone.getValue().matches("\\d+")) {
-            phone.setInvalid(true);
-            errors.add("Телефон має містити лише цифри");
         }
         if (!hasText(email.getValue())) {
             email.setInvalid(true);
             errors.add("Email обов'язковий");
-        } else if (!email.getValue().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
-            email.setInvalid(true);
-            errors.add("Некоректний email");
         }
         if (!hasText(address.getValue())) {
             address.setInvalid(true);
@@ -352,7 +329,24 @@ public class AddStudentDialog extends Dialog {
         return true;
     }
 
+    private List<String> validatePatterns() {
+        List<String> errors = new ArrayList<>();
+        validationPatterns.forEach((field, pattern) -> {
+            String value = field.getValue();
+            if (hasText(value) && !pattern.matcher(value).matches()) {
+                field.setInvalid(true);
+                String message = field.getErrorMessage();
+                if (message == null || message.isBlank()) {
+                    message = "Некоректне значення у полі " + field.getLabel();
+                }
+                errors.add(message);
+            }
+        });
+        return errors;
+    }
+
     private void clearValidation() {
+        validationPatterns.keySet().forEach(field -> field.setInvalid(false));
         lastName.setInvalid(false);
         firstName.setInvalid(false);
         groupSelect.setInvalid(false);
@@ -365,6 +359,9 @@ public class AddStudentDialog extends Dialog {
         phone.setInvalid(false);
         email.setInvalid(false);
         address.setInvalid(false);
+        recordBook.setInvalid(false);
+        docSeries.setInvalid(false);
+        docNumber.setInvalid(false);
     }
 
     private String normalize(String value) {
