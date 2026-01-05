@@ -1640,6 +1640,7 @@ public class EnterMarksView extends Div {
         String f = String.valueOf(gradeMap.getOrDefault("F", 0L));
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
         List<StudentEntity> studentEntities = sortStudentsByFullName(studentService.getStudentByGroupId(group.getId()));
+        boolean isCourseProject = "Курсовий проєкт".equals(controlTypeName);
         int index = 1;
         for (StudentEntity student : studentEntities) {
             String markStr = marksService.getMarkForTypeControl(student, plansEntity, controlTypeName);
@@ -1657,16 +1658,30 @@ public class EnterMarksView extends Div {
 
             String recordBook = Optional.ofNullable(student.getRecordBookNumber()).orElse("");
 
-            students.add(new StudentModelToDocumentGenerate(
-                    index,
-                    fullName,
-                    recordBook,
-                    convertMarkToNationalGrade(markInt),
-                    markStr,
-                    convertMarkToECTSGrade(markInt),
-                    dateParts.date(),
-                    dateParts.dateText()
-            ));
+            if (isCourseProject) {
+                students.add(new StudentModelToDocumentGenerate(
+                        index,
+                        fullName,
+                        recordBook,
+                        convertMarkToNationalGrade(markInt),
+                        markStr,
+                        convertMarkToECTSGrade(markInt),
+                        dateParts.date(),
+                        dateParts.dateText(),
+                        markStr
+                ));
+            } else {
+                students.add(new StudentModelToDocumentGenerate(
+                        index,
+                        fullName,
+                        recordBook,
+                        convertMarkToNationalGrade(markInt),
+                        markStr,
+                        convertMarkToECTSGrade(markInt),
+                        dateParts.date(),
+                        dateParts.dateText()
+                ));
+            }
             index++;
         }
         return new DataModelForZalik(facultyName, specialityName, courseNumber, groupName, studyYear,
