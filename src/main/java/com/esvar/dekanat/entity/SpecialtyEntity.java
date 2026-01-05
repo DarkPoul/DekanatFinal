@@ -24,6 +24,9 @@ public class SpecialtyEntity {
     @Column(nullable = false, length = 10)
     private String abbreviation;
 
+    @Column(name = "is_technikum", nullable = false)
+    private boolean technikum;
+
     @ManyToOne
     @JoinColumn(name = "faculty_id", nullable = false)
     private FacultyEntity faculty;
@@ -39,11 +42,12 @@ public class SpecialtyEntity {
         SpecialtyEntity that = (SpecialtyEntity) o;
         return Objects.equals(id, that.id)
                 && Objects.equals(title, that.title)
-                && Objects.equals(abbreviation, that.abbreviation);
+                && Objects.equals(abbreviation, that.abbreviation)
+                && technikum == that.technikum;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, title, abbreviation);
+        return Objects.hash(id, title, abbreviation, technikum);
     }
 }

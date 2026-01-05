@@ -239,7 +239,9 @@ public class MarksService {
     @Transactional
     public void deleteByPlanId(Long planId) {
         if (planId != null) {
+            List<Long> affectedStudentIds = marksRepository.findDistinctStudentIdsByPlanId(planId);
             marksRepository.deleteByPlanId(planId);
+            ratingService.updateRatingsForStudentIds(affectedStudentIds);
         }
     }
 
@@ -247,6 +249,7 @@ public class MarksService {
     public void deleteByPlanIdAndStudentIds(Long planId, List<Long> studentIds) {
         if (planId != null && studentIds != null && !studentIds.isEmpty()) {
             marksRepository.deleteByPlanIdAndStudentIds(planId, studentIds);
+            ratingService.updateRatingsForStudentIds(studentIds);
         }
     }
 

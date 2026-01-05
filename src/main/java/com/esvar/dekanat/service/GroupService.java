@@ -2,6 +2,7 @@ package com.esvar.dekanat.service;
 
 import com.esvar.dekanat.dto.GroupDTO;
 import com.esvar.dekanat.dto.StudentOptionDTO;
+import com.esvar.dekanat.dto.RatingFilterOptions;
 import com.esvar.dekanat.entity.SpecialtyEntity;
 import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.entity.StudentGroupEntity;
@@ -75,6 +76,51 @@ public class GroupService {
                 .distinct()
                 .sorted(Comparator.reverseOrder())
                 .toList();
+    }
+
+    public RatingFilterOptions getRatingFilterOptions() {
+        List<GroupDTO> availableGroups = getGroupsDTO();
+        List<String> specialties = availableGroups.stream()
+                .map(GroupDTO::getSpecialtyAbbreviation)
+                .distinct()
+                .sorted()
+                .toList();
+        List<Integer> courses = availableGroups.stream()
+                .map(GroupDTO::getCourse)
+                .distinct()
+                .sorted()
+                .toList();
+        List<Integer> groupNumbers = availableGroups.stream()
+                .map(GroupDTO::getGroupNumber)
+                .distinct()
+                .sorted()
+                .toList();
+        List<Integer> years = availableGroups.stream()
+                .map(GroupDTO::getYear)
+                .distinct()
+                .sorted(Comparator.reverseOrder())
+                .toList();
+
+        UserDetails user = securityService.getAuthenticatedUser();
+        boolean isDekanat = user != null && user.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().startsWith("ROLE_DEKANAT"));
+
+        String defaultSpecialty = isDekanat && specialties.size() == 1 ? specialties.get(0) : null;
+        Integer defaultCourse = isDekanat && courses.size() == 1 ? courses.get(0) : null;
+        Integer defaultGroupNumber = isDekanat && groupNumbers.size() == 1 ? groupNumbers.get(0) : null;
+        Integer defaultYear = years.isEmpty() ? null : years.get(0);
+
+        return new RatingFilterOptions(
+                availableGroups,
+                specialties,
+                courses,
+                groupNumbers,
+                years,
+                defaultSpecialty,
+                defaultCourse,
+                defaultGroupNumber,
+                defaultYear
+        );
     }
 
 
