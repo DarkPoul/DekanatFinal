@@ -36,8 +36,8 @@ public enum DocumentType {
 
     /**
      * Resolve the displayed mark for the student row depending on document type.
-     * For control work we use national mark text (e.g. "зараховано"), for course work/project
-     * we fall back to numeric mark when the textual mark is empty.
+     * For control work we use national mark text (e.g. "зараховано").
+     * Course project statements prefer explicitly provided text and fall back to the numeric mark.
      */
     public String resolveMark(StudentModelToDocumentGenerate student) {
         if (student == null) {
@@ -48,11 +48,15 @@ public enum DocumentType {
             if (!markText.isBlank()) {
                 return markText;
             }
+            String mark = Objects.toString(student.mark(), "");
+            if (!mark.isBlank()) {
+                return mark;
+            }
         }
-        String mark = Objects.toString(student.nationalMark(), "");
-        if (mark.isBlank()) {
-            mark = Objects.toString(student.mark(), "");
+        String nationalMark = Objects.toString(student.nationalMark(), "");
+        if (!nationalMark.isBlank()) {
+            return nationalMark;
         }
-        return mark;
+        return Objects.toString(student.mark(), "");
     }
 }
