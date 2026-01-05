@@ -292,9 +292,9 @@ public class CardView extends Div {
         });
 
 
-        orderGrid.addColumn(ReportEntity::getOrderNumber).setHeader("№ наказу").setWidth("20%");
-        orderGrid.addColumn(ReportEntity::getStatus).setHeader("Стан").setWidth("40%");
-        orderGrid.addColumn(ReportEntity::getDate).setHeader("Дата").setWidth("40%");
+        orderGrid.addColumn(report -> formatOrderNumber(report.getOrderNumber())).setHeader("№ наказу").setAutoWidth(true);
+        orderGrid.addColumn(ReportEntity::getStatus).setHeader("Стан").setAutoWidth(true);
+        orderGrid.addColumn(report -> formatDateValue(report.getDate())).setHeader("Дата").setAutoWidth(true);
         orderGrid.getStyle().set("border", "1px solid #ddd");
         orderGrid.getStyle().set("border-radius", "8px");
         orderGrid.getStyle().set("box-shadow", "0 2px 4px rgba(0, 0, 0, 0.1)");
@@ -302,6 +302,7 @@ public class CardView extends Div {
         orderGrid.getStyle().set("position", "relative");
         orderGrid.getStyle().set("background", "white");
         orderGrid.getStyle().set("min-height", "230px");
+        orderGrid.setSelectionMode(Grid.SelectionMode.NONE);
         orderGrid.addAttachListener(event -> {
             orderGrid.getElement().executeJs(
                     "this.shadowRoot.querySelector('#table').style.marginTop = '5px'; " +
@@ -973,173 +974,15 @@ public class CardView extends Div {
         orderGrid.setEnabled(false);
 
         //Обробка вибору студента
-        selectStudent.addValueChangeListener(selectStringComponentValueChangeEvent -> {
-            if (selectStudent.getValue() != null) {
-
-
-                studentEntity = studentService.getStudentForCard(selectGroup.getValue(), selectStudent.getValue());
-//                studentPassportEntity = studentPassportService.getPassportByStudentModel(studentEntity);
-//                studentInfoEntity = studentInfoService.getInfoByStudentModel(studentEntity);
-//                studentEducationEntity = studentEducationService.getEducationByStudentModel(studentEntity);
-
-                //Персональні дані
-                setTextFieldValue(lastNameUkrField, studentEntity.getSurname());
-                lastNameUkrField.setReadOnly(true);
-
-                setTextFieldValue(firstNameUkrField, studentEntity.getName());
-                firstNameUkrField.setReadOnly(true);
-
-                setTextFieldValue(middleNameUkrField, studentEntity.getPatronymic());
-                middleNameUkrField.setReadOnly(true);
-
-//                setTextFieldValue(firstNameEngField, studentPassportEntity.getNameEng());
-//                firstNameEngField.setReadOnly(true);
-//
-//                setTextFieldValue(lastNameEngField, studentPassportEntity.getSurnameEng());
-//                lastNameEngField.setReadOnly(true);
-
-//                //Академічні дані
-                String groupCode = studentEntity.getGroup() != null ? studentEntity.getGroup().getGroupCode() : null;
-                String[] groupParts = groupCode != null ? groupCode.split("-") : new String[0];
-                setSelectValue(groupSelect, getGroupPart(groupParts, 0));
-                groupSelect.setReadOnly(true);
-
-                setSelectValue(courseSelect, getGroupPart(groupParts, 1));
-                courseSelect.setReadOnly(true);
-
-                setTextFieldValue(groupNumberField, getGroupPart(groupParts, 2));
-                groupNumberField.setReadOnly(true);
-
-                setSelectValue(admissionYearSelect, getGroupPart(groupParts, 3));
-                admissionYearSelect.setReadOnly(true);
-
-                setTextFieldValue(recordBookNumberField, studentEntity.getRecordBookNumber());
-                recordBookNumberField.setReadOnly(true);
-//
-////                //Відомості
-//                orderGrid.setItems(studentReportService.getReportsByStudentId(studentEntity.getId()));
-//
-//
-////                //Паспортні дані
-//                setTextFieldValue(passportSeriesField, studentPassportEntity.getSeries());
-//                passportSeriesField.setReadOnly(true);
-//
-//                setTextFieldValue(passportNumberField, studentPassportEntity.getNumber());
-//                passportNumberField.setReadOnly(true);
-//
-//                setDatePickerValue(passportIssueDatePicker, studentPassportEntity.getIssueDate());
-//                passportIssueDatePicker.setReadOnly(true);
-//
-//                setTextFieldValue(passportIssuedByField, studentPassportEntity.getIssuedBy());
-//                passportIssuedByField.setReadOnly(true);
-//
-//                setDatePickerValue(passportExpiryDatePicker, studentPassportEntity.getExpireDate());
-//                passportExpiryDatePicker.setReadOnly(true);
-//
-//                setTextFieldValue(idCodeField, studentPassportEntity.getIdentificationNumber());
-//                idCodeField.setReadOnly(true);
-//
-//                setTextFieldValue(unzrField, studentPassportEntity.getUnzrCode());
-//                unzrField.setReadOnly(true);
-//
-//                setDatePickerValue(birthDatePicker, studentPassportEntity.getBirthdate());
-//                birthDatePicker.setReadOnly(true);
-//
-//                setSelectValue(nationalityField, studentPassportEntity.getNationality());
-//                nationalityField.setReadOnly(true);
-//
-//                setGenderValue(studentPassportEntity.getSex());
-//                genderSelect.setReadOnly(true);
-//
-//                setTextFieldValue(personNumberEDEBOField, studentPassportEntity.getEdboNumberPhis());
-//                personNumberEDEBOField.setReadOnly(true);
-//
-//                setTextFieldValue(studentCardNumberEDEBOField, studentPassportEntity.getEdboNumberZdob());
-//                studentCardNumberEDEBOField.setReadOnly(true);
-////
-////                //Дані про наввчання
-//                setTextFieldValue(caseNumberField, studentInfoEntity.getCaseNumber());
-//                caseNumberField.setReadOnly(true);
-//
-//                setSelectValue(educationFormSelect, studentInfoEntity.getFormStudy());
-//                educationFormSelect.setReadOnly(true);
-//
-//                setSelectValue(degreeSelect, studentInfoEntity.getDegree());
-//                degreeSelect.setReadOnly(true);
-//
-//                setSelectValue(admissionConditionSelect, studentInfoEntity.getEntryRequirements());
-//                admissionConditionSelect.setReadOnly(true);
-//
-//                setSelectValue(paymentSourceSelect, studentInfoEntity.getTypeOfIndividual());
-//                paymentSourceSelect.setReadOnly(true);
-//
-//                setTextFieldValue(contractNumberField, studentInfoEntity.getContractNumber());
-//                contractNumberField.setReadOnly(true);
-//
-//                setTextFieldValue(amountField, studentInfoEntity.getTotal());
-//                amountField.setReadOnly(true);
-//
-//                setBenefitsValue(studentInfoEntity.getBenefits());
-//                benefitsSelect.setReadOnly(true);
-//
-//                //Контактні дані
-//                setTextFieldValue(phoneNumberField, studentInfoEntity.getPhone());
-//                phoneNumberField.setReadOnly(true);
-//
-//                setTextFieldValue(emailField, studentInfoEntity.getEmail());
-//                emailField.setReadOnly(true);
-//
-//                //Адреса
-//                setSelectValue(regionSelect, studentInfoEntity.getRegion());
-//                regionSelect.setReadOnly(true);
-//
-//                setTextFieldValue(indexField, studentInfoEntity.getIndex());
-//                indexField.setReadOnly(true);
-//
-//                setTextFieldValue(fullAddressField, studentInfoEntity.getAddress());
-//                fullAddressField.setReadOnly(true);
-//
-//                //Попередня освіта
-//                setSelectValue(documentTypeSelect, studentEducationEntity.getTypeOfDocument());
-//                documentTypeSelect.setReadOnly(true);
-//
-//                distinctionCheckbox.setValue(studentEducationEntity.getHonors() == 1);
-//                distinctionCheckbox.setReadOnly(true);
-//
-//                setTextFieldValue(documentSeriesField, studentEducationEntity.getSeries());
-//                documentSeriesField.setReadOnly(true);
-//
-//                setTextFieldValue(documentNumberField, studentEducationEntity.getNumber());
-//                documentNumberField.setReadOnly(true);
-//
-//                setDatePickerValue(documentIssueDatePicker, studentEducationEntity.getDateOfIssue());
-//                documentIssueDatePicker.setReadOnly(true);
-//
-//                setTextFieldValue(institutionNameField, studentEducationEntity.getIssuedBy());
-//                institutionNameField.setReadOnly(true);
-//
-//                setTextFieldValue(institutionNameEngField, studentEducationEntity.getIssuedByEng());
-//                institutionNameEngField.setReadOnly(true);
-//
-//                //Диплом
-//                setTextFieldValue(diplomaSeriesField, studentEducationEntity.getDiplomaSeries());
-//                diplomaSeriesField.setReadOnly(true);
-//
-//                setTextFieldValue(diplomaNumberField, studentEducationEntity.getDiplomaNumber());
-//                diplomaNumberField.setReadOnly(true);
-//
-//                setDatePickerValue(graduationDatePicker, studentEducationEntity.getDateOfIssueDiploma());
-//                graduationDatePicker.setReadOnly(true);
-//
-//                setTextFieldValue(appendixNumberField, studentEducationEntity.getNumberOfDodatok());
-//                appendixNumberField.setReadOnly(true);
-//
-//                setTextFieldValue(thesisTitleUkrField, studentEducationEntity.getThemeOfWork());
-//                thesisTitleUkrField.setReadOnly(true);
-//
-//                setTextFieldValue(thesisTitleEngField, studentEducationEntity.getThemeOfWorkEng());
-//                thesisTitleEngField.setReadOnly(true);
+        selectStudent.addValueChangeListener(event -> {
+            if (event.getValue() == null) {
+                clearStudentContext();
+                return;
             }
+            studentEntity = studentService.getStudentForCard(selectGroup.getValue(), event.getValue());
+            reloadRelatedEntities();
+            populateViewFromEntities();
+            resetEditingState();
         });
 
         //Обробка додавання нової відомості
@@ -1182,85 +1025,11 @@ public class CardView extends Div {
         editButton.addClickListener(buttonClickEvent -> {
             MainLayout mainLayout = findMainLayout();
             if (editButton.getText().equals("Редагувати")) {
-                //Ввімкнення можливості редагування Відомостей
-                typeOfInformationSelect.setReadOnly(false);
-                datePicker.setReadOnly(false);
-                numberField.setReadOnly(false);
-                studentOrGroupSelect.setReadOnly(false);
-                submitDataButton.setEnabled(true);
-//                orderGrid.setEnabled(true);
-                //Ввімкнення можливості редагування Персональних даних
-                lastNameUkrField.setReadOnly(false);
-                firstNameUkrField.setReadOnly(false);
-                middleNameUkrField.setReadOnly(false);
-                lastNameEngField.setReadOnly(false);
-                firstNameEngField.setReadOnly(false);
-                //Ввімкнення можливості редагування Академічних даних
-                groupSelect.setReadOnly(false);
-                courseSelect.setReadOnly(false);
-                groupNumberField.setReadOnly(false);
-                admissionYearSelect.setReadOnly(false);
-                recordBookNumberField.setReadOnly(false);
-                //Ввімкнення можливості редагування Паспортних даних
-                passportSeriesField.setReadOnly(false);
-                passportNumberField.setReadOnly(false);
-                passportIssueDatePicker.setReadOnly(false);
-                passportIssuedByField.setReadOnly(false);
-                passportExpiryDatePicker.setReadOnly(false);
-                idCodeField.setReadOnly(false);
-                unzrField.setReadOnly(false);
-                birthDatePicker.setReadOnly(false);
-                nationalityField.setReadOnly(false);
-                genderSelect.setReadOnly(false);
-                personNumberEDEBOField.setReadOnly(false);
-                studentCardNumberEDEBOField.setReadOnly(false);
-                //Ввімкнення можливості редагування Даних про навчання
-                caseNumberField.setReadOnly(false);
-                educationFormSelect.setReadOnly(false);
-                degreeSelect.setReadOnly(false);
-                admissionConditionSelect.setReadOnly(false);
-                paymentSourceSelect.setReadOnly(false);
-                contractNumberField.setReadOnly(false);
-                amountField.setReadOnly(false);
-                benefitsSelect.setReadOnly(false);
-                //Ввімкнення можливості редагування Контактних даних
-                phoneNumberField.setReadOnly(false);
-                emailField.setReadOnly(false);
-                //Ввімкнення можливості редагування Адреси
-                regionSelect.setReadOnly(false);
-                indexField.setReadOnly(false);
-                fullAddressField.setReadOnly(false);
-                //Ввімкнення можливості редагування Попередньої освіти
-                documentTypeSelect.setReadOnly(false);
-                distinctionCheckbox.setReadOnly(false);
-                documentSeriesField.setReadOnly(false);
-                documentNumberField.setReadOnly(false);
-                documentIssueDatePicker.setReadOnly(false);
-                institutionNameField.setReadOnly(false);
-                institutionNameEngField.setReadOnly(false);
-                //Ввімкнення можливості редагування Диплому
-                diplomaSeriesField.setReadOnly(false);
-                diplomaNumberField.setReadOnly(false);
-                graduationDatePicker.setReadOnly(false);
-                appendixNumberField.setReadOnly(false);
-                thesisTitleUkrField.setReadOnly(false);
-                thesisTitleEngField.setReadOnly(false);
-                //Зміна кнопки
-                editButton.setText("Зберегти");
-                //Встановлення кольору тексту кнопки на зелений
-                editButton.getStyle().set("color", "green");
-
-                //Блокування всіх інших кнопок поки активна кнопка "Зберегти"
-                selectStudent.setEnabled(false);
-                selectGroup.setEnabled(false);
-                addCardButton.setEnabled(false);
-                sendToArchiveButton.setEnabled(false);
-
-                if (mainLayout != null) {
-                    mainLayout.setDrawerEnabled(false);
+                if (studentEntity == null) {
+                    Notification.show("Спочатку оберіть студента.");
+                    return;
                 }
-
-
+                enterEditMode(mainLayout);
             } else if (editButton.getText().equals("Зберегти")) {
 
 
@@ -1283,8 +1052,26 @@ public class CardView extends Div {
                 }
 
                 pendingCreatedGroupId = null;
-                processSave(selectedGroupEntity);
+                showConfirmationDialog(selectedGroupEntity);
             }
+        });
+
+        sendToArchiveButton.addClickListener(event -> {
+            if (studentEntity == null) {
+                Notification.show("Спочатку оберіть студента.");
+                return;
+            }
+            ConfirmDialog dialog = new ConfirmDialog(
+                    "Відправити в архів",
+                    "Ви впевнені, що хочете відправити картку студента в архів?",
+                    "Так",
+                    confirmEvent -> archiveSelectedStudent(),
+                    "Скасувати",
+                    cancelEvent -> {
+                    }
+            );
+            dialog.setCancelable(true);
+            dialog.open();
         });
     }
 
@@ -1449,81 +1236,271 @@ public class CardView extends Div {
     }
 
     private void processSave(StudentGroupEntity selectedGroupEntity) {
-        //Вимкнення можливості редагування Відомостей
-        typeOfInformationSelect.setReadOnly(true);
-        datePicker.setReadOnly(true);
-        numberField.setReadOnly(true);
-        studentOrGroupSelect.setReadOnly(true);
-        submitDataButton.setEnabled(false);
-//                orderGrid.setEnabled(false);
+        List<String> validationErrors = validateBeforeSave(selectedGroupEntity);
+        if (!validationErrors.isEmpty()) {
+            Notification.show(String.join("; ", validationErrors));
+            return;
+        }
 
+        setFieldsReadOnly(true);
 
-        //Вимкнення можливості редагування Персональних даних
-        lastNameUkrField.setReadOnly(true);
-        firstNameUkrField.setReadOnly(true);
-        middleNameUkrField.setReadOnly(true);
-        lastNameEngField.setReadOnly(true);
-        firstNameEngField.setReadOnly(true);
-        //Вимкнення можливості редагування Академічних даних
-        groupSelect.setReadOnly(true);
-        courseSelect.setReadOnly(true);
-        groupNumberField.setReadOnly(true);
-        admissionYearSelect.setReadOnly(true);
-        recordBookNumberField.setReadOnly(true);
+        applyStudentChanges(selectedGroupEntity);
+        savePassportChanges();
+        saveInfoChanges();
+        saveEducationChanges();
+
+        resetEditingState();
+        reloadSelectedStudent();
+        Notification.show("Дані збережено.");
+    }
+
+    private void applyStudentChanges(StudentGroupEntity selectedGroupEntity) {
+        studentEntity.setSurname(trimToNull(lastNameUkrField.getValue()));
+        studentEntity.setName(trimToNull(firstNameUkrField.getValue()));
+        studentEntity.setPatronymic(trimToNull(middleNameUkrField.getValue()));
+        studentEntity.setRecordBookNumber(trimToNull(recordBookNumberField.getValue()));
 
         boolean academicDataChanged = hasAcademicDataChanges(selectedGroupEntity);
+        studentEntity.setGroup(selectedGroupEntity);
+        studentEntity.setFaculty(selectedGroupEntity.getSpecialty().getFaculty());
+
         if (academicDataChanged) {
             applyAcademicDataChanges(selectedGroupEntity);
         } else {
-            Notification.show("Зміни академічних даних відсутні.");
+            studentService.save(studentEntity);
         }
+    }
 
+    private void savePassportChanges() {
+        if (!hasPassportInput() && studentPassportEntity == null) {
+            return;
+        }
+        StudentPassportEntity passport = studentPassportEntity != null ? studentPassportEntity : new StudentPassportEntity();
+        passport.setStudent(studentEntity);
+        passport.setSeries(trimToNull(passportSeriesField.getValue()));
+        passport.setNumber(trimToNull(passportNumberField.getValue()));
+        passport.setIssueDate(resolveDatePickerValue(passportIssueDatePicker, passport.getIssueDate()));
+        passport.setExpireDate(resolveDatePickerValue(passportExpiryDatePicker, passport.getExpireDate()));
+        passport.setIssuedBy(trimToNull(passportIssuedByField.getValue()));
+        passport.setIdentificationNumber(trimToNull(idCodeField.getValue()));
+        passport.setUnzrCode(trimToNull(unzrField.getValue()));
+        passport.setBirthdate(resolveDatePickerValue(birthDatePicker, passport.getBirthdate()));
+        passport.setNationality(trimToNull(nationalityField.getValue()));
+        passport.setSex(resolveGenderValue(genderSelect, passport.getSex()));
+        passport.setEdboNumberPhis(trimToNull(personNumberEDEBOField.getValue()));
+        passport.setEdboNumberZdob(trimToNull(studentCardNumberEDEBOField.getValue()));
+        passport.setNameEng(trimToNull(firstNameEngField.getValue()));
+        passport.setSurnameEng(trimToNull(lastNameEngField.getValue()));
+        studentPassportEntity = studentPassportService.save(passport);
+    }
 
-        //Вимкнення можливості редагування Паспортних даних
-        passportSeriesField.setReadOnly(true);
-        passportNumberField.setReadOnly(true);
-        passportIssueDatePicker.setReadOnly(true);
-        passportIssuedByField.setReadOnly(true);
-        passportExpiryDatePicker.setReadOnly(true);
-        idCodeField.setReadOnly(true);
-        unzrField.setReadOnly(true);
-        birthDatePicker.setReadOnly(true);
-        nationalityField.setReadOnly(true);
-        genderSelect.setReadOnly(true);
-        personNumberEDEBOField.setReadOnly(true);
-        studentCardNumberEDEBOField.setReadOnly(true);
-        //Вимкнення можливості редагування Даних про навчання
-        caseNumberField.setReadOnly(true);
-        educationFormSelect.setReadOnly(true);
-        degreeSelect.setReadOnly(true);
-        admissionConditionSelect.setReadOnly(true);
-        paymentSourceSelect.setReadOnly(true);
-        contractNumberField.setReadOnly(true);
-        amountField.setReadOnly(true);
-        benefitsSelect.setReadOnly(true);
-        //Вимкнення можливості редагування Контактних даних
-        phoneNumberField.setReadOnly(true);
-        emailField.setReadOnly(true);
-        //Вимкнення можливості редагування Адреси
-        regionSelect.setReadOnly(true);
-        indexField.setReadOnly(true);
-        fullAddressField.setReadOnly(true);
-        //Вимкнення можливості редагування Попередньої освіти
-        documentTypeSelect.setReadOnly(true);
-        distinctionCheckbox.setReadOnly(true);
-        documentSeriesField.setReadOnly(true);
-        documentNumberField.setReadOnly(true);
-        documentIssueDatePicker.setReadOnly(true);
-        institutionNameField.setReadOnly(true);
-        institutionNameEngField.setReadOnly(true);
-        //Вимкнення можливості редагування Диплому
-        diplomaSeriesField.setReadOnly(true);
-        diplomaNumberField.setReadOnly(true);
-        graduationDatePicker.setReadOnly(true);
-        appendixNumberField.setReadOnly(true);
-        thesisTitleUkrField.setReadOnly(true);
-        thesisTitleEngField.setReadOnly(true);
-        //Розблокування всіх інших кнопок після збереження
+    private void saveInfoChanges() {
+        if (!hasInfoInput() && studentInfoEntity == null) {
+            return;
+        }
+        StudentInfoEntity info = studentInfoEntity != null ? studentInfoEntity : new StudentInfoEntity();
+        info.setStudent(studentEntity);
+        info.setCaseNumber(trimToNull(caseNumberField.getValue()));
+        info.setFormStudy(trimToNull(educationFormSelect.getValue()));
+        info.setDegree(trimToNull(degreeSelect.getValue()));
+        info.setEntryRequirements(trimToNull(admissionConditionSelect.getValue()));
+        info.setTypeOfIndividual(trimToNull(paymentSourceSelect.getValue()));
+        info.setContractNumber(trimToNull(contractNumberField.getValue()));
+        info.setTotal(trimToNull(amountField.getValue()));
+        info.setBenefits(benefitsSelect.getValue().isEmpty()
+                ? null
+                : String.join(", ", benefitsSelect.getValue()));
+        info.setRegion(trimToNull(regionSelect.getValue()));
+        info.setIndex(trimToNull(indexField.getValue()));
+        info.setAddress(trimToNull(fullAddressField.getValue()));
+        info.setPhone(trimToNull(phoneNumberField.getValue()));
+        info.setEmail(trimToNull(emailField.getValue()));
+        studentInfoService.save(info);
+        studentInfoEntity = info;
+    }
+
+    private void saveEducationChanges() {
+        if (!hasEducationInput() && studentEducationEntity == null) {
+            return;
+        }
+        StudentEducationEntity education = studentEducationEntity != null ? studentEducationEntity : new StudentEducationEntity();
+        education.setStudent(studentEntity);
+        education.setTypeOfDocument(trimToNull(documentTypeSelect.getValue()));
+        education.setHonors(Boolean.TRUE.equals(distinctionCheckbox.getValue()) ? 1 : 0);
+        education.setSeries(trimToNull(documentSeriesField.getValue()));
+        education.setNumber(trimToNull(documentNumberField.getValue()));
+        education.setDateOfIssue(resolveDatePickerValue(documentIssueDatePicker, education.getDateOfIssue()));
+        education.setIssuedBy(trimToNull(institutionNameField.getValue()));
+        education.setIssuedByEng(trimToNull(institutionNameEngField.getValue()));
+        education.setDiplomaSeries(trimToNull(diplomaSeriesField.getValue()));
+        education.setDiplomaNumber(trimToNull(diplomaNumberField.getValue()));
+        education.setDateOfIssueDiploma(resolveDatePickerValue(graduationDatePicker, education.getDateOfIssueDiploma()));
+        education.setNumberOfDodatok(trimToNull(appendixNumberField.getValue()));
+        education.setThemeOfWork(trimToNull(thesisTitleUkrField.getValue()));
+        education.setThemeOfWorkEng(trimToNull(thesisTitleEngField.getValue()));
+        studentEducationService.save(education);
+        studentEducationEntity = education;
+    }
+
+    private List<String> validateBeforeSave(StudentGroupEntity selectedGroupEntity) {
+        List<String> errors = new ArrayList<>();
+        if (selectedGroupEntity == null) {
+            errors.add("Оберіть групу");
+        }
+        if (!hasText(lastNameUkrField.getValue())) {
+            errors.add("Прізвище обов'язкове");
+        }
+        if (!hasText(firstNameUkrField.getValue())) {
+            errors.add("Ім'я обов'язкове");
+        }
+        if ((studentPassportEntity != null || hasPassportInput())) {
+            if (!hasText(passportSeriesField.getValue())) {
+                errors.add("Серія паспорту обов'язкова");
+            }
+            if (!hasText(passportNumberField.getValue())) {
+                errors.add("Номер паспорту обов'язковий");
+            }
+            if (passportIssueDatePicker.getValue() == null) {
+                errors.add("Вкажіть дату видачі паспорту");
+            }
+            if (passportExpiryDatePicker.getValue() == null) {
+                errors.add("Вкажіть дату завершення дії паспорту");
+            }
+            if (!hasText(nationalityField.getValue())) {
+                errors.add("Вкажіть національність");
+            }
+            if (genderSelect.getValue() == null) {
+                errors.add("Вкажіть стать");
+            }
+        }
+        if ((studentInfoEntity != null || hasInfoInput())) {
+            if (!hasText(fullAddressField.getValue())) {
+                errors.add("Адреса обов'язкова");
+            }
+            if (!hasText(phoneNumberField.getValue())) {
+                errors.add("Номер телефону обов'язковий");
+            }
+            if (!hasText(emailField.getValue())) {
+                errors.add("Email обов'язковий");
+            } else if (!emailField.getValue().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+                errors.add("Невірний формат email");
+            }
+        }
+        return errors;
+    }
+
+    private boolean hasPassportInput() {
+        return hasText(passportSeriesField.getValue())
+                || hasText(passportNumberField.getValue())
+                || passportIssueDatePicker.getValue() != null
+                || passportExpiryDatePicker.getValue() != null
+                || hasText(passportIssuedByField.getValue())
+                || hasText(idCodeField.getValue())
+                || hasText(unzrField.getValue())
+                || birthDatePicker.getValue() != null
+                || hasText(nationalityField.getValue())
+                || genderSelect.getValue() != null
+                || hasText(personNumberEDEBOField.getValue())
+                || hasText(studentCardNumberEDEBOField.getValue())
+                || hasText(firstNameEngField.getValue())
+                || hasText(lastNameEngField.getValue());
+    }
+
+    private boolean hasInfoInput() {
+        return hasText(caseNumberField.getValue())
+                || hasText(fullAddressField.getValue())
+                || hasText(phoneNumberField.getValue())
+                || hasText(emailField.getValue())
+                || hasText(regionSelect.getValue())
+                || hasText(indexField.getValue())
+                || hasText(educationFormSelect.getValue())
+                || hasText(degreeSelect.getValue())
+                || hasText(admissionConditionSelect.getValue())
+                || hasText(paymentSourceSelect.getValue())
+                || hasText(contractNumberField.getValue())
+                || hasText(amountField.getValue())
+                || !benefitsSelect.getValue().isEmpty();
+    }
+
+    private boolean hasEducationInput() {
+        return hasText(documentTypeSelect.getValue())
+                || Boolean.TRUE.equals(distinctionCheckbox.getValue())
+                || hasText(documentSeriesField.getValue())
+                || hasText(documentNumberField.getValue())
+                || documentIssueDatePicker.getValue() != null
+                || hasText(institutionNameField.getValue())
+                || hasText(institutionNameEngField.getValue())
+                || hasText(diplomaSeriesField.getValue())
+                || hasText(diplomaNumberField.getValue())
+                || graduationDatePicker.getValue() != null
+                || hasText(appendixNumberField.getValue())
+                || hasText(thesisTitleUkrField.getValue())
+                || hasText(thesisTitleEngField.getValue());
+    }
+
+    private void setFieldsReadOnly(boolean readOnly) {
+        typeOfInformationSelect.setReadOnly(readOnly);
+        datePicker.setReadOnly(readOnly);
+        numberField.setReadOnly(readOnly);
+        studentOrGroupSelect.setReadOnly(readOnly);
+        submitDataButton.setEnabled(!readOnly);
+
+        lastNameUkrField.setReadOnly(readOnly);
+        firstNameUkrField.setReadOnly(readOnly);
+        middleNameUkrField.setReadOnly(readOnly);
+        lastNameEngField.setReadOnly(readOnly);
+        firstNameEngField.setReadOnly(readOnly);
+
+        groupSelect.setReadOnly(readOnly);
+        courseSelect.setReadOnly(readOnly);
+        groupNumberField.setReadOnly(readOnly);
+        admissionYearSelect.setReadOnly(readOnly);
+        recordBookNumberField.setReadOnly(readOnly);
+
+        passportSeriesField.setReadOnly(readOnly);
+        passportNumberField.setReadOnly(readOnly);
+        passportIssueDatePicker.setReadOnly(readOnly);
+        passportIssuedByField.setReadOnly(readOnly);
+        passportExpiryDatePicker.setReadOnly(readOnly);
+        idCodeField.setReadOnly(readOnly);
+        unzrField.setReadOnly(readOnly);
+        birthDatePicker.setReadOnly(readOnly);
+        nationalityField.setReadOnly(readOnly);
+        genderSelect.setReadOnly(readOnly);
+        personNumberEDEBOField.setReadOnly(readOnly);
+        studentCardNumberEDEBOField.setReadOnly(readOnly);
+
+        caseNumberField.setReadOnly(readOnly);
+        educationFormSelect.setReadOnly(readOnly);
+        degreeSelect.setReadOnly(readOnly);
+        admissionConditionSelect.setReadOnly(readOnly);
+        paymentSourceSelect.setReadOnly(readOnly);
+        contractNumberField.setReadOnly(readOnly);
+        amountField.setReadOnly(readOnly);
+        benefitsSelect.setReadOnly(readOnly);
+        phoneNumberField.setReadOnly(readOnly);
+        emailField.setReadOnly(readOnly);
+        regionSelect.setReadOnly(readOnly);
+        indexField.setReadOnly(readOnly);
+        fullAddressField.setReadOnly(readOnly);
+
+        documentTypeSelect.setReadOnly(readOnly);
+        distinctionCheckbox.setReadOnly(readOnly);
+        documentSeriesField.setReadOnly(readOnly);
+        documentNumberField.setReadOnly(readOnly);
+        documentIssueDatePicker.setReadOnly(readOnly);
+        institutionNameField.setReadOnly(readOnly);
+        institutionNameEngField.setReadOnly(readOnly);
+        diplomaSeriesField.setReadOnly(readOnly);
+        diplomaNumberField.setReadOnly(readOnly);
+        graduationDatePicker.setReadOnly(readOnly);
+        appendixNumberField.setReadOnly(readOnly);
+        thesisTitleUkrField.setReadOnly(readOnly);
+        thesisTitleEngField.setReadOnly(readOnly);
+    }
+
+    private void resetEditingState() {
+        setFieldsReadOnly(true);
         selectStudent.setEnabled(true);
         selectGroup.setEnabled(true);
         addCardButton.setEnabled(true);
@@ -1534,10 +1511,224 @@ public class CardView extends Div {
             mainLayout.setDrawerEnabled(true);
         }
 
-        //Зміна кнопки
         editButton.setText("Редагувати");
-        //Встановлення кольору тексту кнопки на стандартний
         editButton.getStyle().set("color", "#0056b3");
+    }
+
+    private void enterEditMode(MainLayout mainLayout) {
+        setFieldsReadOnly(false);
+        editButton.setText("Зберегти");
+        editButton.getStyle().set("color", "green");
+        selectStudent.setEnabled(false);
+        selectGroup.setEnabled(false);
+        addCardButton.setEnabled(false);
+        sendToArchiveButton.setEnabled(false);
+        if (mainLayout != null) {
+            mainLayout.setDrawerEnabled(false);
+        }
+    }
+
+    private void revertEditingChanges() {
+        if (pendingCreatedGroupId != null) {
+            groupService.deleteById(pendingCreatedGroupId);
+            pendingCreatedGroupId = null;
+            updateGroupSelectorsItems();
+            refreshGraduationYearOptions();
+        }
+        reloadSelectedStudent();
+        resetEditingState();
+    }
+
+    private void reloadSelectedStudent() {
+        if (studentEntity == null || studentEntity.getId() == null) {
+            return;
+        }
+        studentEntity = studentService.findStudentById(studentEntity.getId());
+        reloadRelatedEntities();
+        populateViewFromEntities();
+    }
+
+    private void reloadRelatedEntities() {
+        studentPassportEntity = studentPassportService.getPassportByStudentModel(studentEntity).orElse(null);
+        studentInfoEntity = studentInfoService.getInfoByStudentModel(studentEntity);
+        studentEducationEntity = studentEducationService.getEducationByStudentModel(studentEntity);
+    }
+
+    private void populateViewFromEntities() {
+        populatePersonalSection();
+        populateAcademicSection();
+        populatePassportSection();
+        populateInfoSection();
+        populateEducationSection();
+        refreshReportsGrid();
+        setFieldsReadOnly(true);
+    }
+
+    private void populatePersonalSection() {
+        if (studentEntity == null) {
+            return;
+        }
+        setTextFieldValue(lastNameUkrField, studentEntity.getSurname());
+        setTextFieldValue(firstNameUkrField, studentEntity.getName());
+        setTextFieldValue(middleNameUkrField, studentEntity.getPatronymic());
+    }
+
+    private void populateAcademicSection() {
+        if (studentEntity == null) {
+            return;
+        }
+        String groupCode = studentEntity.getGroup() != null ? studentEntity.getGroup().getGroupCode() : null;
+        String[] groupParts = groupCode != null ? groupCode.split("-") : new String[0];
+        setSelectValue(groupSelect, getGroupPart(groupParts, 0));
+        setSelectValue(courseSelect, getGroupPart(groupParts, 1));
+        setTextFieldValue(groupNumberField, getGroupPart(groupParts, 2));
+        setSelectValue(admissionYearSelect, getGroupPart(groupParts, 3));
+        setTextFieldValue(recordBookNumberField, studentEntity.getRecordBookNumber());
+    }
+
+    private void populatePassportSection() {
+        setTextFieldValue(passportSeriesField, studentPassportEntity != null ? studentPassportEntity.getSeries() : null);
+        setTextFieldValue(passportNumberField, studentPassportEntity != null ? studentPassportEntity.getNumber() : null);
+        setDatePickerValue(passportIssueDatePicker, studentPassportEntity != null ? studentPassportEntity.getIssueDate() : null);
+        setTextFieldValue(passportIssuedByField, studentPassportEntity != null ? studentPassportEntity.getIssuedBy() : null);
+        setDatePickerValue(passportExpiryDatePicker, studentPassportEntity != null ? studentPassportEntity.getExpireDate() : null);
+        setTextFieldValue(idCodeField, studentPassportEntity != null ? studentPassportEntity.getIdentificationNumber() : null);
+        setTextFieldValue(unzrField, studentPassportEntity != null ? studentPassportEntity.getUnzrCode() : null);
+        setDatePickerValue(birthDatePicker, studentPassportEntity != null ? studentPassportEntity.getBirthdate() : null);
+        setSelectValue(nationalityField, studentPassportEntity != null ? studentPassportEntity.getNationality() : null);
+        setGenderValue(studentPassportEntity != null ? studentPassportEntity.getSex() : null);
+        setTextFieldValue(personNumberEDEBOField, studentPassportEntity != null ? studentPassportEntity.getEdboNumberPhis() : null);
+        setTextFieldValue(studentCardNumberEDEBOField, studentPassportEntity != null ? studentPassportEntity.getEdboNumberZdob() : null);
+        setTextFieldValue(firstNameEngField, studentPassportEntity != null ? studentPassportEntity.getNameEng() : null);
+        setTextFieldValue(lastNameEngField, studentPassportEntity != null ? studentPassportEntity.getSurnameEng() : null);
+    }
+
+    private void populateInfoSection() {
+        setTextFieldValue(caseNumberField, studentInfoEntity != null ? studentInfoEntity.getCaseNumber() : null);
+        setSelectValue(educationFormSelect, studentInfoEntity != null ? studentInfoEntity.getFormStudy() : null);
+        setSelectValue(degreeSelect, studentInfoEntity != null ? studentInfoEntity.getDegree() : null);
+        setSelectValue(admissionConditionSelect, studentInfoEntity != null ? studentInfoEntity.getEntryRequirements() : null);
+        setSelectValue(paymentSourceSelect, studentInfoEntity != null ? studentInfoEntity.getTypeOfIndividual() : null);
+        setTextFieldValue(contractNumberField, studentInfoEntity != null ? studentInfoEntity.getContractNumber() : null);
+        setTextFieldValue(amountField, studentInfoEntity != null ? studentInfoEntity.getTotal() : null);
+        setBenefitsValue(studentInfoEntity != null ? studentInfoEntity.getBenefits() : null);
+        setTextFieldValue(phoneNumberField, studentInfoEntity != null ? studentInfoEntity.getPhone() : null);
+        setTextFieldValue(emailField, studentInfoEntity != null ? studentInfoEntity.getEmail() : null);
+        setSelectValue(regionSelect, studentInfoEntity != null ? studentInfoEntity.getRegion() : null);
+        setTextFieldValue(indexField, studentInfoEntity != null ? studentInfoEntity.getIndex() : null);
+        setTextFieldValue(fullAddressField, studentInfoEntity != null ? studentInfoEntity.getAddress() : null);
+    }
+
+    private void populateEducationSection() {
+        setSelectValue(documentTypeSelect, studentEducationEntity != null ? studentEducationEntity.getTypeOfDocument() : null);
+        distinctionCheckbox.setValue(studentEducationEntity != null && studentEducationEntity.getHonors() == 1);
+        setTextFieldValue(documentSeriesField, studentEducationEntity != null ? studentEducationEntity.getSeries() : null);
+        setTextFieldValue(documentNumberField, studentEducationEntity != null ? studentEducationEntity.getNumber() : null);
+        setDatePickerValue(documentIssueDatePicker, studentEducationEntity != null ? studentEducationEntity.getDateOfIssue() : null);
+        setTextFieldValue(institutionNameField, studentEducationEntity != null ? studentEducationEntity.getIssuedBy() : null);
+        setTextFieldValue(institutionNameEngField, studentEducationEntity != null ? studentEducationEntity.getIssuedByEng() : null);
+        setTextFieldValue(diplomaSeriesField, studentEducationEntity != null ? studentEducationEntity.getDiplomaSeries() : null);
+        setTextFieldValue(diplomaNumberField, studentEducationEntity != null ? studentEducationEntity.getDiplomaNumber() : null);
+        setDatePickerValue(graduationDatePicker, studentEducationEntity != null ? studentEducationEntity.getDateOfIssueDiploma() : null);
+        setTextFieldValue(appendixNumberField, studentEducationEntity != null ? studentEducationEntity.getNumberOfDodatok() : null);
+        setTextFieldValue(thesisTitleUkrField, studentEducationEntity != null ? studentEducationEntity.getThemeOfWork() : null);
+        setTextFieldValue(thesisTitleEngField, studentEducationEntity != null ? studentEducationEntity.getThemeOfWorkEng() : null);
+    }
+
+    private void refreshReportsGrid() {
+        if (studentEntity == null || studentEntity.getId() == null) {
+            orderGrid.setItems(Collections.emptyList());
+            return;
+        }
+        orderGrid.setItems(studentReportService.getReportsByStudentId(studentEntity.getId()));
+    }
+
+    private void clearStudentContext() {
+        studentEntity = null;
+        studentPassportEntity = null;
+        studentInfoEntity = null;
+        studentEducationEntity = null;
+        setTextFieldValue(lastNameUkrField, null);
+        setTextFieldValue(firstNameUkrField, null);
+        setTextFieldValue(middleNameUkrField, null);
+        setTextFieldValue(lastNameEngField, null);
+        setTextFieldValue(firstNameEngField, null);
+        setSelectValue(groupSelect, null);
+        setSelectValue(courseSelect, null);
+        setTextFieldValue(groupNumberField, null);
+        setSelectValue(admissionYearSelect, null);
+        setTextFieldValue(recordBookNumberField, null);
+        setTextFieldValue(passportSeriesField, null);
+        setTextFieldValue(passportNumberField, null);
+        setDatePickerValue(passportIssueDatePicker, (String) null);
+        setTextFieldValue(passportIssuedByField, null);
+        setDatePickerValue(passportExpiryDatePicker, (String) null);
+        setTextFieldValue(idCodeField, null);
+        setTextFieldValue(unzrField, null);
+        setDatePickerValue(birthDatePicker, (String) null);
+        setSelectValue(nationalityField, null);
+        setGenderValue(null);
+        setTextFieldValue(personNumberEDEBOField, null);
+        setTextFieldValue(studentCardNumberEDEBOField, null);
+        setTextFieldValue(caseNumberField, null);
+        setSelectValue(educationFormSelect, null);
+        setSelectValue(degreeSelect, null);
+        setSelectValue(admissionConditionSelect, null);
+        setSelectValue(paymentSourceSelect, null);
+        setTextFieldValue(contractNumberField, null);
+        setTextFieldValue(amountField, null);
+        setBenefitsValue(null);
+        setTextFieldValue(phoneNumberField, null);
+        setTextFieldValue(emailField, null);
+        setSelectValue(regionSelect, null);
+        setTextFieldValue(indexField, null);
+        setTextFieldValue(fullAddressField, null);
+        setSelectValue(documentTypeSelect, null);
+        distinctionCheckbox.setValue(false);
+        setTextFieldValue(documentSeriesField, null);
+        setTextFieldValue(documentNumberField, null);
+        setDatePickerValue(documentIssueDatePicker, (Date) null);
+        setTextFieldValue(institutionNameField, null);
+        setTextFieldValue(institutionNameEngField, null);
+        setTextFieldValue(diplomaSeriesField, null);
+        setTextFieldValue(diplomaNumberField, null);
+        setDatePickerValue(graduationDatePicker, (Date) null);
+        setTextFieldValue(appendixNumberField, null);
+        setTextFieldValue(thesisTitleUkrField, null);
+        setTextFieldValue(thesisTitleEngField, null);
+        setFieldsReadOnly(true);
+        orderGrid.setItems(Collections.emptyList());
+    }
+
+    private void archiveSelectedStudent() {
+        ReportEntity archiveRecord = new ReportEntity();
+        archiveRecord.setStudent(studentEntity);
+        archiveRecord.setStatus("Відправлено в архів");
+        archiveRecord.setDate(Date.valueOf(LocalDate.now()));
+        archiveRecord.setOrderNumber(reportService.getNextOrderNumber());
+        reportService.saveReport(archiveRecord);
+        refreshReportsGrid();
+        Notification.show("Картку студента відправлено в архів.");
+    }
+
+    private String formatOrderNumber(Long orderNumber) {
+        return orderNumber != null ? String.valueOf(orderNumber) : "";
+    }
+
+    private String formatDateValue(Date date) {
+        return date != null ? date.toLocalDate().toString() : "";
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     private boolean hasAcademicDataChanges(StudentGroupEntity selectedGroupEntity) {
@@ -1709,152 +1900,8 @@ public class CardView extends Div {
         ConfirmDialog dialog = new ConfirmDialog(
                 "Підтвердження змін",
                 "Ви впевнені, що хочете зберегти зміни?",
-                "Так", (event) -> {
-
-
-            //Збереження змін StudentModel
-            StudentEntity studentEntitySave = new StudentEntity();
-            studentEntitySave.setId(studentEntity.getId());
-            studentEntitySave.setName(resolveTextFieldValue(firstNameUkrField, studentEntity.getName()));
-            studentEntitySave.setSurname(resolveTextFieldValue(lastNameUkrField, studentEntity.getSurname()));
-            studentEntitySave.setPatronymic(resolveTextFieldValue(middleNameUkrField, studentEntity.getPatronymic()));
-            studentEntitySave.setGroup(selectedGroupEntity);
-
-            studentEntitySave.setFaculty(selectedGroupEntity.getSpecialty().getFaculty());
-            studentEntitySave.setRecordBookNumber(resolveTextFieldValue(recordBookNumberField, studentEntity.getRecordBookNumber()));
-            studentService.save(studentEntitySave);
-
-            ratingRepository.findById(studentEntitySave.getId()).ifPresent(ratingEntity -> {
-                ratingEntity.setStudent(studentEntitySave);
-                ratingEntity.setFaculty(selectedGroupEntity.getSpecialty().getFaculty());
-                ratingEntity.setSpecialty(selectedGroupEntity.getSpecialty());
-                ratingEntity.setCourse(selectedGroupEntity.getCourse());
-                ratingEntity.setGroup(selectedGroupEntity);
-                ratingRepository.save(ratingEntity);
-            });
-
-            //Збереження змін PassportEntity
-//            StudentPassportEntity passportEntitySave = new StudentPassportEntity();
-//            passportEntitySave.setId(studentPassportEntity.getId());
-//            passportEntitySave.setSeries(resolveTextFieldValue(passportSeriesField, studentPassportEntity.getSeries()));
-//            passportEntitySave.setNumber(resolveTextFieldValue(passportNumberField, studentPassportEntity.getNumber()));
-//            passportEntitySave.setIssueDate(resolveDatePickerValue(passportIssueDatePicker, studentPassportEntity.getIssueDate()));
-//            passportEntitySave.setExpireDate(resolveDatePickerValue(passportExpiryDatePicker, studentPassportEntity.getExpireDate()));
-//            passportEntitySave.setIssuedBy(resolveTextFieldValue(passportIssuedByField, studentPassportEntity.getIssuedBy()));
-//            passportEntitySave.setIdentificationNumber(resolveTextFieldValue(idCodeField, studentPassportEntity.getIdentificationNumber()));
-//            passportEntitySave.setUnzrCode(resolveTextFieldValue(unzrField, studentPassportEntity.getUnzrCode()));
-//            passportEntitySave.setBirthdate(resolveDatePickerValue(birthDatePicker, studentPassportEntity.getBirthdate()));
-//            passportEntitySave.setNationality(resolveSelectValue(nationalityField, studentPassportEntity.getNationality()));
-//            passportEntitySave.setSex(resolveGenderValue(genderSelect, studentPassportEntity.getSex()));
-//            passportEntitySave.setEdboNumberPhis(resolveTextFieldValue(personNumberEDEBOField, studentPassportEntity.getEdboNumberPhis()));
-//            passportEntitySave.setEdboNumberZdob(resolveTextFieldValue(studentCardNumberEDEBOField, studentPassportEntity.getEdboNumberZdob()));
-//            passportEntitySave.setNameEng(resolveTextFieldValue(firstNameEngField, studentPassportEntity.getNameEng()));
-//            passportEntitySave.setSurnameEng(resolveTextFieldValue(lastNameEngField, studentPassportEntity.getSurnameEng()));
-//            passportEntitySave.setStudent(studentEntitySave);
-//            studentPassportService.save(passportEntitySave);
-//
-//
-//            //Збереження змін InfoEntity
-//            StudentInfoEntity infoEntitySave = new StudentInfoEntity();
-//            infoEntitySave.setId(studentInfoEntity.getId());
-//            infoEntitySave.setCaseNumber(resolveTextFieldValue(caseNumberField, studentInfoEntity.getCaseNumber()));
-//            infoEntitySave.setRegion(resolveSelectValue(regionSelect, studentInfoEntity.getRegion()));
-//            infoEntitySave.setIndex(resolveTextFieldValue(indexField, studentInfoEntity.getIndex()));
-//            infoEntitySave.setAddress(resolveTextFieldValue(fullAddressField, studentInfoEntity.getAddress()));
-//            infoEntitySave.setStudent(studentEntitySave);
-//            studentInfoService.save(infoEntitySave);
-//
-//                //Збереження змін EducationEntity
-//                StudentEducationEntity educationEntitySave = new StudentEducationEntity();
-//            educationEntitySave.setId(studentEducationEntity.getId());
-//            educationEntitySave.setTypeOfDocument(resolveSelectValue(documentTypeSelect, studentEducationEntity.getTypeOfDocument()));
-//            educationEntitySave.setHonors(distinctionCheckbox.getValue() ? 1 : 0);
-//            educationEntitySave.setSeries(resolveTextFieldValue(documentSeriesField, studentEducationEntity.getSeries()));
-//            educationEntitySave.setNumber(resolveTextFieldValue(documentNumberField, studentEducationEntity.getNumber()));
-//            educationEntitySave.setDateOfIssue(resolveDatePickerValue(documentIssueDatePicker, studentEducationEntity.getDateOfIssue()));
-//            educationEntitySave.setIssuedBy(resolveTextFieldValue(institutionNameField, studentEducationEntity.getIssuedBy()));
-//            educationEntitySave.setIssuedByEng(resolveTextFieldValue(institutionNameEngField, studentEducationEntity.getIssuedByEng()));
-//            educationEntitySave.setDiplomaSeries(resolveTextFieldValue(diplomaSeriesField, studentEducationEntity.getDiplomaSeries()));
-//            educationEntitySave.setDiplomaNumber(resolveTextFieldValue(diplomaNumberField, studentEducationEntity.getDiplomaNumber()));
-//            educationEntitySave.setDateOfIssueDiploma(resolveDatePickerValue(graduationDatePicker, studentEducationEntity.getDateOfIssueDiploma()));
-//            educationEntitySave.setNumberOfDodatok(resolveTextFieldValue(appendixNumberField, studentEducationEntity.getNumberOfDodatok()));
-//            educationEntitySave.setThemeOfWork(resolveTextFieldValue(thesisTitleUkrField, studentEducationEntity.getThemeOfWork()));
-//            educationEntitySave.setThemeOfWorkEng(resolveTextFieldValue(thesisTitleEngField, studentEducationEntity.getThemeOfWorkEng()));
-//            educationEntitySave.setStudent(studentEntitySave);
-//            studentEducationService.save(educationEntitySave);
-
-            studentEntity = studentEntitySave;
-//                studentPassportEntity = passportEntitySave;
-//                studentInfoEntity = infoEntitySave;
-//                studentEducationEntity = educationEntitySave;
-
-            selectGroup.setValue(selectedGroupEntity.getGroupCode());
-            selectStudent.setValue(studentEntitySave.getFullName());
-
-            updateGroupSelectorsItems();
-            refreshGraduationYearOptions();
-            pendingCreatedGroupId = null;
-
-        },
-                "Ні", (event) -> {
-
-            //Відміна змін
-            setTextFieldValue(lastNameUkrField, studentEntity.getSurname());
-            setTextFieldValue(firstNameUkrField, studentEntity.getName());
-            setTextFieldValue(middleNameUkrField, studentEntity.getPatronymic());
-            setTextFieldValue(firstNameEngField, studentPassportEntity.getNameEng());
-            setTextFieldValue(lastNameEngField, studentPassportEntity.getSurnameEng());
-            String originalGroupCode = studentEntity.getGroup() != null ? studentEntity.getGroup().getGroupCode() : null;
-            String[] originalGroupParts = originalGroupCode != null ? originalGroupCode.split("-") : new String[0];
-            setSelectValue(groupSelect, getGroupPart(originalGroupParts, 0));
-            setSelectValue(courseSelect, getGroupPart(originalGroupParts, 1));
-            setTextFieldValue(groupNumberField, getGroupPart(originalGroupParts, 2));
-            setSelectValue(admissionYearSelect, getGroupPart(originalGroupParts, 3));
-            setTextFieldValue(recordBookNumberField, studentEntity.getRecordBookNumber());
-            setTextFieldValue(passportSeriesField, studentPassportEntity.getSeries());
-            setTextFieldValue(passportNumberField, studentPassportEntity.getNumber());
-            setDatePickerValue(passportIssueDatePicker, studentPassportEntity.getIssueDate());
-            setTextFieldValue(passportIssuedByField, studentPassportEntity.getIssuedBy());
-            setDatePickerValue(passportExpiryDatePicker, studentPassportEntity.getExpireDate());
-            setTextFieldValue(idCodeField, studentPassportEntity.getIdentificationNumber());
-            setTextFieldValue(unzrField, studentPassportEntity.getUnzrCode());
-            setDatePickerValue(birthDatePicker, studentPassportEntity.getBirthdate());
-            setSelectValue(nationalityField, studentPassportEntity.getNationality());
-            setGenderValue(studentPassportEntity.getSex());
-            setTextFieldValue(personNumberEDEBOField, studentPassportEntity.getEdboNumberPhis());
-            setSelectValue(degreeSelect, studentInfoEntity.getDegree());
-            setSelectValue(admissionConditionSelect, studentInfoEntity.getEntryRequirements());
-            setSelectValue(paymentSourceSelect, studentInfoEntity.getTypeOfIndividual());
-            setTextFieldValue(contractNumberField, studentInfoEntity.getContractNumber());
-            setTextFieldValue(amountField, studentInfoEntity.getTotal());
-            setBenefitsValue(studentInfoEntity.getBenefits());
-            setTextFieldValue(phoneNumberField, studentInfoEntity.getPhone());
-            setTextFieldValue(emailField, studentInfoEntity.getEmail());
-            setSelectValue(regionSelect, studentInfoEntity.getRegion());
-            setTextFieldValue(indexField, studentInfoEntity.getIndex());
-            setTextFieldValue(fullAddressField, studentInfoEntity.getAddress());
-            setSelectValue(documentTypeSelect, studentEducationEntity.getTypeOfDocument());
-            distinctionCheckbox.setValue(studentEducationEntity.getHonors() == 1);
-            setTextFieldValue(documentSeriesField, studentEducationEntity.getSeries());
-            setTextFieldValue(documentNumberField, studentEducationEntity.getNumber());
-            setDatePickerValue(documentIssueDatePicker, studentEducationEntity.getDateOfIssue());
-            setTextFieldValue(institutionNameField, studentEducationEntity.getIssuedBy());
-            setTextFieldValue(institutionNameEngField, studentEducationEntity.getIssuedByEng());
-            setTextFieldValue(diplomaSeriesField, studentEducationEntity.getDiplomaSeries());
-            setTextFieldValue(diplomaNumberField, studentEducationEntity.getDiplomaNumber());
-            setDatePickerValue(graduationDatePicker, studentEducationEntity.getDateOfIssueDiploma());
-            setTextFieldValue(appendixNumberField, studentEducationEntity.getNumberOfDodatok());
-            setTextFieldValue(thesisTitleUkrField, studentEducationEntity.getThemeOfWork());
-            setTextFieldValue(thesisTitleEngField, studentEducationEntity.getThemeOfWorkEng());
-
-            if (pendingCreatedGroupId != null) {
-                groupService.deleteById(pendingCreatedGroupId);
-                pendingCreatedGroupId = null;
-                updateGroupSelectorsItems();
-                refreshGraduationYearOptions();
-            }
-
-        });
+                "Так", (event) -> processSave(selectedGroupEntity),
+                "Ні", (event) -> revertEditingChanges());
         dialog.open();
     }
 

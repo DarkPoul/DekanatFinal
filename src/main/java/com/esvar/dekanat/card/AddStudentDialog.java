@@ -9,6 +9,7 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
@@ -20,6 +21,8 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.text.Collator;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
@@ -138,6 +141,20 @@ public class AddStudentDialog extends Dialog {
         reportType.setClearButtonVisible(true);
 
         recordBook.setPattern("[0-9]+");
+        recordBook.setPreventInvalidInput(true);
+
+        passportSeries.setRequiredIndicatorVisible(true);
+        passportSeries.setPattern("[\\p{L}0-9]+");
+        passportSeries.setErrorMessage("Введіть серію паспорта");
+
+        passportNumber.setRequiredIndicatorVisible(true);
+        passportNumber.setPattern("\\d+");
+        passportNumber.setPreventInvalidInput(true);
+        passportNumber.setErrorMessage("Введіть номер паспорта");
+
+        issueDate.setRequiredIndicatorVisible(true);
+        expireDate.setRequiredIndicatorVisible(true);
+        nationality.setRequiredIndicatorVisible(true);
 
         FormLayout personalForm = new FormLayout();
         personalForm.add(lastName, firstName, middleName,
@@ -151,6 +168,15 @@ public class AddStudentDialog extends Dialog {
 
         gender.setLabel("Стать");
         gender.setItems(Gender.values());
+        gender.setRequiredIndicatorVisible(true);
+        phone.setRequiredIndicatorVisible(true);
+        phone.setPattern("\\d+");
+        phone.setPreventInvalidInput(true);
+        phone.setErrorMessage("Введіть тільки цифри");
+        email.setRequiredIndicatorVisible(true);
+        email.setPattern("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+        email.setErrorMessage("Некоректний email");
+        address.setRequiredIndicatorVisible(true);
         page2.add(passportSeries, passportNumber, issueDate, expireDate, nationality, gender);
 
         page3.add(phone, email, address);
@@ -191,44 +217,48 @@ public class AddStudentDialog extends Dialog {
     }
 
     private void saveStudent() {
+        if (!validateForm()) {
+            return;
+        }
         StudentGroupEntity group = groupService.getGroupByTitle(groupSelect.getValue());
         if (group == null) {
+            Notification.show("Оберіть коректну групу.");
             return;
         }
         StudentEntity student = new StudentEntity();
-        student.setSurname(lastName.getValue());
-        student.setName(firstName.getValue());
-        student.setPatronymic(middleName.getValue());
+        student.setSurname(normalize(lastName.getValue()));
+        student.setName(normalize(firstName.getValue()));
+        student.setPatronymic(normalize(middleName.getValue()));
         student.setGroup(group);
         student.setFaculty(group.getSpecialty().getFaculty());
-        student.setRecordBookNumber(recordBook.getValue());
+        student.setRecordBookNumber(normalize(recordBook.getValue()));
         studentService.save(student);
 
         StudentPassportEntity passport = new StudentPassportEntity();
         passport.setStudent(student);
-        passport.setSeries(passportSeries.getValue());
-        passport.setNumber(passportNumber.getValue());
-        passport.setNameEng(firstNameEng.getValue());
-        passport.setSurnameEng(lastNameEng.getValue());
+        passport.setSeries(normalize(passportSeries.getValue()));
+        passport.setNumber(normalize(passportNumber.getValue()));
+        passport.setNameEng(normalize(firstNameEng.getValue()));
+        passport.setSurnameEng(normalize(lastNameEng.getValue()));
         if (issueDate.getValue() != null)
             passport.setIssueDate(String.valueOf(Date.valueOf(issueDate.getValue())));
         if (expireDate.getValue() != null)
             passport.setExpireDate(String.valueOf(Date.valueOf(expireDate.getValue())));
-        passport.setNationality(nationality.getValue());
+        passport.setNationality(normalize(nationality.getValue()));
         passport.setSex(gender.getValue());
         passportService.save(passport);
 
         StudentInfoEntity info = new StudentInfoEntity();
         info.setStudent(student);
-        info.setAddress(address.getValue());
-        info.setPhone(phone.getValue());
-        info.setEmail(email.getValue());
+        info.setAddress(normalize(address.getValue()));
+        info.setPhone(normalize(phone.getValue()));
+        info.setEmail(normalize(email.getValue()));
         infoService.save(info);
 
         StudentEducationEntity edu = new StudentEducationEntity();
         edu.setStudent(student);
-        edu.setSeries(docSeries.getValue());
-        edu.setNumber(docNumber.getValue());
+        edu.setSeries(normalize(docSeries.getValue()));
+        edu.setNumber(normalize(docNumber.getValue()));
         educationService.save(edu);
 
         StudentRatingEntity rating = new StudentRatingEntity();
@@ -255,6 +285,98 @@ public class AddStudentDialog extends Dialog {
         }
 
         close();
+    }
+
+    private boolean validateForm() {
+        clearValidation();
+        List<String> errors = new ArrayList<>();
+        if (!hasText(lastName.getValue())) {
+            lastName.setInvalid(true);
+            errors.add("Прізвище обов'язкове");
+        }
+        if (!hasText(firstName.getValue())) {
+            firstName.setInvalid(true);
+            errors.add("Ім'я обов'язкове");
+        }
+        if (groupSelect.getValue() == null) {
+            groupSelect.setInvalid(true);
+            errors.add("Оберіть групу");
+        }
+        if (!hasText(passportSeries.getValue())) {
+            passportSeries.setInvalid(true);
+            errors.add("Серія паспорта обов'язкова");
+        }
+        if (!hasText(passportNumber.getValue())) {
+            passportNumber.setInvalid(true);
+            errors.add("Номер паспорта обов'язковий");
+        }
+        if (issueDate.getValue() == null) {
+            issueDate.setInvalid(true);
+            errors.add("Вкажіть дату видачі паспорта");
+        }
+        if (expireDate.getValue() == null) {
+            expireDate.setInvalid(true);
+            errors.add("Вкажіть термін дії паспорта");
+        }
+        if (!hasText(nationality.getValue())) {
+            nationality.setInvalid(true);
+            errors.add("Національність обов'язкова");
+        }
+        if (gender.getValue() == null) {
+            gender.setInvalid(true);
+            errors.add("Стать обов'язкова");
+        }
+        if (!hasText(phone.getValue())) {
+            phone.setInvalid(true);
+            errors.add("Телефон обов'язковий");
+        } else if (!phone.getValue().matches("\\d+")) {
+            phone.setInvalid(true);
+            errors.add("Телефон має містити лише цифри");
+        }
+        if (!hasText(email.getValue())) {
+            email.setInvalid(true);
+            errors.add("Email обов'язковий");
+        } else if (!email.getValue().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            email.setInvalid(true);
+            errors.add("Некоректний email");
+        }
+        if (!hasText(address.getValue())) {
+            address.setInvalid(true);
+            errors.add("Адреса обов'язкова");
+        }
+
+        if (!errors.isEmpty()) {
+            Notification.show(String.join("; ", errors));
+            return false;
+        }
+        return true;
+    }
+
+    private void clearValidation() {
+        lastName.setInvalid(false);
+        firstName.setInvalid(false);
+        groupSelect.setInvalid(false);
+        passportSeries.setInvalid(false);
+        passportNumber.setInvalid(false);
+        issueDate.setInvalid(false);
+        expireDate.setInvalid(false);
+        nationality.setInvalid(false);
+        gender.setInvalid(false);
+        phone.setInvalid(false);
+        email.setInvalid(false);
+        address.setInvalid(false);
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     private void showCancelConfirmation() {
