@@ -1,6 +1,7 @@
 package com.esvar.dekanat.service;
 
 import com.esvar.dekanat.dto.GroupDTO;
+import com.esvar.dekanat.dto.StudentOptionDTO;
 import com.esvar.dekanat.entity.SpecialtyEntity;
 import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.entity.StudentGroupEntity;
@@ -69,6 +70,19 @@ public class GroupService {
     }
 
 
+
+    public List<StudentOptionDTO> getStudentOptionsForGroup(String groupSelectValue) {
+        Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
+        StudentGroupEntity group = groupRepository.findByGroupCode(groupSelectValue);
+        if (group == null) {
+            return Collections.emptyList();
+        }
+
+        return studentService.getStudentByGroupId(group.getId()).stream()
+                .map(student -> new StudentOptionDTO(student.getId(), student.getFullName()))
+                .sorted(Comparator.comparing(StudentOptionDTO::displayName, ukrainianCollator))
+                .toList();
+    }
 
     public List<String> getAllStudentsForSelectedGroup(String groupSelectValue) {
         Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));

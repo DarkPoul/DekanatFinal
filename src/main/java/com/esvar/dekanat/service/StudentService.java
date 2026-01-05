@@ -28,6 +28,13 @@ public class StudentService {
                 .collect(Collectors.toList());
     }
 
+    public List<StudentEntity> getStudentsByIds(List<Long> studentIds) {
+        if (studentIds == null || studentIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return studentRepository.findByIdIn(studentIds);
+    }
+
     public StudentEntity getStudentByFullName(String studentSurname, String studentName, String studentPatronymic) {
         NameParts parts = buildNameParts(studentSurname, studentName, studentPatronymic);
         if (!hasText(parts.surname()) || !hasText(parts.name())) {

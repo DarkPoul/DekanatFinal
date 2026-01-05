@@ -2,6 +2,7 @@ package com.esvar.dekanat.service;
 
 import com.esvar.dekanat.entity.PlansEntity;
 import com.esvar.dekanat.entity.StudentEntity;
+import com.esvar.dekanat.entity.StudentGroupEntity;
 import com.esvar.dekanat.entity.StudentPlansEntity;
 import com.esvar.dekanat.entity.StudentPlansPK;
 import com.esvar.dekanat.repository.StudentPlansRepository;
@@ -9,7 +10,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -57,22 +64,12 @@ public class StudentPlansService{
      * Оновлює записи у таблиці student_plans для певного плану.
      *
      * @param updatedPlan PlansEntity - оновлений план.
-     * @param students    List<String> - список імен студентів.
+     * @param studentIds  List<Long> - список ID студентів.
+     * @param allowedGroups List<StudentGroupEntity> - групи, для яких дозволений вибір.
      */
     @Transactional
-    public List<StudentEntity> updateStudentPlans(PlansEntity updatedPlan, List<String> students) {
-        if (updatedPlan == null || updatedPlan.getId() == null) {
-            throw new IllegalArgumentException("План для оновлення повинен бути заданий.");
-        }
-
-        List<StudentEntity> mappedStudents = new ArrayList<>();
-        if (students != null) {
-            for (String studentName : students) {
-                mappedStudents.add(studentService.getStudentByFullName(studentName));
-            }
-        }
-
-        return synchronizePlanAssignments(updatedPlan, mappedStudents);
+    public List<StudentEntity> updateStudentPlans(PlansEntity updatedPlan, List<Long> studentIds, List<StudentGroupEntity> allowedGroups) {
+        return synchronizePlanAssignments(updatedPlan, studentIds, allowedGroups);
     }
 
 
@@ -106,13 +103,22 @@ public class StudentPlansService{
     }
 
     @Transactional
-    public List<StudentEntity> synchronizePlanAssignments(PlansEntity plan, List<StudentEntity> students) {
+    public List<StudentEntity> synchronizePlanAssignments(PlansEntity plan, List<Long> studentIds, List<StudentGroupEntity> allowedGroups) {
         if (plan == null || plan.getId() == null) {
             throw new IllegalArgumentException("План повинен бути заданий.");
         }
 
-        List<StudentEntity> targetStudents = students == null ? List.of() : students;
+        Set<Long> allowedGroupIds = buildAllowedGroupIds(plan, allowedGroups);
+        List<StudentEntity> targetStudents = resolveAndValidateStudents(studentIds, allowedGroupIds);
         return synchronizeInternal(plan, targetStudents);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> getStudentIdsByPlan(PlansEntity plan) {
+        if (plan == null || plan.getId() == null) {
+            return List.of();
+        }
+        return studentPlansRepository.findStudentIdsByPlanId(plan.getId());
     }
 
     private List<StudentEntity> synchronizeInternal(PlansEntity plan, List<StudentEntity> targetStudents) {
@@ -149,4 +155,58 @@ public class StudentPlansService{
         return targetStudents;
     }
 
+    private List<StudentEntity> resolveAndValidateStudents(List<Long> studentIds, Set<Long> allowedGroupIds) {
+        if (studentIds == null || studentIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<StudentEntity> students = studentService.getStudentsByIds(studentIds);
+        Map<Long, StudentEntity> studentsById = students.stream()
+                .collect(Collectors.toMap(StudentEntity::getId, Function.identity()));
+
+        List<Long> missingStudents = studentIds.stream()
+                .filter(id -> !studentsById.containsKey(id))
+                .toList();
+
+        if (!missingStudents.isEmpty()) {
+            throw new IllegalArgumentException("Не знайдено студентів з ID: " + missingStudents);
+        }
+
+        if (!allowedGroupIds.isEmpty()) {
+            List<StudentEntity> mismatchedStudents = studentsById.values().stream()
+                    .filter(student -> student.getGroup() == null || !allowedGroupIds.contains(student.getGroup().getId()))
+                    .toList();
+
+            if (!mismatchedStudents.isEmpty()) {
+                String invalidNames = mismatchedStudents.stream()
+                        .map(StudentEntity::getFullName)
+                        .collect(Collectors.joining(", "));
+                throw new IllegalArgumentException("Деякі студенти не належать до вибраної групи: " + invalidNames);
+            }
+        }
+
+        return studentIds.stream()
+                .map(studentsById::get)
+                .filter(Objects::nonNull)
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toCollection(LinkedHashSet::new),
+                        ArrayList::new
+                ));
+    }
+
+    private Set<Long> buildAllowedGroupIds(PlansEntity plan, List<StudentGroupEntity> allowedGroups) {
+        if (allowedGroups != null && !allowedGroups.isEmpty()) {
+            return allowedGroups.stream()
+                    .filter(Objects::nonNull)
+                    .map(StudentGroupEntity::getId)
+                    .collect(Collectors.toCollection(HashSet::new));
+        }
+        if (plan.getGroups() == null || plan.getGroups().isEmpty()) {
+            return Set.of();
+        }
+        return plan.getGroups().stream()
+                .filter(Objects::nonNull)
+                .map(StudentGroupEntity::getId)
+                .collect(Collectors.toCollection(HashSet::new));
+    }
 }
