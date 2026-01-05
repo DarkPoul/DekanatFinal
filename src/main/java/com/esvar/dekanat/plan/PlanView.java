@@ -7,6 +7,7 @@ package com.esvar.dekanat.plan;
 */
 
 import com.esvar.dekanat.dto.GroupDTO;
+import com.esvar.dekanat.dto.StudentOptionDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.mark.EnterMarksView;
 import com.esvar.dekanat.plan.dialog.PlanDialog;
@@ -188,10 +189,12 @@ public class PlanView extends Div {
     }
 
     private void openCreateDialog() {
-        String selectedGroup = selectGroup.getValue().getGroupCode();
+        GroupDTO selectedGroup = selectGroup.getValue();
         if (selectedGroup != null) {
-            List<String> students = groupService.getAllStudentsForSelectedGroup(selectedGroup);
+            List<StudentOptionDTO> students = groupService.getStudentOptionsForGroup(selectedGroup.getGroupCode());
             planDialog.updateStudentsList(students);
+        } else {
+            planDialog.updateStudentsList(Collections.emptyList());
         }
         planDialog.openForCreation();
     }
@@ -207,8 +210,8 @@ public class PlanView extends Div {
         String parts = String.valueOf(plan.getParts()); // За замовчуванням
 
 
-        List<String> selectedStudents = isElective
-                ? planService.getSelectedStudentsForPlan(plan) // Отримуємо студентів з student_plans
+        List<Long> selectedStudents = isElective
+                ? studentPlansService.getStudentIdsByPlan(plan) // Отримуємо студентів з student_plans
                 : new ArrayList<>();
 
         // Відкриваємо діалог для оновлення з передачею ID плану
@@ -218,7 +221,7 @@ public class PlanView extends Div {
 
     private void saveNewPlan(String discipline, int hours, boolean isElective,
                              String firstControl, String secondControl, String parts,
-                             String department, List<String> students) {
+                             String department, List<Long> students) {
         PlansEntity newPlan = new PlansEntity();
         newPlan.setDiscipline(disciplineService.getDisciplineByTitle(discipline));
         newPlan.setHours(hours);
@@ -238,19 +241,25 @@ public class PlanView extends Div {
         newPlan.setParts(Integer.parseInt(parts));
         newPlan.setFaculty(selectedGroup.getSpecialty().getFaculty());
         planService.savePlan(newPlan);
-        List<StudentEntity> targetStudents;
+        List<StudentGroupEntity> allowedGroups = selectedGroup == null ? Collections.emptyList() : List.of(selectedGroup);
+        List<Long> targetStudentIds;
         if (isElective && students != null && !students.isEmpty()) {
-            targetStudents = new ArrayList<>();
-            for (String studentName : students) {
-                targetStudents.add(studentService.getStudentByFullName(studentName));
-            }
+            targetStudentIds = new ArrayList<>(students);
         } else {
-            targetStudents = selectedGroup == null
+            targetStudentIds = selectedGroup == null
                     ? Collections.emptyList()
-                    : studentService.getStudentByGroupId(selectedGroup.getId());
+                    : studentService.getStudentByGroupId(selectedGroup.getId()).stream()
+                    .map(StudentEntity::getId)
+                    .toList();
         }
 
-        studentPlansService.synchronizePlanAssignments(newPlan, targetStudents);
+        List<StudentEntity> targetStudents;
+        try {
+            targetStudents = studentPlansService.synchronizePlanAssignments(newPlan, targetStudentIds, allowedGroups);
+        } catch (IllegalArgumentException ex) {
+            Notification.show(ex.getMessage());
+            return;
+        }
         marksInitializerService.initializeMarksForPlan(newPlan, targetStudents);
 
 
@@ -259,7 +268,7 @@ public class PlanView extends Div {
 
     private void updateExistingPlan(Long planId, String discipline, int hours, boolean isElective,
                                     String firstControl, String secondControl, String parts,
-                                    String department, List<String> students) {
+                                    String department, List<Long> students) {
         // Отримуємо план за ID
         PlansEntity updatedPlan = planService.getPlanById(planId);
         if (updatedPlan == null) return;
@@ -280,23 +289,31 @@ public class PlanView extends Div {
         // Зберігаємо оновлення
         planService.updatePlan(updatedPlan);
 
+        List<StudentGroupEntity> allowedGroups = new ArrayList<>(getAllowedGroupsForPlan(updatedPlan));
         List<StudentEntity> targetStudents;
-        if (isElective) {
-            List<StudentEntity> mapped = students == null
-                    ? Collections.emptyList()
-                    : students.stream()
-                    .map(studentService::getStudentByFullName)
-                    .collect(Collectors.toList());
-            targetStudents = studentPlansService.synchronizePlanAssignments(updatedPlan, mapped);
-        } else {
-            List<StudentEntity> groupStudents = getStudentsForPlanGroups(updatedPlan);
-            if (groupStudents.isEmpty()) {
-                StudentGroupEntity selectedGroup = getSelectedGroup();
-                groupStudents = selectedGroup == null
-                        ? Collections.emptyList()
-                        : studentService.getStudentByGroupId(selectedGroup.getId());
+        try {
+            if (isElective) {
+                List<Long> studentIds = students == null ? Collections.emptyList() : new ArrayList<>(students);
+                targetStudents = studentPlansService.synchronizePlanAssignments(updatedPlan, studentIds, allowedGroups);
+            } else {
+                List<StudentEntity> groupStudents = getStudentsForPlanGroups(updatedPlan);
+                if (groupStudents.isEmpty()) {
+                    StudentGroupEntity selectedGroup = getSelectedGroup();
+                    groupStudents = selectedGroup == null
+                            ? Collections.emptyList()
+                            : studentService.getStudentByGroupId(selectedGroup.getId());
+                    if (allowedGroups.isEmpty() && selectedGroup != null) {
+                        allowedGroups = new ArrayList<>(List.of(selectedGroup));
+                    }
+                }
+                List<Long> groupStudentIds = groupStudents.stream()
+                        .map(StudentEntity::getId)
+                        .toList();
+                targetStudents = studentPlansService.synchronizePlanAssignments(updatedPlan, groupStudentIds, allowedGroups);
             }
-            targetStudents = studentPlansService.synchronizePlanAssignments(updatedPlan, groupStudents);
+        } catch (IllegalArgumentException ex) {
+            Notification.show(ex.getMessage());
+            return;
         }
 
         List<Long> beforeIds = beforeStudents.stream().map(StudentEntity::getId).toList();
@@ -346,33 +363,34 @@ public class PlanView extends Div {
     }
 
     private void updateStudentListInDialog() {
-        String selectedGroup = selectGroup.getValue().getGroupCode();
-        if (selectedGroup != null) {
-            List<String> students = groupService.getAllStudentsForSelectedGroup(selectedGroup);
-            planDialog.updateStudentsList(students);
-        } else {
+        GroupDTO selectedGroup = selectGroup.getValue();
+        if (selectedGroup == null) {
             planDialog.updateStudentsList(new ArrayList<>());
+            return;
         }
+
+        List<StudentOptionDTO> students = groupService.getStudentOptionsForGroup(selectedGroup.getGroupCode());
+        planDialog.updateStudentsList(students);
     }
 
     private void updateGrid() {
-        String selectedGroup = selectGroup.getValue().getGroupCode();
+        GroupDTO selectedGroup = selectGroup.getValue();
         String selectedSession = sessionSelect.getValue();
         if (selectedGroup == null || selectedSession == null) {
             planGrid.setItems(planService.getAllPlansForGroupAndSemester(null, 0));
             return;
         }
 
-        planGrid.setItems(planService.getAllPlansForGroupAndSemester(groupService.getGroupByTitle(selectGroup.getValue().getGroupCode()), getSelectedSemester()));
+        planGrid.setItems(planService.getAllPlansForGroupAndSemester(groupService.getGroupByTitle(selectedGroup.getGroupCode()), getSelectedSemester()));
     }
 
     private int getSelectedSemester() {
-        String selectedGroup = selectGroup.getValue().getGroupCode();
+        GroupDTO selectedGroup = selectGroup.getValue();
         String selectedSession = sessionSelect.getValue();
         if (selectedGroup == null || selectedSession == null) {
             return 1; // За замовчуванням - перший семестр
         }
-        return getNumberSemester(selectedGroup, selectedSession);
+        return getNumberSemester(selectedGroup.getGroupCode(), selectedSession);
     }
 
     private int getNumberSemester(String groupTitle, String semester) {
@@ -385,14 +403,27 @@ public class PlanView extends Div {
     }
 
     private StudentGroupEntity getSelectedGroup() {
-        String selectedGroup = selectGroup.getValue().getGroupCode();
+        GroupDTO selectedGroup = selectGroup.getValue();
         if (selectedGroup == null) {
             return null;
         }
-        return groupService.getGroupByTitle(selectedGroup);
+        return groupService.getGroupByTitle(selectedGroup.getGroupCode());
     }
 
     private List<StudentEntity> getStudentsForPlanGroups(PlansEntity plan) {
+        List<StudentGroupEntity> groups = getPlanGroups(plan);
+        if (groups.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return groups.stream()
+                .flatMap(group -> studentService.getStudentByGroupId(group.getId()).stream())
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    private List<StudentGroupEntity> getPlanGroups(PlansEntity plan) {
         if (plan == null || plan.getId() == null) {
             return Collections.emptyList();
         }
@@ -404,10 +435,18 @@ public class PlanView extends Div {
 
         return planWithGroups.getGroups().stream()
                 .filter(Objects::nonNull)
-                .flatMap(group -> studentService.getStudentByGroupId(group.getId()).stream())
-                .filter(Objects::nonNull)
                 .distinct()
                 .toList();
+    }
+
+    private List<StudentGroupEntity> getAllowedGroupsForPlan(PlansEntity plan) {
+        List<StudentGroupEntity> groups = getPlanGroups(plan);
+        if (!groups.isEmpty()) {
+            return groups;
+        }
+
+        StudentGroupEntity selectedGroup = getSelectedGroup();
+        return selectedGroup == null ? Collections.emptyList() : List.of(selectedGroup);
     }
 
     private void configureReportButtons() {

@@ -1,5 +1,6 @@
 package com.esvar.dekanat.plan.dialog;
 
+import com.esvar.dekanat.dto.StudentOptionDTO;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
@@ -50,16 +51,16 @@ public class PlanDialog extends Dialog {
 
     // Компоненти для вибору студентів
     private final Checkbox checkAllStudents = new Checkbox("Обрати всіх");
-    private final CheckboxGroup<String> checkboxGroup = new CheckboxGroup<>();
+    private final CheckboxGroup<StudentOptionDTO> checkboxGroup = new CheckboxGroup<>();
     private final VerticalLayout VLayoutStudent = new VerticalLayout();
     private final Div scrollableDiv = new Div();
     private Long PlanId;
 
-    private List<String> currentStudents; // Поточний список студентів
+    private List<StudentOptionDTO> currentStudents; // Поточний список студентів
 
     public PlanDialog(List<String> disciplines, List<String> departments,
                       List<String> firstControlTypes, List<String> secondControlTypes,
-                      List<String> students) {
+                      List<StudentOptionDTO> students) {
         this.currentStudents = sortStudents(students); // Зберігаємо поточний список студентів
 
 
@@ -103,6 +104,7 @@ public class PlanDialog extends Dialog {
 
         // Налаштування списку студентів
         checkboxGroup.setItems(currentStudents);
+        checkboxGroup.setItemLabelGenerator(StudentOptionDTO::displayName);
         checkboxGroup.setValue(new HashSet<>(currentStudents));
         checkboxGroup.setReadOnly(false); // Спочатку приховано
 
@@ -211,8 +213,10 @@ public class PlanDialog extends Dialog {
             String selectedParts = parts.getValue();
 
             // Отримуємо список студентів (лише для вибіркових дисциплін)
-            List<String> selectedStudents = choiceDiscipline.getValue().equals("Так")
-                    ? new ArrayList<>(checkboxGroup.getSelectedItems())
+            List<Long> selectedStudents = choiceDiscipline.getValue().equals("Так")
+                    ? checkboxGroup.getSelectedItems().stream()
+                    .map(StudentOptionDTO::id)
+                    .collect(Collectors.toCollection(ArrayList::new))
                     : null;
 
             // Викликаємо слухача збереження
@@ -236,8 +240,10 @@ public class PlanDialog extends Dialog {
             String secondControlType = secondControl.getValue();
             String selectedDepartment = department.getValue();
             String selectedParts = parts.getValue();
-            List<String> selectedStudents = isElective
-                    ? new ArrayList<>(checkboxGroup.getSelectedItems())
+            List<Long> selectedStudents = isElective
+                    ? checkboxGroup.getSelectedItems().stream()
+                    .map(StudentOptionDTO::id)
+                    .collect(Collectors.toCollection(ArrayList::new))
                     : null;
 
             // Викликаємо слухача оновлення з передачею planId
@@ -287,7 +293,7 @@ public class PlanDialog extends Dialog {
 
     public void openForUpdate(String disciplineName, int hoursValue, boolean isElective,
                               String firstControlType, String secondControlType, String partsValue,
-                              String departmentName, List<String> selectedStudents, Long planId) {
+                              String departmentName, List<Long> selectedStudentIds, Long planId) {
         this.isUpdateMode = true;
         discipline.setValue(disciplineName);
         hours.setValue(String.valueOf(hoursValue));
@@ -297,8 +303,11 @@ public class PlanDialog extends Dialog {
         parts.setValue(partsValue);
         department.setValue(departmentName);
 
-        if (isElective) {
-            checkboxGroup.setValue(new HashSet<>(selectedStudents));
+        if (isElective && selectedStudentIds != null) {
+            Set<StudentOptionDTO> selected = currentStudents.stream()
+                    .filter(option -> selectedStudentIds.contains(option.id()))
+                    .collect(Collectors.toCollection(HashSet::new));
+            checkboxGroup.setValue(selected);
         }
 
         update.setVisible(true);
@@ -322,10 +331,13 @@ public class PlanDialog extends Dialog {
         checkAllStudents.setValue(false);
     }
 
-    public void updateStudentsList(List<String> students) {
-        Set<String> previousSelection = new HashSet<>(checkboxGroup.getSelectedItems());
+    public void updateStudentsList(List<StudentOptionDTO> students) {
+        Set<Long> previousSelection = checkboxGroup.getSelectedItems().stream()
+                .map(StudentOptionDTO::id)
+                .collect(Collectors.toCollection(HashSet::new));
         this.currentStudents = sortStudents(students); // Оновлюємо внутрішній список студентів
         checkboxGroup.setItems(currentStudents); // Встановлюємо нові елементи для CheckboxGroup
+        checkboxGroup.setItemLabelGenerator(StudentOptionDTO::displayName);
 
         if (currentStudents.isEmpty()) {
             checkboxGroup.deselectAll();
@@ -334,8 +346,8 @@ public class PlanDialog extends Dialog {
         }
 
         if (isUpdateMode) {
-            Set<String> filteredSelection = previousSelection.stream()
-                    .filter(currentStudents::contains)
+            Set<StudentOptionDTO> filteredSelection = currentStudents.stream()
+                    .filter(option -> previousSelection.contains(option.id()))
                     .collect(Collectors.toCollection(HashSet::new));
 
             if (filteredSelection.isEmpty()) {
@@ -358,27 +370,27 @@ public class PlanDialog extends Dialog {
 
     public interface SavePlanListener {
         void onSave(String discipline, int hours, boolean isElective, String firstControl,
-                    String secondControl, String parts, String department, List<String> students);
+                    String secondControl, String parts, String department, List<Long> studentIds);
     }
 
     public interface UpdatePlanListener {
         void onUpdate(Long planId, String discipline, int hours, boolean isElective,
                       String firstControl, String secondControl, String parts,
-                      String department, List<String> students);
+                      String department, List<Long> studentIds);
     }
 
     public interface RemovePlanListener {
         void onRemove(Long planId); // Метод для видалення плану
     }
 
-    private List<String> sortStudents(List<String> students) {
+    private List<StudentOptionDTO> sortStudents(List<StudentOptionDTO> students) {
         return students.stream()
-                .sorted(ukrainianCollator)
+                .sorted(Comparator.comparing(StudentOptionDTO::displayName, ukrainianCollator))
                 .collect(Collectors.toCollection(ArrayList::new));
     }
 
-    private void updateCheckAllState(Collection<String> selectedStudents) {
-        Collection<String> safeSelection = selectedStudents != null ? selectedStudents : Collections.emptySet();
+    private void updateCheckAllState(Collection<StudentOptionDTO> selectedStudents) {
+        Collection<StudentOptionDTO> safeSelection = selectedStudents != null ? selectedStudents : Collections.emptySet();
         boolean allSelected = !currentStudents.isEmpty() && safeSelection.size() == currentStudents.size();
         boolean noneSelected = safeSelection.isEmpty();
 
