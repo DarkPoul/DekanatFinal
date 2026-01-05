@@ -186,13 +186,15 @@ public class RatingView extends Div {
 
     private void search() {
         List<RatingRow> rows = ratingService.searchRatings(
-                specialtySelect.getValue(),
-                courseSelect.getValue(),
-                groupSelect.getValue(),
-                yearSelect.getValue(),
-                technikumCheckbox.getValue(),
-                budgetCheckbox.getValue()
-        ).stream()
+                        specialtySelect.getValue(),
+                        courseSelect.getValue(),
+                        groupSelect.getValue(),
+                        yearSelect.getValue(),
+                        technikumCheckbox.getValue(),
+                        budgetCheckbox.getValue(),
+                        null, // Pageable (буде використано значення за замовчуванням у сервісі)
+                        null  // Sort (буде використано значення за замовчуванням у сервісі)
+                ).getContent().stream() // Викликаємо getContent(), щоб отримати список з Page
                 .map(entity -> {
                     BigDecimal avg = entity.getAverageScore();
                     int total = entity.getTotalSubjects();
@@ -213,7 +215,6 @@ public class RatingView extends Div {
                 })
                 .toList();
         ratingGrid.setItems(rows);
-
     }
 
     private String formatPercent(int count, int total) {
