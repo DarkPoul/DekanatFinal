@@ -1,5 +1,8 @@
 package com.esvar.dekanat.generate.pdf;
 
+import static com.esvar.dekanat.generate.pdf.PdfLayoutUtils.resolveLabel;
+import static com.esvar.dekanat.generate.pdf.PdfLayoutUtils.studentCell;
+
 import com.esvar.dekanat.document.DocumentException;
 import com.esvar.dekanat.document.PdfGenerator;
 import com.esvar.dekanat.generate.DataModelForZalik;
@@ -476,6 +479,7 @@ public class ExamPdfGenerator implements PdfGenerator {
                                             PdfFont bold) {
         Table table = new Table(UnitValue.createPercentArray(new float[]{5, 26, 14, 13, 13, 7, 12, 10}))
                 .useAllAvailableWidth();
+        table.setKeepTogether(true);
 
 
 
@@ -551,13 +555,7 @@ public class ExamPdfGenerator implements PdfGenerator {
     }
 
     private static Cell bodyCell(String text, PdfFont font, TextAlignment alignment) {
-        return new Cell()
-                .add(new Paragraph(safe(text))
-                        .setFont(font)
-                        .setFontSize(10f)
-                        .setTextAlignment(alignment))
-                .setBorder(new SolidBorder(0.5f))
-                .setPadding(4f);
+        return studentCell(text, font, alignment);
     }
 
     private static Cell headerCell(String text, PdfFont font) {
@@ -636,7 +634,8 @@ public class ExamPdfGenerator implements PdfGenerator {
         Table signTable = new Table(UnitValue.createPercentArray(new float[]{33, 34, 33}))
                 .useAllAvailableWidth();
         signTable.addCell(signatureCell("Викладач", Objects.toString(data.gradeTeacher(), ""), regular));
-        signTable.addCell(signatureCell("Декан", Objects.toString(data.dean(), ""), regular));
+        signTable.addCell(signatureCell(resolveLabel(data.deanPosition(), "Декан факультету"),
+                Objects.toString(data.deanName(), ""), regular));
         signTable.addCell(signatureCell("Завідувач кафедри", Objects.toString(data.departmentName(), ""), regular));
 
         document.add(signTable);
@@ -723,13 +722,7 @@ public class ExamPdfGenerator implements PdfGenerator {
     }
 
     private static Cell bodyCell(String text, PdfFont font, TextAlignment alignment, int rowSpan, int colSpan) {
-        return new Cell(rowSpan, colSpan)
-                .add(new Paragraph(safe(text))
-                        .setFont(font)
-                        .setFontSize(10f)
-                        .setTextAlignment(alignment))
-                .setBorder(new SolidBorder(0.5f))
-                .setPadding(4f);
+        return studentCell(text, font, alignment, rowSpan, colSpan);
     }
 
 
@@ -747,9 +740,10 @@ public class ExamPdfGenerator implements PdfGenerator {
                 .useAllAvailableWidth();
         table.setMarginTop(12f);
 
-        table.addCell(noBorderCell("Декан факультету", regular, TextAlignment.LEFT));
+        String position = resolveLabel(dto.deanPosition(), "Декан факультету");
+        table.addCell(noBorderCell(position, regular, TextAlignment.LEFT));
         table.addCell(signatureLine("", regular));
-        table.addCell(signatureLine(safe(dto.dean()), regular));
+        table.addCell(signatureLine(safe(dto.deanName()), regular));
 
         table.addCell(noBorderCell("", regular, TextAlignment.LEFT));
         table.addCell(hintCell("(підпис)", regular));

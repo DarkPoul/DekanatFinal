@@ -1,5 +1,7 @@
 package com.esvar.dekanat.generate.pdf;
 
+import static com.esvar.dekanat.generate.pdf.PdfLayoutUtils.studentCell;
+
 import com.esvar.dekanat.document.DocumentException;
 import com.esvar.dekanat.document.PdfGenerator;
 import com.esvar.dekanat.generate.DataModelForMC1;
@@ -34,6 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
+import com.esvar.dekanat.generate.util.NameFormatter;
 
 /**
  * PDF generator for first module control grade sheets.
@@ -318,6 +321,7 @@ public class FirstModulePdfGenerator implements PdfGenerator {
     private void addStudentsTable(Document document, PdfFont regular, List<StudentModelToDocumentGenerate> students) {
         Table table = new Table(UnitValue.createPercentArray(STUDENT_TABLE_COLUMN_WIDTHS))
                 .useAllAvailableWidth();
+        table.setKeepTogether(true);
 
         addHeaderRow(table, regular);
         addNumberingHeaderRow(table, regular, STUDENT_HEADER_TITLES.size());
@@ -359,7 +363,7 @@ public class FirstModulePdfGenerator implements PdfGenerator {
         signatureTable.addCell(createSignatureSpacerCell());
         signatureTable.addCell(createSignatureLineCell(bold));
         signatureTable.addCell(createSignatureSpacerCell());
-        signatureTable.addCell(createSignatureNameCell(data.gradeTeacher(), bold));
+        signatureTable.addCell(createSignatureNameCell(resolveSignatureName(data), bold));
 
         signatureTable.addCell(createSignatureSpacerCell());
         signatureTable.addCell(createSignatureSpacerCell());
@@ -417,30 +421,20 @@ public class FirstModulePdfGenerator implements PdfGenerator {
     }
 
     private String resolveSignatureName(DataModelForMC1 data) {
-        if (!isBlank(data.secondTeacher())) {
-            return formatExaminerName(data.gradeTeacher());
-        }
         if (!isBlank(data.gradeTeacher())) {
-            return formatExaminerName(data.gradeTeacher());
+            return NameFormatter.formatFullName(data.gradeTeacher());
+        }
+        if (!isBlank(data.secondTeacher())) {
+            return NameFormatter.formatFullName(data.secondTeacher());
         }
         if (!isBlank(data.firstTeacher())) {
-            return formatExaminerName(data.gradeTeacher());
+            return NameFormatter.formatFullName(data.firstTeacher());
         }
         return "";
     }
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
-    }
-
-    private String formatExaminerName(String fullName) {
-        String[] parts = Objects.toString(fullName, "").trim().split("\\s+");
-        if (parts.length >= 2) {
-            String surname = parts[0].toUpperCase();
-            String firstName = parts[1];
-            return firstName + " " + surname;
-        }
-        return Objects.toString(fullName, "");
     }
 
     private Cell createHeaderCell(String text, PdfFont font) {
@@ -452,11 +446,7 @@ public class FirstModulePdfGenerator implements PdfGenerator {
     }
 
     private Cell createBodyCell(String text, PdfFont font, TextAlignment alignment) {
-        return new Cell().add(new Paragraph(Objects.toString(text, ""))
-                        .setFont(font)
-                        .setFontSize(10)
-                        .setTextAlignment(alignment))
-                .setBorder(new SolidBorder(0.5f));
+        return studentCell(text, font, alignment);
     }
 
     private PdfFont loadFont(String resourcePath, String fallbackFont) throws IOException {
