@@ -27,7 +27,7 @@ public interface StudentRatingRepository extends JpaRepository<StudentRatingEnti
             @Param("specialty") String specialty,
             @Param("course") Integer course,
             @Param("groupNumber") Integer groupNumber,
-            @Param("year") String year,
+            @Param("year") Integer year,
             @Param("technikum") boolean technikum,
             @Param("budget") boolean budget
     );

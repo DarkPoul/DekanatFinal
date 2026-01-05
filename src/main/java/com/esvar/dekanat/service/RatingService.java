@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
-import java.util.Comparator;
 import java.util.List;
 @Service
 public class RatingService {
@@ -27,72 +26,48 @@ public class RatingService {
         this.marksRepository = marksRepository;
     }
 
+    public List<GroupDTO> getGroups() {
+        return groupService.getGroupsDTO();
+    }
+
     public List<String> getSpecialties() {
-        return groupService.getGroupsDTO().stream()
-                .map(GroupDTO::getGroupCode)
-                .map(split -> split.split("-")[0])
+        return getGroups().stream()
+                .map(GroupDTO::getSpecialtyAbbreviation)
                 .distinct()
                 .sorted()
                 .toList();
     }
 
-    public List<String> getCourses() {
-        return groupService.getGroupsDTO().stream()
-                .map(GroupDTO::getGroupCode)
-                .map(split -> split.split("-")[1])
+    public List<Integer> getCourses() {
+        return getGroups().stream()
+                .map(GroupDTO::getCourse)
                 .distinct()
                 .sorted()
                 .toList();
     }
 
-    public List<String> getGroupCodes() {
-        return groupService.getGroupsDTO().stream()
-                .map(GroupDTO::getGroupCode)
-                .map(split -> split.split("-")[2])
+    public List<Integer> getGroupNumbers() {
+        return getGroups().stream()
+                .map(GroupDTO::getGroupNumber)
                 .distinct()
                 .sorted()
                 .toList();
     }
 
-    public List<String> getYears() {
-        return groupService.getGroupsDTO().stream()
-                .map(GroupDTO::getGroupCode)
-                .map(split -> split.split("-")[3])
-                .map(this::stripSpecialtySuffix)
-                .distinct()
-                .sorted(Comparator.reverseOrder())
-                .toList();
-    }
-
-    private String stripSpecialtySuffix(String value) {
-        int index = value.indexOf('(');
-        return index > -1 ? value.substring(0, index) : value;
+    public List<Integer> getYears() {
+        return groupService.getYears();
     }
 
     public List<StudentRatingEntity> searchRatings(String specialty,
-                                                   String course,
-                                                   String group,
-                                                   String year,
+                                                   Integer course,
+                                                   Integer group,
+                                                   Integer year,
                                                    boolean technikum,
                                                    boolean budget) {
-        Integer courseNumber = null;
-        if (course != null && !course.isEmpty()) {
-            try {
-                courseNumber = Integer.parseInt(course);
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        Integer groupNumber = null;
-        if (group != null && !group.isEmpty()) {
-            try {
-                groupNumber = Integer.parseInt(group);
-            } catch (NumberFormatException ignored) {
-            }
-        }
         return ratingRepository.searchRatings(
                 specialty,
-                courseNumber,
-                groupNumber,
+                course,
+                group,
                 year,
                 technikum,
                 budget
