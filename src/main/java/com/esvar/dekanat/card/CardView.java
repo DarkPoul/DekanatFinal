@@ -19,14 +19,15 @@ import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
@@ -37,6 +38,7 @@ import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.StreamRegistration;
@@ -51,6 +53,7 @@ import java.time.LocalDate;
 import java.time.Year;
 import java.time.format.DateTimeParseException;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -74,6 +77,8 @@ public class CardView extends Div {
     private final StudentReportService studentReportService;
     private final ReportService reportService;
     private final StudentRatingRepository ratingRepository;
+    private final GroupCodeService groupCodeService;
+    private final StudentRegistrationService studentRegistrationService;
 
 
     private VerticalLayout mainLayout = new VerticalLayout();
@@ -153,13 +158,14 @@ public class CardView extends Div {
     private StudentPassportEntity studentPassportEntity;
     private StudentInfoEntity studentInfoEntity;
     private StudentEducationEntity studentEducationEntity;
+    private final Map<TextField, Pattern> validationPatterns = new LinkedHashMap<>();
 
     private final SpecialtyService specialtyService;
     private final Collator ukrainianCollator;
     private Long pendingCreatedGroupId;
 
 
-    public CardView(GroupService groupService, StudentService studentService, StudentPassportService studentPassportService, StudentInfoService studentInfoService, StudentEducationService studentEducationService, StudentReportService studentReportService, ReportService reportService, StudentRatingRepository ratingRepository, SpecialtyService specialtyService) {
+    public CardView(GroupService groupService, StudentService studentService, StudentPassportService studentPassportService, StudentInfoService studentInfoService, StudentEducationService studentEducationService, StudentReportService studentReportService, ReportService reportService, StudentRatingRepository ratingRepository, SpecialtyService specialtyService, GroupCodeService groupCodeService, StudentRegistrationService studentRegistrationService) {
         this.groupService = groupService;
         this.studentService = studentService;
         this.studentPassportService = studentPassportService;
@@ -169,6 +175,8 @@ public class CardView extends Div {
         this.reportService = reportService;
         this.ratingRepository = ratingRepository;
         this.specialtyService = specialtyService;
+        this.groupCodeService = groupCodeService;
+        this.studentRegistrationService = studentRegistrationService;
         this.ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
         this.pendingCreatedGroupId = null;
 
@@ -243,6 +251,7 @@ public class CardView extends Div {
 
         numberField.getStyle().set("padding", "0");
         numberField.setWidth("100%");
+        registerPatternValidation(numberField, "[0-9]", "\\d+", "Номер наказу має містити цифри");
 
         studentOrGroupSelect.setLabel("Тип");
         studentOrGroupSelect.setItems("Один студент", "Вся група");
@@ -272,12 +281,7 @@ public class CardView extends Div {
         addCardButton.addClickListener(event -> {
             AddStudentDialog dialog = new AddStudentDialog(
                     groupService,
-                    studentService,
-                    studentPassportService,
-                    studentInfoService,
-                    studentEducationService,
-                    ratingRepository,
-                    reportService
+                    studentRegistrationService
             );
             dialog.addDialogCloseActionListener(e -> {
                 String selectedGroup = selectGroup.getValue();
@@ -392,7 +396,8 @@ public class CardView extends Div {
         groupSelect.setItems(
                 groupService.getGroupsDTO().stream()
                         .map(GroupDTO::getGroupCode)
-                        .map(code -> code.split("-")[0])
+                        .map(code -> groupCodeService.parseGroupParts(code).groupPrefix())
+                        .filter(Objects::nonNull)
                         .distinct()
                         .sorted(ukrainianCollator)
                         .collect(Collectors.toList())
@@ -405,22 +410,13 @@ public class CardView extends Div {
 
         groupNumberField = new TextField("Номер групи");
         groupNumberField.setWidth("24%");
-        groupNumberField.setPattern("[1-9]{1,}"); // Дозволяє тільки цифри від 1 до 9
-        groupNumberField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[1-9]+")) {
-                groupNumberField.setErrorMessage(null); // Очистити повідомлення про помилку
-            } else {
-                groupNumberField.setErrorMessage("Введіть цифру від 1 до 9");
-                Notification.show("Неправильний ввід. Введіть тільки цифри від 1 до 9.");
-            }
-        });
+        registerPatternValidation(groupNumberField, "[0-9]", "[1-9]+", "Введіть цифру від 1 до 9");
 
 
 
         groupList.addClickListener(event -> {
             String selectedGroup = selectGroup.getValue();
-            if (selectedGroup == null) {
+            if (selectedGroup == null || selectedGroup.isBlank()) {
                 Notification.show("Оберіть групу для генерації списку.");
                 return;
             }
@@ -432,7 +428,15 @@ public class CardView extends Div {
                 return;
             }
 
-            generateAndSend(selectedGroup, students);
+            Dialog progressDialog = buildProgressDialog("Генерація PDF...");
+            progressDialog.open();
+            try {
+                generateAndSend(selectedGroup, students);
+            } catch (Exception exception) {
+                Notification.show("Не вдалося згенерувати PDF: " + exception.getMessage());
+            } finally {
+                progressDialog.close();
+            }
         });
 
 
@@ -445,16 +449,7 @@ public class CardView extends Div {
 
         recordBookNumberField = new TextField("Номер заліковки");
         recordBookNumberField.setWidth("24%");
-        recordBookNumberField.setPattern("[0-9]{1,}"); // Дозволяє тільки цифри від 1 до 9
-        recordBookNumberField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                recordBookNumberField.setErrorMessage(null); // Очистити повідомлення про помилку
-            } else {
-                recordBookNumberField.setErrorMessage("Введіть цифри від 0 до 9");
-                Notification.show("Неправильний ввід. Введіть тільки цифри від 0 до 9.");
-            }
-        });
+        registerPatternValidation(recordBookNumberField, "[0-9]", "\\d+", "Введіть цифри від 0 до 9");
 
         // Add border and title to leftLayout1Page
         Div leftLayoutWrapper = new Div();
@@ -507,27 +502,9 @@ public class CardView extends Div {
 
 // Additional info text fields
         caseNumberField = new TextField("Номер справи");
-        caseNumberField.setPattern("[0-9]{1,}");
-        caseNumberField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                caseNumberField.setErrorMessage(null);
-            } else {
-                caseNumberField.setErrorMessage("Введіть тільки цифри");
-                Notification.show("Неправильний ввід. Введіть тільки цифри.");
-            }
-        });
+        registerPatternValidation(caseNumberField, "[0-9]", "\\d+", "Введіть тільки цифри");
         idCodeField = new TextField("Ідентифікаційний код");
-        idCodeField.setPattern("[0-9]{1,}"); // Дозволяє тільки цифри
-        idCodeField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                idCodeField.setErrorMessage(null); // Очистити повідомлення про помилку
-            } else {
-                idCodeField.setErrorMessage("Введіть тільки цифри");
-                Notification.show("Неправильний ввід. Введіть тільки цифри.");
-            }
-        });
+        registerPatternValidation(idCodeField, "[0-9]", "\\d+", "Введіть тільки цифри");
         unzrField = new TextField("УНЗР");
         birthDatePicker = new DatePicker("Дата народження");
         birthDatePicker.setI18n(setLocal());
@@ -566,62 +543,21 @@ public class CardView extends Div {
                 "м. Севастополь"
         );
         indexField = new TextField("Індекс");
-        indexField.setPattern("[0-9]{1,5}"); // Дозволяет только цифры от 0 до 9, максимум 5 цифр
-        indexField.setMaxLength(5); // Ограничение на 5 символов
-
-        indexField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]{1,5}")) {
-                indexField.setErrorMessage(null); // Очистить сообщение об ошибке
-            } else {
-                indexField.setErrorMessage("Індекс повинен містити до 5 цифр");
-                Notification.show("Неправильний ввід. Введіть до 5 цифр.");
-            }
-        });
+        registerPatternValidation(indexField, "[0-9]", "\\d{1,5}", "Індекс повинен містити до 5 цифр");
+        indexField.setMaxLength(5);
         fullAddressField = new TextField("Повна адреса");
         phoneNumberField = new TextField("Номер телефону");
-        phoneNumberField.setPattern("[0-9]{1,}");
-        phoneNumberField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                phoneNumberField.setErrorMessage(null);
-            } else {
-                phoneNumberField.setErrorMessage("Введіть тільки цифри");
-                Notification.show("Неправильний ввід. Введіть тільки цифри.");
-            }
-        });
+        registerPatternValidation(phoneNumberField, "[0-9]", "\\d+", "Номер телефону має містити лише цифри");
         emailField = new TextField("E-mail");
         benefitsSelect = new MultiSelectComboBox<>();
         benefitsSelect.setLabel("Пільги");
         benefitsSelect.setItems("Пільга 1", "Пільга 2", "Пільга 3"); // Приклад елементів
-        // Text fields for ЄДЕБО numbers
+// Text fields for ЄДЕБО numbers
         personNumberEDEBOField = new TextField("Номер фіз. особи ЄДЕБО");
         studentCardNumberEDEBOField = new TextField("Номер картки здобувача ЄДЕБО");
 
-// Set the pattern to allow only digits and enforce a minimum of 7 characters
-        personNumberEDEBOField.setPattern("\\d{7,}");
-        studentCardNumberEDEBOField.setPattern("\\d{7,}");
-
-// Set error messages and add value change listeners to validate input
-        personNumberEDEBOField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("\\d{7,}")) {
-                personNumberEDEBOField.setErrorMessage(null);
-            } else {
-                personNumberEDEBOField.setErrorMessage("Введіть мінімум 7 цифр");
-                Notification.show("Неправильний ввід. Введіть мінімум 7 цифр.");
-            }
-        });
-
-        studentCardNumberEDEBOField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("\\d{7,}")) {
-                studentCardNumberEDEBOField.setErrorMessage(null);
-            } else {
-                studentCardNumberEDEBOField.setErrorMessage("Введіть мінімум 7 цифр");
-                Notification.show("Неправильний ввід. Введіть мінімум 7 цифр.");
-            }
-        });
+        registerPatternValidation(personNumberEDEBOField, "[0-9]", "\\d{7,}", "Введіть мінімум 7 цифр");
+        registerPatternValidation(studentCardNumberEDEBOField, "[0-9]", "\\d{7,}", "Введіть мінімум 7 цифр");
 
 // Add these fields to the appropriate layout
         VerticalLayout edeboFieldsLayout = new VerticalLayout();
@@ -632,16 +568,8 @@ public class CardView extends Div {
 
         passportSeriesField = new TextField("Серія паспорту");
         passportNumberField = new TextField("№ паспорту");
-        passportNumberField.setPattern("[0-9]{1,}"); // Дозволяє тільки цифри
-        passportNumberField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                passportNumberField.setErrorMessage(null); // Очистити повідомлення про помилку
-            } else {
-                passportNumberField.setErrorMessage("Введіть тільки цифри");
-                Notification.show("Неправильний ввід. Введіть тільки цифри.");
-            }
-        });
+        registerPatternValidation(passportSeriesField, "[\\p{L}0-9]", "[\\p{L}0-9]+", "Серія паспорту має містити літери або цифри");
+        registerPatternValidation(passportNumberField, "[0-9]", "\\d+", "Введіть тільки цифри");
         passportIssueDatePicker = new DatePicker("Коли виданий");
         passportIssueDatePicker.setI18n(setLocal());
         passportIssuedByField = new TextField("Ким виданий");
@@ -668,27 +596,9 @@ public class CardView extends Div {
         paymentSourceSelect.setItems("Фізичних осіб", "Юридичних осіб", "Держбюджет");
 
         contractNumberField = new TextField("Договір за номером");
-        contractNumberField.setPattern("[0-9]{1,}"); // Дозволяє тільки цифри від 0 до 9
-        contractNumberField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                contractNumberField.setErrorMessage(null); // Очистити повідомлення про помилку
-            } else {
-                contractNumberField.setErrorMessage("Введіть цифри від 0 до 9");
-                Notification.show("Неправильний ввід. Введіть тільки цифри від 0 до 9.");
-            }
-        });
+        registerPatternValidation(contractNumberField, "[0-9]", "\\d+", "Введіть цифри від 0 до 9");
         amountField = new TextField("Сума");
-        amountField.setPattern("[0-9]{1,}"); // Дозволяє тільки цифри від 0 до 9
-        amountField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                amountField.setErrorMessage(null); // Очистити повідомлення про помилку
-            } else {
-                amountField.setErrorMessage("Введіть цифри від 0 до 9");
-                Notification.show("Неправильний ввід. Введіть тільки цифри від 0 до 9.");
-            }
-        });
+        registerPatternValidation(amountField, "[0-9]", "\\d+", "Введіть цифри від 0 до 9");
 
 
 // Group 2: Address Details
@@ -818,16 +728,8 @@ public class CardView extends Div {
 
         documentSeriesField = new TextField("Серія документу");
         documentNumberField = new TextField("№ документу");
-        documentNumberField.setPattern("[0-9]{1,}");
-        documentNumberField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                documentNumberField.setErrorMessage(null);
-            } else {
-                documentNumberField.setErrorMessage("Введіть тільки цифри");
-                Notification.show("Неправильний ввід. Введіть тільки цифри.");
-            }
-        });
+        registerPatternValidation(documentSeriesField, "[\\p{L}0-9]", "[\\p{L}0-9]+", "Серія документу має містити літери або цифри");
+        registerPatternValidation(documentNumberField, "[0-9]", "\\d+", "Введіть тільки цифри");
         documentIssueDatePicker = new DatePicker("Дата видачі");
         documentIssueDatePicker.setI18n(setLocal());
         institutionNameField = new TextField("Назва навчального закладу");
@@ -891,29 +793,12 @@ public class CardView extends Div {
 // Add new fields for the diploma
         diplomaSeriesField = new TextField("Серія диплому");
         diplomaNumberField = new TextField("№ диплому");
-        diplomaNumberField.setPattern("[0-9]{1,}");
-        diplomaNumberField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                diplomaNumberField.setErrorMessage(null);
-            } else {
-                diplomaNumberField.setErrorMessage("Введіть тільки цифри");
-                Notification.show("Неправильний ввід. Введіть тільки цифри.");
-            }
-        });
+        registerPatternValidation(diplomaSeriesField, "[\\p{L}0-9]", "[\\p{L}0-9]+", "Серія диплому має містити літери або цифри");
+        registerPatternValidation(diplomaNumberField, "[0-9]", "\\d+", "Введіть тільки цифри");
         graduationDatePicker = new DatePicker("Дата випуску");
         graduationDatePicker.setI18n(setLocal());
         appendixNumberField = new TextField("Номер додатку");
-        appendixNumberField.setPattern("[0-9]{1,}");
-        appendixNumberField.addValueChangeListener(event -> {
-            String value = event.getValue();
-            if (value.matches("[0-9]+")) {
-                appendixNumberField.setErrorMessage(null);
-            } else {
-                appendixNumberField.setErrorMessage("Введіть тільки цифри");
-                Notification.show("Неправильний ввід. Введіть тільки цифри.");
-            }
-        });
+        registerPatternValidation(appendixNumberField, "[0-9]", "\\d+", "Введіть тільки цифри");
         thesisTitleUkrField = new TextField("Тема дипломної роботи (укр)");
         thesisTitleEngField = new TextField("Тема дипломної роботи (англ)");
 
@@ -966,12 +851,7 @@ public class CardView extends Div {
 
 
         //Вимкнення можливості редагування відомостей
-        typeOfInformationSelect.setReadOnly(true);
-        datePicker.setReadOnly(true);
-        numberField.setReadOnly(true);
-        studentOrGroupSelect.setReadOnly(true);
-        submitDataButton.setEnabled(false);
-        orderGrid.setEnabled(false);
+        setOrderSectionReadOnly(true);
 
         //Обробка вибору студента
         selectStudent.addValueChangeListener(event -> {
@@ -986,40 +866,7 @@ public class CardView extends Div {
         });
 
         //Обробка додавання нової відомості
-        submitDataButton.addClickListener(buttonClickEvent -> {
-
-            StudentEntity studentEntityMain = studentService.getStudentForCard(selectGroup.getValue(), selectStudent.getValue());
-
-            if (studentOrGroupSelect.getValue().equals("Один студент")) {
-
-                ReportEntity reportEntity = new ReportEntity();
-                reportEntity.setStudent(studentEntityMain);
-                reportEntity.setStatus(typeOfInformationSelect.getValue());
-                reportEntity.setDate(Date.valueOf(datePicker.getValue()));
-                reportEntity.setOrderNumber(Long.valueOf(numberField.getValue()));
-
-                reportService.saveReport(reportEntity);
-
-            } else if (studentOrGroupSelect.getValue().equals("Вся група")) {
-
-                List<StudentEntity> studentModels = studentService.getStudentsForCard(selectGroup.getValue());
-
-                studentModels.forEach(studentModel -> {
-
-                    ReportEntity reportEntity = new ReportEntity();
-                    reportEntity.setStudent(studentModel);
-                    reportEntity.setStatus(typeOfInformationSelect.getValue());
-                    reportEntity.setDate(Date.valueOf(datePicker.getValue()));
-                    reportEntity.setOrderNumber(Long.valueOf(numberField.getValue()));
-
-                    reportService.saveReport(reportEntity);
-
-                });
-            }
-
-            orderGrid.setItems(reportService.getReports(studentEntityMain));
-
-        });
+        submitDataButton.addClickListener(buttonClickEvent -> handleReportSubmission());
 
         //обробка режиму редагування
         editButton.addClickListener(buttonClickEvent -> {
@@ -1052,6 +899,9 @@ public class CardView extends Div {
                 }
 
                 pendingCreatedGroupId = null;
+                if (!validateBeforeSave(selectedGroupEntity).isEmpty()) {
+                    return;
+                }
                 showConfirmationDialog(selectedGroupEntity);
             }
         });
@@ -1063,9 +913,9 @@ public class CardView extends Div {
             }
             ConfirmDialog dialog = new ConfirmDialog(
                     "Відправити в архів",
-                    "Ви впевнені, що хочете відправити картку студента в архів?",
+                    "Картку буде позначено як архівну та недоступну для редагування. Продовжити?",
                     "Так",
-                    confirmEvent -> archiveSelectedStudent(),
+                    confirmEvent -> handleArchiveAction(),
                     "Скасувати",
                     cancelEvent -> {
                     }
@@ -1073,6 +923,105 @@ public class CardView extends Div {
             dialog.setCancelable(true);
             dialog.open();
         });
+    }
+
+    private void handleReportSubmission() {
+        if (!validateReportInputs()) {
+            return;
+        }
+
+        boolean wholeGroup = "Вся група".equals(studentOrGroupSelect.getValue());
+        if (wholeGroup) {
+            List<StudentEntity> studentModels = studentService.getStudentsForCard(selectGroup.getValue());
+            if (studentModels.isEmpty()) {
+                Notification.show("У вибраній групі немає студентів.");
+                return;
+            }
+            ConfirmDialog dialog = new ConfirmDialog(
+                    "Підтвердження відомості",
+                    "Додати відомість для " + studentModels.size() + " студентів групи?",
+                    "Додати",
+                    confirmEvent -> createReportsWithUndo(studentModels),
+                    "Скасувати",
+                    cancelEvent -> {
+                    }
+            );
+            dialog.setCancelable(true);
+            dialog.open();
+        } else {
+            try {
+                StudentEntity studentEntityMain = studentService.getStudentForCard(selectGroup.getValue(), selectStudent.getValue());
+                createReportsWithUndo(List.of(studentEntityMain));
+            } catch (Exception exception) {
+                Notification.show("Не вдалося знайти студента: " + exception.getMessage());
+            }
+        }
+    }
+
+    private void createReportsWithUndo(List<StudentEntity> students) {
+        if (students == null || students.isEmpty()) {
+            Notification.show("Не знайдено студентів для створення відомості.");
+            return;
+        }
+        List<Long> createdIds = new ArrayList<>();
+        LocalDate reportDate = datePicker.getValue();
+        Long orderNumber = Long.parseLong(numberField.getValue());
+        try {
+            for (StudentEntity studentModel : students) {
+                ReportEntity reportEntity = new ReportEntity();
+                reportEntity.setStudent(studentModel);
+                reportEntity.setStatus(typeOfInformationSelect.getValue());
+                reportEntity.setDate(Date.valueOf(reportDate));
+                reportEntity.setOrderNumber(orderNumber);
+                ReportEntity saved = reportService.saveReport(reportEntity);
+                createdIds.add(saved.getId());
+            }
+            refreshReportsGrid();
+            showUndoNotification("Відомість збережено.", createdIds);
+        } catch (Exception exception) {
+            reportService.deleteReportsByIds(createdIds);
+            Notification.show("Не вдалося зберегти відомість: " + exception.getMessage());
+        }
+    }
+
+    private boolean validateReportInputs() {
+        clearValidationStates();
+        List<String> errors = new ArrayList<>();
+        Pattern numberPattern = validationPatterns.get(numberField);
+        if (hasText(numberField.getValue()) && numberPattern != null && !numberPattern.matcher(numberField.getValue()).matches()) {
+            numberField.setInvalid(true);
+            errors.add(numberField.getErrorMessage());
+        }
+        if (typeOfInformationSelect.getValue() == null) {
+            errors.add("Оберіть тип відомості");
+            typeOfInformationSelect.setInvalid(true);
+        }
+        if (datePicker.getValue() == null) {
+            errors.add("Оберіть дату");
+            datePicker.setInvalid(true);
+        }
+        if (!hasText(numberField.getValue())) {
+            errors.add("Вкажіть номер наказу");
+            numberField.setInvalid(true);
+        }
+        if (studentOrGroupSelect.getValue() == null) {
+            errors.add("Оберіть режим (студент/група)");
+            studentOrGroupSelect.setInvalid(true);
+        } else if ("Один студент".equals(studentOrGroupSelect.getValue()) && selectStudent.getValue() == null) {
+            errors.add("Оберіть студента");
+            selectStudent.setInvalid(true);
+        }
+
+        if (selectGroup.getValue() == null) {
+            errors.add("Оберіть групу");
+            selectGroup.setInvalid(true);
+        }
+
+        if (!errors.isEmpty()) {
+            Notification.show(String.join("; ", errors));
+            return false;
+        }
+        return true;
     }
 
 
@@ -1088,28 +1037,18 @@ public class CardView extends Div {
 
         SpecialtyEntity specialty = specialtyService.getSpecialtyByAbbreviation(groupPrefix);
 
-        String eduProgramCode = buildGroupCodeWithEduProgram(groupPrefix, course, groupNumber, graduationYear, specialty);
-        if (eduProgramCode != null) {
-            StudentGroupEntity group = groupService.getGroupByTitle(eduProgramCode);
-            if (group != null) {
+        List<String> candidates = groupCodeService.buildCandidateGroupCodes(groupPrefix, course, groupNumber, graduationYear, specialty);
+        for (int i = 0; i < candidates.size(); i++) {
+            String candidate = candidates.get(i);
+            StudentGroupEntity group = groupService.getGroupByTitle(candidate);
+            if (group == null) {
+                continue;
+            }
+            boolean legacyCandidate = i == candidates.size() - 1 && candidate.equals(groupCodeService.buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear));
+            if (!legacyCandidate || isCurrentStudentGroup(group)) {
                 return group;
             }
         }
-
-        String specialtyCode = buildGroupCodeWithSpecialtySuffix(groupPrefix, course, groupNumber, graduationYear, specialty);
-        if (specialtyCode != null) {
-            StudentGroupEntity group = groupService.getGroupByTitle(specialtyCode);
-            if (group != null) {
-                return group;
-            }
-        }
-
-        String legacyGroupCode = buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
-        StudentGroupEntity legacyGroup = groupService.getGroupByTitle(legacyGroupCode);
-        if (legacyGroup != null && isCurrentStudentGroup(legacyGroup)) {
-            return legacyGroup;
-        }
-
         return null;
     }
 
@@ -1118,7 +1057,7 @@ public class CardView extends Div {
             return Optional.empty();
         }
 
-        String legacyGroupCode = buildLegacyGroupCode(
+        String legacyGroupCode = groupCodeService.buildLegacyGroupCode(
                 groupSelect.getValue(),
                 courseSelect.getValue(),
                 groupNumberField.getValue(),
@@ -1170,45 +1109,11 @@ public class CardView extends Div {
 
     private String buildGroupCode(String groupPrefix, String course, String groupNumber, String graduationYear) {
         SpecialtyEntity specialty = specialtyService.getSpecialtyByAbbreviation(groupPrefix);
-        String eduProgramCode = buildGroupCodeWithEduProgram(groupPrefix, course, groupNumber, graduationYear, specialty);
-        if (eduProgramCode != null) {
-            return eduProgramCode;
-        }
-        String specialtyCode = buildGroupCodeWithSpecialtySuffix(groupPrefix, course, groupNumber, graduationYear, specialty);
-        if (specialtyCode != null) {
-            return specialtyCode;
-        }
-        return buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
+        return groupCodeService.buildGroupCode(groupPrefix, course, groupNumber, graduationYear, specialty);
     }
 
     private String buildGroupCode(String groupPrefix, String course, String groupNumber, String graduationYear, SpecialtyEntity specialty) {
-        String eduProgramCode = buildGroupCodeWithEduProgram(groupPrefix, course, groupNumber, graduationYear, specialty);
-        if (eduProgramCode != null) {
-            return eduProgramCode;
-        }
-        String specialtyCode = buildGroupCodeWithSpecialtySuffix(groupPrefix, course, groupNumber, graduationYear, specialty);
-        if (specialtyCode != null) {
-            return specialtyCode;
-        }
-        return buildLegacyGroupCode(groupPrefix, course, groupNumber, graduationYear);
-    }
-
-    private String buildGroupCodeWithEduProgram(String groupPrefix, String course, String groupNumber, String graduationYear, SpecialtyEntity specialty) {
-        if (specialty != null && specialty.getEduProgram() != null && specialty.getEduProgram().getId() > 0) {
-            return String.format("%s-%s-%s-%s(%d)", groupPrefix, course, groupNumber, graduationYear, specialty.getEduProgram().getId());
-        }
-        return null;
-    }
-
-    private String buildGroupCodeWithSpecialtySuffix(String groupPrefix, String course, String groupNumber, String graduationYear, SpecialtyEntity specialty) {
-        if (specialty != null && specialty.getId() != null) {
-            return String.format("%s-%s-%s-%s(%d)", groupPrefix, course, groupNumber, graduationYear, specialty.getId());
-        }
-        return null;
-    }
-
-    private String buildLegacyGroupCode(String groupPrefix, String course, String groupNumber, String graduationYear) {
-        return String.format("%s-%s-%s-%s", groupPrefix, course, groupNumber, graduationYear);
+        return groupCodeService.buildGroupCode(groupPrefix, course, groupNumber, graduationYear, specialty);
     }
 
     private void promptGroupCreation() {
@@ -1236,12 +1141,6 @@ public class CardView extends Div {
     }
 
     private void processSave(StudentGroupEntity selectedGroupEntity) {
-        List<String> validationErrors = validateBeforeSave(selectedGroupEntity);
-        if (!validationErrors.isEmpty()) {
-            Notification.show(String.join("; ", validationErrors));
-            return;
-        }
-
         setFieldsReadOnly(true);
 
         applyStudentChanges(selectedGroupEntity);
@@ -1343,48 +1242,67 @@ public class CardView extends Div {
     }
 
     private List<String> validateBeforeSave(StudentGroupEntity selectedGroupEntity) {
-        List<String> errors = new ArrayList<>();
+        clearValidationStates();
+        List<String> errors = new ArrayList<>(validatePatterns());
         if (selectedGroupEntity == null) {
             errors.add("Оберіть групу");
+            groupSelect.setInvalid(true);
+            courseSelect.setInvalid(true);
+            admissionYearSelect.setInvalid(true);
         }
         if (!hasText(lastNameUkrField.getValue())) {
             errors.add("Прізвище обов'язкове");
+            lastNameUkrField.setInvalid(true);
         }
         if (!hasText(firstNameUkrField.getValue())) {
             errors.add("Ім'я обов'язкове");
+            firstNameUkrField.setInvalid(true);
         }
         if ((studentPassportEntity != null || hasPassportInput())) {
             if (!hasText(passportSeriesField.getValue())) {
                 errors.add("Серія паспорту обов'язкова");
+                passportSeriesField.setInvalid(true);
             }
             if (!hasText(passportNumberField.getValue())) {
                 errors.add("Номер паспорту обов'язковий");
+                passportNumberField.setInvalid(true);
             }
             if (passportIssueDatePicker.getValue() == null) {
                 errors.add("Вкажіть дату видачі паспорту");
+                passportIssueDatePicker.setInvalid(true);
             }
             if (passportExpiryDatePicker.getValue() == null) {
                 errors.add("Вкажіть дату завершення дії паспорту");
+                passportExpiryDatePicker.setInvalid(true);
             }
             if (!hasText(nationalityField.getValue())) {
                 errors.add("Вкажіть національність");
+                nationalityField.setInvalid(true);
             }
             if (genderSelect.getValue() == null) {
                 errors.add("Вкажіть стать");
+                genderSelect.setInvalid(true);
             }
         }
         if ((studentInfoEntity != null || hasInfoInput())) {
             if (!hasText(fullAddressField.getValue())) {
                 errors.add("Адреса обов'язкова");
+                fullAddressField.setInvalid(true);
             }
             if (!hasText(phoneNumberField.getValue())) {
                 errors.add("Номер телефону обов'язковий");
+                phoneNumberField.setInvalid(true);
             }
             if (!hasText(emailField.getValue())) {
                 errors.add("Email обов'язковий");
+                emailField.setInvalid(true);
             } else if (!emailField.getValue().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
                 errors.add("Невірний формат email");
+                emailField.setInvalid(true);
             }
+        }
+        if (!errors.isEmpty()) {
+            Notification.show(String.join("; ", errors));
         }
         return errors;
     }
@@ -1438,25 +1356,87 @@ public class CardView extends Div {
                 || hasText(thesisTitleEngField.getValue());
     }
 
+    private void registerPatternValidation(TextField field, String allowedCharPattern, String valueRegex, String errorMessage) {
+        field.setAllowedCharPattern(allowedCharPattern);
+        field.setPreventInvalidInput(true);
+        if (valueRegex != null) {
+            validationPatterns.put(field, Pattern.compile(valueRegex));
+            field.setPattern(valueRegex);
+        }
+        field.setErrorMessage(errorMessage);
+    }
+
+    private void clearValidationStates() {
+        validationPatterns.keySet().forEach(textField -> textField.setInvalid(false));
+        List.of(lastNameUkrField, firstNameUkrField, middleNameUkrField, lastNameEngField, firstNameEngField,
+                        recordBookNumberField, phoneNumberField, emailField, contractNumberField, amountField, numberField)
+                .forEach(field -> field.setInvalid(false));
+        List.of(typeOfInformationSelect, groupSelect, courseSelect, admissionYearSelect, studentOrGroupSelect, selectStudent,
+                        nationalityField, genderSelect, educationFormSelect, degreeSelect, admissionConditionSelect,
+                        paymentSourceSelect, regionSelect)
+                .forEach(component -> component.setInvalid(false));
+        List.of(passportIssueDatePicker, passportExpiryDatePicker, datePicker).forEach(datePicker -> datePicker.setInvalid(false));
+    }
+
+    private List<String> validatePatterns() {
+        List<String> errors = new ArrayList<>();
+        validationPatterns.forEach((field, pattern) -> {
+            String value = field.getValue();
+            if (hasText(value) && !pattern.matcher(value).matches()) {
+                field.setInvalid(true);
+                errors.add(buildFieldErrorMessage(field, "Невірний формат"));
+            }
+        });
+        return errors;
+    }
+
+    private String buildFieldErrorMessage(TextField field, String fallback) {
+        String label = field.getLabel();
+        String errorMessage = field.getErrorMessage();
+        if (errorMessage != null && !errorMessage.isBlank()) {
+            return errorMessage;
+        }
+        if (label != null && !label.isBlank()) {
+            return label + ": " + fallback;
+        }
+        return fallback;
+    }
+
     private void setFieldsReadOnly(boolean readOnly) {
+        setOrderSectionReadOnly(readOnly);
+        setPersonalSectionReadOnly(readOnly);
+        setAcademicSectionReadOnly(readOnly);
+        setPassportSectionReadOnly(readOnly);
+        setContactSectionReadOnly(readOnly);
+        setEducationSectionReadOnly(readOnly);
+    }
+
+    private void setOrderSectionReadOnly(boolean readOnly) {
         typeOfInformationSelect.setReadOnly(readOnly);
         datePicker.setReadOnly(readOnly);
         numberField.setReadOnly(readOnly);
         studentOrGroupSelect.setReadOnly(readOnly);
         submitDataButton.setEnabled(!readOnly);
+        orderGrid.setEnabled(!readOnly);
+    }
 
+    private void setPersonalSectionReadOnly(boolean readOnly) {
         lastNameUkrField.setReadOnly(readOnly);
         firstNameUkrField.setReadOnly(readOnly);
         middleNameUkrField.setReadOnly(readOnly);
         lastNameEngField.setReadOnly(readOnly);
         firstNameEngField.setReadOnly(readOnly);
+    }
 
+    private void setAcademicSectionReadOnly(boolean readOnly) {
         groupSelect.setReadOnly(readOnly);
         courseSelect.setReadOnly(readOnly);
         groupNumberField.setReadOnly(readOnly);
         admissionYearSelect.setReadOnly(readOnly);
         recordBookNumberField.setReadOnly(readOnly);
+    }
 
+    private void setPassportSectionReadOnly(boolean readOnly) {
         passportSeriesField.setReadOnly(readOnly);
         passportNumberField.setReadOnly(readOnly);
         passportIssueDatePicker.setReadOnly(readOnly);
@@ -1469,7 +1449,9 @@ public class CardView extends Div {
         genderSelect.setReadOnly(readOnly);
         personNumberEDEBOField.setReadOnly(readOnly);
         studentCardNumberEDEBOField.setReadOnly(readOnly);
+    }
 
+    private void setContactSectionReadOnly(boolean readOnly) {
         caseNumberField.setReadOnly(readOnly);
         educationFormSelect.setReadOnly(readOnly);
         degreeSelect.setReadOnly(readOnly);
@@ -1483,7 +1465,9 @@ public class CardView extends Div {
         regionSelect.setReadOnly(readOnly);
         indexField.setReadOnly(readOnly);
         fullAddressField.setReadOnly(readOnly);
+    }
 
+    private void setEducationSectionReadOnly(boolean readOnly) {
         documentTypeSelect.setReadOnly(readOnly);
         distinctionCheckbox.setReadOnly(readOnly);
         documentSeriesField.setReadOnly(readOnly);
@@ -1577,12 +1561,13 @@ public class CardView extends Div {
         if (studentEntity == null) {
             return;
         }
-        String groupCode = studentEntity.getGroup() != null ? studentEntity.getGroup().getGroupCode() : null;
-        String[] groupParts = groupCode != null ? groupCode.split("-") : new String[0];
-        setSelectValue(groupSelect, getGroupPart(groupParts, 0));
-        setSelectValue(courseSelect, getGroupPart(groupParts, 1));
-        setTextFieldValue(groupNumberField, getGroupPart(groupParts, 2));
-        setSelectValue(admissionYearSelect, getGroupPart(groupParts, 3));
+        GroupCodeService.GroupParts groupParts = groupCodeService.parseGroupParts(
+                studentEntity.getGroup() != null ? studentEntity.getGroup().getGroupCode() : null
+        );
+        setSelectValue(groupSelect, groupParts.groupPrefix());
+        setSelectValue(courseSelect, groupParts.course());
+        setTextFieldValue(groupNumberField, groupParts.groupNumber());
+        setSelectValue(admissionYearSelect, groupParts.graduationYear());
         setTextFieldValue(recordBookNumberField, studentEntity.getRecordBookNumber());
     }
 
@@ -1700,15 +1685,20 @@ public class CardView extends Div {
         orderGrid.setItems(Collections.emptyList());
     }
 
-    private void archiveSelectedStudent() {
-        ReportEntity archiveRecord = new ReportEntity();
-        archiveRecord.setStudent(studentEntity);
-        archiveRecord.setStatus("Відправлено в архів");
-        archiveRecord.setDate(Date.valueOf(LocalDate.now()));
-        archiveRecord.setOrderNumber(reportService.getNextOrderNumber());
-        reportService.saveReport(archiveRecord);
+    private void handleArchiveAction() {
+        ReportEntity archiveRecord = archiveSelectedStudent();
+        if (archiveRecord != null) {
+            showUndoNotification("Картку студента відправлено в архів.", List.of(archiveRecord.getId()));
+        }
+    }
+
+    private ReportEntity archiveSelectedStudent() {
+        if (studentEntity == null) {
+            return null;
+        }
+        ReportEntity archiveRecord = reportService.archiveStudent(studentEntity);
         refreshReportsGrid();
-        Notification.show("Картку студента відправлено в архів.");
+        return archiveRecord;
     }
 
     private String formatOrderNumber(Long orderNumber) {
@@ -1846,7 +1836,8 @@ public class CardView extends Div {
 
         List<String> groupPrefixes = groups.stream()
                 .map(GroupDTO::getGroupCode)
-                .map(code -> code.split("-")[0])
+                .map(code -> groupCodeService.parseGroupParts(code).groupPrefix())
+                .filter(Objects::nonNull)
                 .distinct()
                 .sorted(ukrainianCollator)
                 .collect(Collectors.toList());
@@ -2019,20 +2010,6 @@ public class CardView extends Div {
         }
     }
 
-    private String getGroupPart(String[] parts, int index) {
-        if (parts.length <= index) {
-            return null;
-        }
-        String part = parts[index];
-        if (index == parts.length - 1) {
-            int suffixIndex = part.indexOf('(');
-            if (suffixIndex > -1) {
-                return part.substring(0, suffixIndex);
-            }
-        }
-        return part;
-    }
-
     private MainLayout findMainLayout() {
         UI current = UI.getCurrent();
         if (current == null) {
@@ -2044,6 +2021,18 @@ public class CardView extends Div {
                 .map(MainLayout.class::cast)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private Dialog buildProgressDialog(String message) {
+        Dialog dialog = new Dialog();
+        dialog.setCloseOnOutsideClick(false);
+        dialog.setCloseOnEsc(false);
+        ProgressBar progressBar = new ProgressBar();
+        progressBar.setIndeterminate(true);
+        VerticalLayout layout = new VerticalLayout(new Span(message), progressBar);
+        layout.setAlignItems(FlexComponent.Alignment.CENTER);
+        dialog.add(layout);
+        return dialog;
     }
 
     public static void generateAndSend(String title, List<String> students) {
@@ -2173,6 +2162,30 @@ public class CardView extends Div {
     private static String sanitizeFilename(String in) {
         if (in == null || in.isBlank()) return "group";
         return in.replaceAll("[^a-zA-Z0-9\\u0400-\\u04FF\\-_.]", "_");
+    }
+
+    private void showUndoNotification(String message, List<Long> reportIds) {
+        Notification notification = new Notification();
+        notification.setDuration(5000);
+        notification.setPosition(Notification.Position.TOP_CENTER);
+
+        Span text = new Span(message);
+        HorizontalLayout layout = new HorizontalLayout(text);
+        layout.setAlignItems(FlexComponent.Alignment.CENTER);
+
+        if (reportIds != null && !reportIds.isEmpty()) {
+            Button undoButton = new Button("Скасувати", event -> {
+                reportService.deleteReportsByIds(reportIds);
+                refreshReportsGrid();
+                notification.close();
+                Notification.show("Операцію скасовано.");
+            });
+            undoButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_TERTIARY_INLINE);
+            layout.add(undoButton);
+        }
+
+        notification.add(layout);
+        notification.open();
     }
 
     private List<String> fetchStudentNames(String groupCode) {
