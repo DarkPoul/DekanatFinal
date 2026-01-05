@@ -1,6 +1,5 @@
 package com.esvar.dekanat.service;
 
-import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.ControlMethodEntity;
 import com.esvar.dekanat.entity.MarksEntity;
 import com.esvar.dekanat.entity.PlansEntity;
@@ -8,8 +7,12 @@ import com.esvar.dekanat.entity.StudentEntity;
 import com.esvar.dekanat.repository.ControlMethodRepository;
 import com.esvar.dekanat.repository.MarksRepository;
 import com.esvar.dekanat.security.SecurityService;
+import com.esvar.dekanat.service.exception.MarkLockedException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +45,15 @@ public class MarksService {
      */
     @Transactional
     public MarksEntity saveMark(MarksEntity mark) {
+        return saveMarkInternal(mark, false);
+    }
+
+    @Transactional
+    public MarksEntity saveMarkAllowingLockedUpdate(MarksEntity mark) {
+        return saveMarkInternal(mark, true);
+    }
+
+    private MarksEntity saveMarkInternal(MarksEntity mark, boolean allowLockedOverride) {
         if (mark == null || mark.getStudent() == null || mark.getPlan() == null || mark.getControlMethod() == null) {
             throw new IllegalArgumentException("Студент, план і метод контролю повинні бути задані.");
         }
@@ -64,6 +76,9 @@ public class MarksService {
             );
 
             MarksEntity existing = existingOptional.orElseThrow(() -> new IllegalArgumentException("Оцінка не знайдена."));
+            if (existing.isLocked() && !allowLockedOverride) {
+                throw new MarkLockedException("Оцінка заблокована і не може бути змінена без розблокування.");
+            }
 
             existing.setFinalGrade(mark.getFinalGrade());
             existing.setLocked(mark.isLocked());
@@ -82,6 +97,38 @@ public class MarksService {
         }
         ratingService.updateRatingForStudent(saved.getStudent());
         return saved;
+    }
+
+    @Transactional
+    public MarksEntity unlockMark(Long markId) {
+        if (markId == null) {
+            throw new IllegalArgumentException("Ідентифікатор оцінки повинен бути заданий.");
+        }
+        MarksEntity existing = marksRepository.findById(markId)
+                .orElseThrow(() -> new IllegalArgumentException("Оцінка не знайдена."));
+        if (!canCurrentUserUnlockMarks()) {
+            throw new AccessDeniedException("У вас немає прав для розблокування оцінок.");
+        }
+        if (!existing.isLocked()) {
+            return existing;
+        }
+        existing.setLocked(false);
+        existing.setLastUpdated(new Timestamp(System.currentTimeMillis()));
+        existing.setLastUpdatedBy(
+                securityService.getCurrentUserModel()
+                        .orElseThrow(() -> new IllegalStateException("No authenticated user"))
+        );
+        return saveMarkInternal(existing, true);
+    }
+
+    private boolean canCurrentUserUnlockMarks() {
+        UserDetails userDetails = securityService.getAuthenticatedUser();
+        if (userDetails == null) {
+            throw new IllegalStateException("No authenticated user");
+        }
+        return userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority.startsWith("ROLE_ADMIN") || authority.startsWith("ROLE_DEKANAT"));
     }
 
 

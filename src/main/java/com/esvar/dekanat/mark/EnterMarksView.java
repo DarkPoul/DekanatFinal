@@ -11,6 +11,7 @@ import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
 import com.esvar.dekanat.service.SummaryReportService.SummaryReportGenerationException;
 import com.esvar.dekanat.service.SummaryReportService.SummaryReportResult;
+import com.esvar.dekanat.service.exception.MarkLockedException;
 import com.esvar.dekanat.utilites.ContentDispositionUtils;
 import com.esvar.dekanat.user.UserModel;
 import com.esvar.dekanat.user.UserRepository;
@@ -36,7 +37,6 @@ import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.IntegerField;
-import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.Query;
 import com.vaadin.flow.data.value.ValueChangeMode;
@@ -50,6 +50,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -376,65 +377,83 @@ public class EnterMarksView extends Div {
 
         // Обробник кнопки "Зберегти" із використанням фабрики процесорів
         saveButton.addClickListener(event -> {
-            List<MarkDTO> markDTOList = getSelectedOrAllMarks();
+            try {
+                List<MarkDTO> markDTOList = getSelectedOrAllMarks();
 
-            String controlType = selectControlType.getValue();
-            MarkProcessor processor = MarkProcessorFactory.getProcessor(controlType, marksService, userRepository,
-                    securityService, studentService, marksPartsService, controlMethodService, controlPartsService);
+                String controlType = selectControlType.getValue();
+                MarkProcessor processor = MarkProcessorFactory.getProcessor(controlType, marksService, userRepository,
+                        securityService, studentService, marksPartsService, controlMethodService, controlPartsService);
 
-            List<MarksEntity> toSave = new ArrayList<>();
+                List<MarksEntity> toSave = new ArrayList<>();
 
-            for (MarkDTO markDTO : markDTOList) {
-                if (markDTO.isLocked()) {
-                    continue;
+                for (MarkDTO markDTO : markDTOList) {
+                    if (markDTO.isLocked()) {
+                        continue;
+                    }
+                    MarksEntity marksEntity = processor.processMark(markDTO, plansEntity, requireCurrentGroup(), controlType);
+                    if (!processor.isPersistedAfterProcessing()) {
+                        toSave.add(marksEntity);
+                    }
                 }
-                MarksEntity marksEntity = processor.processMark(markDTO, plansEntity, requireCurrentGroup(), controlType);
                 if (!processor.isPersistedAfterProcessing()) {
-                    toSave.add(marksEntity);
+                    marksService.saveMarks(toSave);
                 }
+            } catch (MarkLockedException e) {
+                showErrorNotification(e.getMessage());
+            } catch (Exception e) {
+                log.error("Не вдалося зберегти оцінки", e);
+                showErrorNotification("Не вдалося зберегти оцінки.");
+            } finally {
+                updateGrid();
             }
-            if (!processor.isPersistedAfterProcessing()) {
-                marksService.saveMarks(toSave);
-            }
-            updateGrid();
         });
 
         // Обробники кнопок "Затвердити" та "Розблокувати"
         approveButton.addClickListener(event -> {
-            List<MarkDTO> markDTOList = getSelectedOrAllMarks();
-            String controlType = selectControlType.getValue();
-            MarkProcessor processor = MarkProcessorFactory.getProcessor(controlType, marksService, userRepository,
-                    securityService, studentService, marksPartsService, controlMethodService, controlPartsService);
-            List<MarksEntity> toSave = new ArrayList<>();
-            for (MarkDTO markDTO : markDTOList) {
-                if (markDTO.isLocked()) {
-                    continue;
+            try {
+                List<MarkDTO> markDTOList = getSelectedOrAllMarks();
+                String controlType = selectControlType.getValue();
+                MarkProcessor processor = MarkProcessorFactory.getProcessor(controlType, marksService, userRepository,
+                        securityService, studentService, marksPartsService, controlMethodService, controlPartsService);
+                List<MarksEntity> toSave = new ArrayList<>();
+                for (MarkDTO markDTO : markDTOList) {
+                    if (markDTO.isLocked()) {
+                        continue;
+                    }
+                    MarksEntity marksEntity = processor.processMark(markDTO, plansEntity, requireCurrentGroup(), controlType);
+                    marksEntity.setLastUpdated(new Timestamp(System.currentTimeMillis()));
+                    marksEntity.setLastUpdatedBy(userRepository.findByEmail(securityService.getAuthenticatedUser().getUsername()).orElseThrow());
+                    marksEntity.setLocked(true);
+                    toSave.add(marksEntity);
                 }
-                MarksEntity marksEntity = processor.processMark(markDTO, plansEntity, requireCurrentGroup(), controlType);
-                marksEntity.setLastUpdated(new Timestamp(System.currentTimeMillis()));
-                marksEntity.setLastUpdatedBy(userRepository.findByEmail(securityService.getAuthenticatedUser().getUsername()).orElseThrow());
-                marksEntity.setLocked(true);
-                toSave.add(marksEntity);
+                marksService.saveMarks(toSave);
+            } catch (MarkLockedException e) {
+                showErrorNotification(e.getMessage());
+            } catch (Exception e) {
+                log.error("Не вдалося затвердити оцінки", e);
+                showErrorNotification("Не вдалося затвердити оцінки.");
+            } finally {
+                updateGrid();
             }
-            marksService.saveMarks(toSave);
-            updateGrid();
         });
 
         unlockButton.addClickListener(event -> {
-            List<MarkDTO> markDTOList = getSelectedOrAllMarks();
-            List<MarksEntity> toSave = new ArrayList<>();
-            for (MarkDTO markDTO : markDTOList) {
-                if (!markDTO.isLocked()) {
-                    continue;
+            try {
+                List<MarkDTO> markDTOList = getSelectedOrAllMarks();
+                for (MarkDTO markDTO : markDTOList) {
+                    if (!markDTO.isLocked() || markDTO.getId() == null) {
+                        continue;
+                    }
+                    marksService.unlockMark(markDTO.getId());
                 }
-                MarksEntity marksEntity = marksService.getMarkById(markDTO.getId());
-                marksEntity.setLastUpdated(new Timestamp(System.currentTimeMillis()));
-                marksEntity.setLastUpdatedBy(userRepository.findByEmail(securityService.getAuthenticatedUser().getUsername()).orElseThrow());
-                marksEntity.setLocked(false);
-                toSave.add(marksEntity);
+            } catch (AccessDeniedException e) {
+                showErrorNotification(e.getMessage());
+            } catch (Exception e) {
+                log.error("Не вдалося розблокувати оцінки", e);
+                showErrorNotification("Не вдалося розблокувати оцінки.");
+            } finally {
+                updateGrid();
             }
-            marksService.saveMarks(toSave);
-            updateGrid();
         });
 
         printReportButton.addClickListener(e -> showSecondTeacherDialog());
@@ -797,6 +816,11 @@ public class EnterMarksView extends Div {
         for (MarkDTO dto : list) {
             dto.setRowNum(i++);
         }
+    }
+
+    private void showErrorNotification(String message) {
+        Notification notification = Notification.show(message, 5000, Notification.Position.MIDDLE);
+        notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
     }
 
 
