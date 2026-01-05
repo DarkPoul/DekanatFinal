@@ -1,25 +1,42 @@
 package com.esvar.dekanat.rating;
 
-import com.esvar.dekanat.view.MainLayout;
-import com.esvar.dekanat.service.RatingService;
 import com.esvar.dekanat.dto.GroupDTO;
+import com.esvar.dekanat.dto.RatingFilterOptions;
+import com.esvar.dekanat.entity.StudentRatingEntity;
+import com.esvar.dekanat.service.RatingService;
+import com.esvar.dekanat.view.MainLayout;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.select.Select;
+import com.vaadin.flow.data.provider.CallbackDataProvider;
+import com.vaadin.flow.data.provider.DataProvider;
+import com.vaadin.flow.data.provider.Query;
+import com.vaadin.flow.data.provider.QuerySortOrder;
+import com.vaadin.flow.data.provider.SortDirection;
+import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.NumberFormat;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @PermitAll
 @PageTitle("Рейтинг | Деканат")
@@ -27,7 +44,10 @@ import java.util.stream.Collectors;
 public class RatingView extends Div {
 
     private final RatingService ratingService;
+    private final RatingFilterOptions filterOptions;
     private final List<GroupDTO> groups;
+    private final NumberFormat numberFormat;
+    private final CallbackDataProvider<RatingRow, Void> dataProvider;
 
     private final Select<String> specialtySelect = new Select<>();
     private final Select<Integer> courseSelect = new Select<>();
@@ -38,10 +58,16 @@ public class RatingView extends Div {
     private final Checkbox technikumCheckbox = new Checkbox("Технікум");
     private final Checkbox budgetCheckbox = new Checkbox("Бюджет");
     private final Grid<RatingRow> ratingGrid = new Grid<>(RatingRow.class, false);
+    private boolean suppressRefresh;
 
     public RatingView(RatingService ratingService) {
         this.ratingService = ratingService;
-        this.groups = ratingService.getGroups();
+        this.filterOptions = ratingService.getFilterOptions();
+        this.groups = filterOptions.groups();
+        this.numberFormat = NumberFormat.getNumberInstance(new Locale("uk", "UA"));
+        numberFormat.setMaximumFractionDigits(2);
+        numberFormat.setMinimumFractionDigits(2);
+        this.dataProvider = DataProvider.fromCallbacks(this::fetchRows, this::countRows);
         configureFilters();
         configureGrid();
         VerticalLayout checkboxColumn = new VerticalLayout(technikumCheckbox, budgetCheckbox);
@@ -68,7 +94,7 @@ public class RatingView extends Div {
 
     private void configureFilters() {
         specialtySelect.setLabel("Спеціальність");
-        specialtySelect.setItems(ratingService.getSpecialties());
+        specialtySelect.setItems(filterOptions.specialties());
         specialtySelect.setPlaceholder("Усі спеціальності");
         specialtySelect.setEmptySelectionAllowed(true);
         specialtySelect.addValueChangeListener(e -> {
@@ -79,7 +105,7 @@ public class RatingView extends Div {
         });
 
         courseSelect.setLabel("Курс");
-        courseSelect.setItems(ratingService.getCourses());
+        courseSelect.setItems(filterOptions.courses());
         courseSelect.setPlaceholder("Усі курси");
         courseSelect.setEmptySelectionAllowed(true);
         courseSelect.addValueChangeListener(e -> {
@@ -89,7 +115,7 @@ public class RatingView extends Div {
         });
 
         groupSelect.setLabel("Група");
-        groupSelect.setItems(ratingService.getGroupNumbers());
+        groupSelect.setItems(filterOptions.groupNumbers());
         groupSelect.setPlaceholder("Усі групи");
         groupSelect.setEmptySelectionAllowed(true);
         groupSelect.addValueChangeListener(e -> {
@@ -98,7 +124,7 @@ public class RatingView extends Div {
         });
 
         yearSelect.setLabel("Рік");
-        yearSelect.setItems(ratingService.getYears());
+        yearSelect.setItems(filterOptions.years());
         yearSelect.setPlaceholder("Оберіть рік");
         yearSelect.setEmptySelectionAllowed(true);
         yearSelect.addValueChangeListener(e -> search());
@@ -108,25 +134,62 @@ public class RatingView extends Div {
     }
 
     private void configureGrid() {
-        ratingGrid.addColumn(RatingRow::group).setHeader("Група");
-        ratingGrid.addColumn(RatingRow::student).setHeader("Студент");
-        ratingGrid.addColumn(RatingRow::average).setHeader("Середній бал");
-        ratingGrid.addColumn(RatingRow::count5).setHeader("Кількість 5");
-        ratingGrid.addColumn(RatingRow::percent5).setHeader("% 5");
-        ratingGrid.addColumn(RatingRow::count4).setHeader("Кількість 4");
-        ratingGrid.addColumn(RatingRow::percent4).setHeader("% 4");
-        ratingGrid.addColumn(RatingRow::count3).setHeader("Кількість 3");
-        ratingGrid.addColumn(RatingRow::percent3).setHeader("% 3");
+        ratingGrid.setMultiSort(true);
+        ratingGrid.setMultiSortPriority(Grid.MultiSortPriority.APPEND);
+
+        ratingGrid.addColumn(RatingRow::group)
+                .setHeader("Група")
+                .setKey("group")
+                .setSortable(true);
+        ratingGrid.addColumn(RatingRow::student)
+                .setHeader("Студент")
+                .setKey("student")
+                .setSortable(true);
+        ratingGrid.addColumn(row -> formatAverage(row.average()))
+                .setHeader("Середній бал")
+                .setKey("average")
+                .setSortable(true);
+        ratingGrid.addColumn(RatingRow::count5).setHeader("Кількість 5").setAutoWidth(true);
+        ratingGrid.addColumn(new ComponentRenderer<>(row -> percentageBadge(row.count5(), row.total())))
+                .setHeader("% 5")
+                .setAutoWidth(true);
+        ratingGrid.addColumn(RatingRow::count4).setHeader("Кількість 4").setAutoWidth(true);
+        ratingGrid.addColumn(new ComponentRenderer<>(row -> percentageBadge(row.count4(), row.total())))
+                .setHeader("% 4")
+                .setAutoWidth(true);
+        ratingGrid.addColumn(RatingRow::count3).setHeader("Кількість 3").setAutoWidth(true);
+        ratingGrid.addColumn(new ComponentRenderer<>(row -> percentageBadge(row.count3(), row.total())))
+                .setHeader("% 3")
+                .setAutoWidth(true);
         ratingGrid.setWidthFull();
+        ratingGrid.setPageSize(30);
+        ratingGrid.setDataProvider(dataProvider);
     }
 
     private void initializeDefaults() {
+        suppressRefresh = true;
         updateCourseOptions();
         updateGroupOptions();
         updateYearOptions();
-        if (yearSelect.getValue() == null && !yearSelect.getListDataView().getItems().isEmpty()) {
+
+        if (filterOptions.defaultSpecialty() != null) {
+            specialtySelect.setValue(filterOptions.defaultSpecialty());
+        }
+        updateCourseOptions();
+        if (filterOptions.defaultCourse() != null) {
+            courseSelect.setValue(filterOptions.defaultCourse());
+        }
+        updateGroupOptions();
+        if (filterOptions.defaultGroupNumber() != null) {
+            groupSelect.setValue(filterOptions.defaultGroupNumber());
+        }
+        updateYearOptions();
+        if (filterOptions.defaultYear() != null) {
+            yearSelect.setValue(filterOptions.defaultYear());
+        } else if (yearSelect.getValue() == null && !yearSelect.getListDataView().getItems().isEmpty()) {
             yearSelect.setValue(yearSelect.getListDataView().getItems().findFirst().orElse(null));
         }
+        suppressRefresh = false;
     }
 
     private void updateCourseOptions() {
@@ -185,55 +248,114 @@ public class RatingView extends Div {
     }
 
     private void search() {
-        List<RatingRow> rows = ratingService.searchRatings(
+        if (suppressRefresh) {
+            return;
+        }
+        ratingGrid.getDataProvider().refreshAll();
+    }
+
+    private Stream<RatingRow> fetchRows(Query<RatingRow, Void> query) {
+        Sort sort = resolveSort(query);
+        int limit = query.getLimit();
+        int page = limit == 0 ? 0 : query.getOffset() / limit;
+        Pageable pageable = PageRequest.of(page, Math.max(limit, 1));
+        Page<StudentRatingEntity> pageResult = ratingService.searchRatings(
+                specialtySelect.getValue(),
+                courseSelect.getValue(),
+                groupSelect.getValue(),
+                yearSelect.getValue(),
+                technikumCheckbox.getValue(),
+                budgetCheckbox.getValue(),
+                pageable,
+                sort
+        );
+        return pageResult.stream().map(this::toRow);
+    }
+
+    private int countRows(Query<RatingRow, Void> query) {
+        return Math.toIntExact(ratingService.countRatings(
                 specialtySelect.getValue(),
                 courseSelect.getValue(),
                 groupSelect.getValue(),
                 yearSelect.getValue(),
                 technikumCheckbox.getValue(),
                 budgetCheckbox.getValue()
-        ).stream()
-                .map(entity -> {
-                    BigDecimal avg = entity.getAverageScore();
-                    int total = entity.getTotalSubjects();
-                    String perc5 = formatPercent(entity.getCount5(), total);
-                    String perc4 = formatPercent(entity.getCount4(), total);
-                    String perc3 = formatPercent(entity.getCount3(), total);
-                    return new RatingRow(
-                            entity.getStudent().getFullName(),
-                            entity.getGroup().getGroupCode(),
-                            avg.setScale(2, RoundingMode.HALF_UP).toString(),
-                            entity.getCount5(),
-                            perc5,
-                            entity.getCount4(),
-                            perc4,
-                            entity.getCount3(),
-                            perc3
-                    );
-                })
-                .toList();
-        ratingGrid.setItems(rows);
-
+        ));
     }
 
-    private String formatPercent(int count, int total) {
-        if (total == 0) {
-            return "0";
+    private RatingRow toRow(StudentRatingEntity entity) {
+        return new RatingRow(
+                entity.getStudent().getFullName(),
+                entity.getGroup().getGroupCode(),
+                entity.getAverageScore(),
+                entity.getCount5(),
+                entity.getCount4(),
+                entity.getCount3(),
+                entity.getTotalSubjects()
+        );
+    }
+
+    private Sort resolveSort(Query<RatingRow, Void> query) {
+        Map<String, String> propertyMapping = Map.of(
+                "group", "group.groupCode",
+                "average", "averageScore",
+                "student", "student.surname"
+        );
+        Sort sort = Sort.unsorted();
+        for (QuerySortOrder order : query.getSortOrders()) {
+            String property = propertyMapping.get(order.getSorted());
+            if (property == null) {
+                continue;
+            }
+            Sort.Order sortOrder = order.getDirection() == SortDirection.ASCENDING
+                    ? Sort.Order.asc(property)
+                    : Sort.Order.desc(property);
+            sort = sort.and(sortOrder);
         }
-        BigDecimal percent = new BigDecimal(count * 100.0 / total);
-        return percent.setScale(2, RoundingMode.HALF_UP).toString();
+        if (sort.isUnsorted()) {
+            sort = Sort.by(Sort.Order.desc("averageScore"), Sort.Order.asc("group.groupCode"));
+        }
+        return sort;
+    }
+
+    private String formatAverage(BigDecimal average) {
+        BigDecimal safeAverage = average == null ? BigDecimal.ZERO : average.setScale(2, RoundingMode.HALF_UP);
+        return numberFormat.format(safeAverage);
+    }
+
+    private String formatPercentValue(int count, int total) {
+        if (total <= 0) {
+            return numberFormat.format(BigDecimal.ZERO) + " %";
+        }
+        BigDecimal percent = BigDecimal.valueOf(count)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
+        return numberFormat.format(percent) + " %";
+    }
+
+    private Span percentageBadge(int count, int total) {
+        String text = formatPercentValue(count, total);
+        Span span = new Span(text);
+        span.getElement().getThemeList().add("badge");
+        double percentValue = total == 0 ? 0 : (double) count * 100 / total;
+        if (percentValue >= 80) {
+            span.getElement().getThemeList().add("success");
+        } else if (percentValue >= 60) {
+            span.getElement().getThemeList().add("contrast");
+        } else if (percentValue > 0) {
+            span.getElement().getThemeList().add("error");
+        }
+        return span;
     }
 
     private record RatingRow(
             String student,
             String group,
-            String average,
+            BigDecimal average,
             int count5,
-            String percent5,
             int count4,
-            String percent4,
             int count3,
-            String percent3
+            int total
     ) {
     }
 }

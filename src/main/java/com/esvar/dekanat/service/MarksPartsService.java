@@ -7,6 +7,7 @@ import com.esvar.dekanat.security.SecurityService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -18,12 +19,18 @@ public class MarksPartsService {
     private final MarksRepository marksRepository;
     private final ControlPartsService controlPartsService;
     private final SecurityService securityService;
+    private final RatingService ratingService;
 
-    public MarksPartsService(MarksPartsRepository marksPartsRepository, MarksRepository marksRepository, ControlPartsService controlPartsService, SecurityService securityService) {
+    public MarksPartsService(MarksPartsRepository marksPartsRepository,
+                             MarksRepository marksRepository,
+                             ControlPartsService controlPartsService,
+                             SecurityService securityService,
+                             RatingService ratingService) {
         this.marksPartsRepository = marksPartsRepository;
         this.marksRepository = marksRepository;
         this.controlPartsService = controlPartsService;
         this.securityService = securityService;
+        this.ratingService = ratingService;
     }
 
     public int getNumberOfPartsForPlan(PlansEntity plan) {
@@ -126,6 +133,7 @@ public class MarksPartsService {
     @Transactional
     public void updateFinalGradesForPlan(PlansEntity plan, int newParts) {
         List<MarksEntity> marksList = marksRepository.findByPlan(plan);
+        Set<Long> studentIds = new HashSet<>();
         for (MarksEntity mark : marksList) {
             // Отримуємо всі частини оцінок, де partNumber менший або рівний newParts
             List<MarksPartsEntity> parts = marksPartsRepository.findByMarkIdAndPartNumberLessThanEqual(mark.getId(), newParts);
@@ -139,8 +147,10 @@ public class MarksPartsService {
                     securityService.getCurrentUserModel()
                             .orElseThrow(() -> new IllegalStateException("No authenticated user"))
             );
+            studentIds.add(mark.getStudent().getId());
             marksRepository.save(mark); // Оновлюємо запис у таблиці marks
         }
+        ratingService.updateRatingsForStudentIds(studentIds);
     }
 
     /**

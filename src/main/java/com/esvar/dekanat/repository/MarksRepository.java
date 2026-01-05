@@ -48,6 +48,9 @@ public interface MarksRepository extends JpaRepository<MarksEntity, Long> {
 
     List<MarksEntity> findByStudentId(Long studentId);
 
+    @Query("SELECT DISTINCT m.student.id FROM MarksEntity m WHERE m.plan.id = :planId")
+    List<Long> findDistinctStudentIdsByPlanId(@Param("planId") Long planId);
+
     @Modifying
     @Query("DELETE FROM MarksEntity m WHERE m.plan.id = :planId")
     void deleteByPlanId(@Param("planId") Long planId);
