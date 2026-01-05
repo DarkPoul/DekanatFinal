@@ -1240,7 +1240,8 @@ public class EnterMarksView extends Div {
                     markStr,
                     convertMarkToECTSGrade(markInt),
                     dateParts.date(),
-                    dateParts.dateText()
+                    dateParts.dateText(),
+                    markStr
             ));
             index++;
         }
@@ -1664,7 +1665,8 @@ public class EnterMarksView extends Div {
                     markStr,
                     convertMarkToECTSGrade(markInt),
                     dateParts.date(),
-                    dateParts.dateText()
+                    dateParts.dateText(),
+                    markStr
             ));
             index++;
         }
