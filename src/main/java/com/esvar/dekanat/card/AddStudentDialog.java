@@ -89,7 +89,6 @@ public class AddStudentDialog extends Dialog {
 
     private void registerPatternValidation(TextField field, String allowedCharPattern, String valueRegex, String errorMessage) {
         field.setAllowedCharPattern(allowedCharPattern);
-        field.setPreventInvalidInput(true);
         field.setErrorMessage(errorMessage);
         if (valueRegex != null) {
             validationPatterns.put(field, Pattern.compile(valueRegex));

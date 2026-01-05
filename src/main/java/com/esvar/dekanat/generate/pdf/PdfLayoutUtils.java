@@ -8,6 +8,7 @@ import com.itextpdf.layout.properties.OverflowPropertyValue;
 import com.itextpdf.layout.properties.Property;
 import com.itextpdf.layout.properties.TextAlignment;
 
+
 /**
  * Shared helpers for building PDF table cells with predictable layout behaviour.
  */
@@ -54,7 +55,9 @@ public final class PdfLayoutUtils {
 
         paragraph.setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN);
         paragraph.setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
-        paragraph.setProperty(Property.NO_WRAP, true);
+        paragraph.setKeepTogether(true);
+        paragraph.setFixedLeading(adjustedSize * 1.2f);
+
 
         return paragraph;
     }

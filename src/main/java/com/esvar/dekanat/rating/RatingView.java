@@ -124,7 +124,7 @@ public class RatingView extends Div {
         updateCourseOptions();
         updateGroupOptions();
         updateYearOptions();
-        if (yearSelect.getValue() == null && !yearSelect.getListDataView().getItems().isEmpty()) {
+        if (yearSelect.getValue() == null && !yearSelect.getListDataView().getItems().toList().isEmpty()) {
             yearSelect.setValue(yearSelect.getListDataView().getItems().findFirst().orElse(null));
         }
     }

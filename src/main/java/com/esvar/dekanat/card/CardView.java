@@ -1358,7 +1358,8 @@ public class CardView extends Div {
 
     private void registerPatternValidation(TextField field, String allowedCharPattern, String valueRegex, String errorMessage) {
         field.setAllowedCharPattern(allowedCharPattern);
-        field.setPreventInvalidInput(true);
+        field.setPattern("\\d+");
+        field.setErrorMessage(errorMessage);
         if (valueRegex != null) {
             validationPatterns.put(field, Pattern.compile(valueRegex));
             field.setPattern(valueRegex);
