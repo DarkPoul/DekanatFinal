@@ -120,9 +120,12 @@ public class MainLayout extends AppLayout implements BeforeEnterObserver {
                     createTab(VaadinIcon.USER_CARD, "Перегляд карток", CardView.class),
                     createTab(VaadinIcon.PENCIL, "Введення оцінок", EnterMarksView.class, seasonIcon),
                     createTab(VaadinIcon.BAR_CHART, "Рейтинг", RatingView.class),
-                    createTab(VaadinIcon.BOOK, "Успішність", SuccessView.class),
-                    createTab(VaadinIcon.ENVELOPE, "Пошта", MailInboxView.class)
+                    createTab(VaadinIcon.BOOK, "Успішність", SuccessView.class)
             );
+
+            if (isAdmin) {
+                tabs.add(createTab(VaadinIcon.ENVELOPE, "Пошта", MailInboxView.class));
+            }
 
             if (isAdmin) {
                 tabs.add(createTab(VaadinIcon.USERS, "Користувачі", UsersView.class));
