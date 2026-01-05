@@ -6,6 +6,7 @@ import com.esvar.dekanat.dto.MarkDTO;
 import com.esvar.dekanat.entity.*;
 import com.esvar.dekanat.generate.*;
 import com.esvar.dekanat.generate.pdf.*;
+import com.esvar.dekanat.generate.util.NameFormatter;
 import com.esvar.dekanat.progress.SuccessView;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.service.*;
@@ -1057,9 +1058,10 @@ public class EnterMarksView extends Div {
         String last = userModel.getLastname();
         String first = userModel.getFirstname();
         String patronymic = userModel.getPatronymic() != null ? userModel.getPatronymic() : "";
-        String firstTeacher = capitalize(last) + " " + capitalize(first) + " " + capitalize(patronymic);
-        String gradeTeacher = capitalize(first) + " " + capitalize(last).toUpperCase();
-        System.out.println("gradeTeacher: " + gradeTeacher);
+        String formattedTeacher = NameFormatter.formatSurnameWithInitials(last, first, patronymic);
+        String firstTeacher = formattedTeacher;
+        String gradeTeacher = formattedTeacher;
+        String formattedSecondTeacher = NameFormatter.formatFullName(secondTeacher);
 
         // Формуємо список студентів для друку
         List<StudentModelToDocumentGenerate> students = new ArrayList<>();
@@ -1090,7 +1092,7 @@ public class EnterMarksView extends Div {
 
         return new DataModelForMC1(facultyName, specialityName, courseNumber, groupName, studyYear,
                 dateParts.day(), dateParts.month(), dateParts.year(), disciplineName, semesterNumber, controlTypeName,
-                hours, firstTeacher, secondTeacher, gradeTeacher, students);
+                hours, firstTeacher, formattedSecondTeacher, gradeTeacher, students);
     }
 
     private List<MarkDTO> getSelectedOrAllMarks() {
@@ -1160,17 +1162,10 @@ public class EnterMarksView extends Div {
 
 
     private String formatTeacherName(String input) {
-        if (input == null) {
+        if (input == null || input.isBlank()) {
             return "";
         }
-        String[] parts = input.trim().split("\\s+");
-        if (parts.length == 0) {
-            return "";
-        }
-        String lastName = capitalize(parts[0]);
-        String firstName = parts.length > 1 ? capitalize(parts[1]) : "";
-        String patronymic = parts.length > 2 ? capitalize(parts[2]) : "";
-        return (lastName + " " + firstName + " " + patronymic).trim();
+        return NameFormatter.formatFullName(input);
     }
 
     private String capitalize(String str) {
@@ -1208,8 +1203,10 @@ public class EnterMarksView extends Div {
         String last = userModel.getLastname();
         String first = userModel.getFirstname();
         String patronymic = userModel.getPatronymic() != null ? userModel.getPatronymic() : "";
-        String firstTeacher = capitalize(last) + " " + capitalize(first) + " " + capitalize(patronymic);
-        String gradeTeacher = capitalize(first) + " " + capitalize(last).toUpperCase();
+        String formattedTeacher = NameFormatter.formatSurnameWithInitials(last, first, patronymic);
+        String firstTeacher = formattedTeacher;
+        String gradeTeacher = formattedTeacher;
+        String formattedSecondTeacher = NameFormatter.formatFullName(secondTeacher);
         String qualityTrue = "Якість1";
         String qualityFalse = "Якість2";
 
@@ -1247,7 +1244,7 @@ public class EnterMarksView extends Div {
 
         return new DataModelForMC2(facultyName, specialityName, courseNumber, groupName, studyYear,
                 dateParts.day(), dateParts.month(), dateParts.year(), disciplineName, semesterNumber, controlTypeName,
-                hours, firstTeacher, secondTeacher, gradeTeacher, qualityTrue, qualityFalse, students);
+                hours, firstTeacher, formattedSecondTeacher, gradeTeacher, qualityTrue, qualityFalse, students);
     }
 
     private String calculateTotalModuleMark(StudentEntity student) {
@@ -1619,10 +1616,14 @@ public class EnterMarksView extends Div {
         String last = userModel.getLastname();
         String first = userModel.getFirstname();
         String patronymic = userModel.getPatronymic() != null ? userModel.getPatronymic() : "";
-        String firstTeacher = capitalize(last) + " " + capitalize(first) + " " + capitalize(patronymic);
-        String gradeTeacher = capitalize(first) + " " + capitalize(last).toUpperCase();
+        String formattedTeacher = NameFormatter.formatSurnameWithInitials(last, first, patronymic);
+        String firstTeacher = formattedTeacher;
+        String gradeTeacher = formattedTeacher;
+        String formattedSecondTeacher = NameFormatter.formatFullName(secondTeacher);
         FacultyEntity faculty = plansEntity.getFaculty();
-        String dean = faculty.getDeanLanding();
+        String deanPosition = Optional.ofNullable(faculty.getDeanLanding()).orElse("");
+        String deanName = NameFormatter.formatSurnameWithInitials(
+                faculty.getDeanP(), faculty.getDeanI(), faculty.getDeanB());
         String departmentName = formatDepartmentHeadName(faculty);
 
         Map<String, Long> gradeMap = marksService
@@ -1670,16 +1671,15 @@ public class EnterMarksView extends Div {
         }
         return new DataModelForZalik(facultyName, specialityName, courseNumber, groupName, studyYear,
                 order, dateParts.day(), dateParts.month(), dateParts.year(), disciplineName, semesterNumber, controlTypeName,
-                hours, firstTeacher, secondTeacher, dean, departmentName,
+                hours, firstTeacher, formattedSecondTeacher, deanPosition, deanName, departmentName,
                 a, b, c, d, e, fx, f, gradeTeacher, students);
     }
 
     private String formatDepartmentHeadName(FacultyEntity faculty) {
-        String firstName = capitalize(faculty.getDeanI());
-        String surname = Optional.ofNullable(faculty.getDeanB())
-                .map(String::toUpperCase)
-                .orElse("");
-        return (firstName + " " + surname).trim();
+        return NameFormatter.formatSurnameWithInitials(
+                faculty.getDeanP(),
+                faculty.getDeanI(),
+                faculty.getDeanB());
     }
 
     private String buildStudentNameWithInitials(StudentEntity student) {

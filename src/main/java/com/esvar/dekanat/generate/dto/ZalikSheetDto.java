@@ -22,6 +22,7 @@ public record ZalikSheetDto(
         int hours,
         String teacherFullName1,
         String teacherFullName2,
+        String headPosition,
         String headName,
         String teacherInitials,
         List<ZalikRowDto> data,

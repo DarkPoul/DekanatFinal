@@ -1,5 +1,8 @@
 package com.esvar.dekanat.generate.pdf;
 
+import static com.esvar.dekanat.generate.pdf.PdfLayoutUtils.resolveLabel;
+import static com.esvar.dekanat.generate.pdf.PdfLayoutUtils.studentCell;
+
 import com.esvar.dekanat.document.DocumentException;
 import com.esvar.dekanat.document.PdfGenerator;
 import com.esvar.dekanat.generate.DataModelForZalik;
@@ -24,8 +27,6 @@ import com.itextpdf.layout.element.LineSeparator;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 
-import com.itextpdf.layout.properties.OverflowPropertyValue;
-import com.itextpdf.layout.properties.Property;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import org.springframework.stereotype.Component;
@@ -216,6 +217,7 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
     private static Table buildStudentsTable(ZalikSheetDto dto, PdfFont regular, PdfFont bold) {
         Table table = new Table(UnitValue.createPercentArray(STUDENT_COLUMN_WIDTHS))
                 .useAllAvailableWidth();
+        table.setKeepTogether(true);
 
 
 
@@ -262,7 +264,8 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
                 .useAllAvailableWidth();
         table.setMarginTop(12f);
 
-        table.addCell(noBorderCell("Декан факультету", regular, TextAlignment.LEFT));
+        String position = resolveLabel(dto.headPosition(), "Декан факультету");
+        table.addCell(noBorderCell(position, regular, TextAlignment.LEFT));
         table.addCell(signatureLine("", regular));
         table.addCell(signatureLine(safe(dto.headName()), regular));
 
@@ -347,19 +350,7 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
     }
 
     private static Cell bodyCell(String text, PdfFont font, TextAlignment alignment) {
-        Paragraph p = new Paragraph(safe(text));
-        p.setFont(font);
-        p.setFontSize(10f);
-        p.setTextAlignment(alignment);
-
-        // У твоїй версії setProperty(...) -> void, тому тільки так:
-        p.setProperty(Property.OVERFLOW_X, OverflowPropertyValue.HIDDEN);
-        p.setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.HIDDEN);
-
-        return new Cell()
-                .add(p)
-                .setBorder(new SolidBorder(BORDER_WIDTH))
-                .setPadding(4f);
+        return studentCell(text, font, alignment);
     }
 
     private static Cell noBorderCell(String text, PdfFont font, TextAlignment alignment) {
@@ -518,7 +509,8 @@ public final class ZalikSheetPdfGenerator implements PdfGenerator {
                 parseToInt(data.hours()),
                 safe(data.firstTeacher()),
                 safe(data.secondTeacher()),
-                safe(data.dean()),
+                safe(data.deanPosition()),
+                safe(data.deanName()),
                 safe(data.gradeTeacher()),
                 rows,
                 parseToInt(data.a()),

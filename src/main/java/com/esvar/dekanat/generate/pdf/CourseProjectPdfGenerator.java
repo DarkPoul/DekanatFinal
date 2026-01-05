@@ -1,5 +1,8 @@
 package com.esvar.dekanat.generate.pdf;
 
+import static com.esvar.dekanat.generate.pdf.PdfLayoutUtils.resolveLabel;
+import static com.esvar.dekanat.generate.pdf.PdfLayoutUtils.studentCell;
+
 import com.esvar.dekanat.document.DocumentException;
 import com.esvar.dekanat.document.PdfGenerator;
 import com.esvar.dekanat.generate.DataModelForZalik;
@@ -170,6 +173,7 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
     private Table buildStudentsTable(List<StudentRow> rows, PdfFont regular, PdfFont bold) {
         Table table = new Table(UnitValue.createPercentArray(new float[]{7, 33, 18, 20, 11, 11}))
                 .useAllAvailableWidth();
+        table.setKeepTogether(true);
 
         table.addHeaderCell(headerCell("№ з/п", bold));
         table.addHeaderCell(headerCell("Прізвище та ініціали студента", bold));
@@ -210,9 +214,10 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
                 .useAllAvailableWidth();
         table.setMarginTop(12f);
 
-        table.addCell(noBorderCell("Декан факультету", regular, TextAlignment.LEFT));
+        String position = resolveLabel(data.deanPosition(), "Декан факультету");
+        table.addCell(noBorderCell(position, regular, TextAlignment.LEFT));
         table.addCell(signatureLine("", regular));
-        table.addCell(signatureLine(safeText(data.dean()), regular));
+        table.addCell(signatureLine(safeText(data.deanName()), regular));
 
         table.addCell(noBorderCell("", regular, TextAlignment.LEFT));
         table.addCell(hintCell("(підпис)", regular));
@@ -356,13 +361,7 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
     }
 
     private Cell bodyCell(String text, PdfFont font, TextAlignment alignment) {
-        return new Cell()
-                .add(new Paragraph(text)
-                        .setFont(font)
-                        .setFontSize(10f)
-                        .setTextAlignment(alignment))
-                .setBorder(new SolidBorder(BORDER_WIDTH))
-                .setPadding(4f);
+        return studentCell(text, font, alignment);
     }
 
     private Cell signatureLine(String text, PdfFont font) {
@@ -520,7 +519,8 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
             String controlTypeName,
             String teacherFullName1,
             String teacherFullName2,
-            String dean,
+            String deanPosition,
+            String deanName,
             List<StudentRow> students
     ) {
 
@@ -545,7 +545,8 @@ public class CourseProjectPdfGenerator implements PdfGenerator {
                         zalik.controlTypeName(),
                         zalik.firstTeacher(),
                         zalik.secondTeacher(),
-                        zalik.dean(),
+                        zalik.deanPosition(),
+                        zalik.deanName(),
                         toStudentRows(zalik.students())
                 );
             }

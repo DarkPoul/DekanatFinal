@@ -50,7 +50,8 @@ public class ZalikGenerator implements DocumentGenerator {
         ctx.put("h", zalik.hours());
         ctx.put("f", zalik.firstTeacher());
         ctx.put("s", zalik.secondTeacher());
-        ctx.put("dekan", zalik.dean());
+        ctx.put("dekan", zalik.deanName());
+        ctx.put("dekanPos", zalik.deanPosition());
         ctx.put("dName", zalik.departmentName());
         ctx.put("A", zalik.a());
         ctx.put("B", zalik.b());
