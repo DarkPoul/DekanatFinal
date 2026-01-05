@@ -60,13 +60,21 @@ public class GroupService {
                 .filter(group -> !isDekanat || groupIdsForFaculty.contains(group.getId()))
                 .map(group -> new GroupDTO(
                         group.getGroupCode(),
-                        group.getSpecialty().getTitle(),
+                        group.getSpecialty().getAbbreviation(),
                         group.getCourse(),
                         group.getGroupNumber(),
                         group.getYear()
                 ))
                 .sorted(Comparator.comparing(GroupDTO::getGroupCode, ukrainianCollator))
                 .collect(Collectors.toList());
+    }
+
+    public List<Integer> getYears() {
+        return getGroupsDTO().stream()
+                .map(GroupDTO::getYear)
+                .distinct()
+                .sorted(Comparator.reverseOrder())
+                .toList();
     }
 
 

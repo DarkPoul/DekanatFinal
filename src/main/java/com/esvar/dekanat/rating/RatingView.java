@@ -2,6 +2,7 @@ package com.esvar.dekanat.rating;
 
 import com.esvar.dekanat.view.MainLayout;
 import com.esvar.dekanat.service.RatingService;
+import com.esvar.dekanat.dto.GroupDTO;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
@@ -16,8 +17,9 @@ import jakarta.annotation.security.PermitAll;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @PermitAll
 @PageTitle("Рейтинг | Деканат")
@@ -25,12 +27,13 @@ import java.util.List;
 public class RatingView extends Div {
 
     private final RatingService ratingService;
+    private final List<GroupDTO> groups;
 
     private final Select<String> specialtySelect = new Select<>();
-    private final Select<String> courseSelect = new Select<>();
-    private final Select<String> groupSelect = new Select<>();
+    private final Select<Integer> courseSelect = new Select<>();
+    private final Select<Integer> groupSelect = new Select<>();
 
-    private final Select<String> yearSelect = new Select<>();
+    private final Select<Integer> yearSelect = new Select<>();
 
     private final Checkbox technikumCheckbox = new Checkbox("Технікум");
     private final Checkbox budgetCheckbox = new Checkbox("Бюджет");
@@ -38,6 +41,7 @@ public class RatingView extends Div {
 
     public RatingView(RatingService ratingService) {
         this.ratingService = ratingService;
+        this.groups = ratingService.getGroups();
         configureFilters();
         configureGrid();
         VerticalLayout checkboxColumn = new VerticalLayout(technikumCheckbox, budgetCheckbox);
@@ -58,23 +62,45 @@ public class RatingView extends Div {
         VerticalLayout layout = new VerticalLayout(new H2("Сторінка рейтингу"), filters, ratingGrid);
         layout.setPadding(false);
         add(layout);
+        initializeDefaults();
+        search();
     }
 
     private void configureFilters() {
         specialtySelect.setLabel("Спеціальність");
         specialtySelect.setItems(ratingService.getSpecialties());
-        specialtySelect.addValueChangeListener(e -> search());
+        specialtySelect.setPlaceholder("Усі спеціальності");
+        specialtySelect.setEmptySelectionAllowed(true);
+        specialtySelect.addValueChangeListener(e -> {
+            updateCourseOptions();
+            updateGroupOptions();
+            updateYearOptions();
+            search();
+        });
 
         courseSelect.setLabel("Курс");
         courseSelect.setItems(ratingService.getCourses());
-        courseSelect.addValueChangeListener(e -> search());
+        courseSelect.setPlaceholder("Усі курси");
+        courseSelect.setEmptySelectionAllowed(true);
+        courseSelect.addValueChangeListener(e -> {
+            updateGroupOptions();
+            updateYearOptions();
+            search();
+        });
 
         groupSelect.setLabel("Група");
-        groupSelect.setItems(ratingService.getGroupCodes());
-        groupSelect.addValueChangeListener(e -> search());
+        groupSelect.setItems(ratingService.getGroupNumbers());
+        groupSelect.setPlaceholder("Усі групи");
+        groupSelect.setEmptySelectionAllowed(true);
+        groupSelect.addValueChangeListener(e -> {
+            updateYearOptions();
+            search();
+        });
 
         yearSelect.setLabel("Рік");
         yearSelect.setItems(ratingService.getYears());
+        yearSelect.setPlaceholder("Оберіть рік");
+        yearSelect.setEmptySelectionAllowed(true);
         yearSelect.addValueChangeListener(e -> search());
 
         technikumCheckbox.addValueChangeListener(e -> search());
@@ -91,8 +117,71 @@ public class RatingView extends Div {
         ratingGrid.addColumn(RatingRow::percent4).setHeader("% 4");
         ratingGrid.addColumn(RatingRow::count3).setHeader("Кількість 3");
         ratingGrid.addColumn(RatingRow::percent3).setHeader("% 3");
-        ratingGrid.setItems(new ArrayList<>());
         ratingGrid.setWidthFull();
+    }
+
+    private void initializeDefaults() {
+        updateCourseOptions();
+        updateGroupOptions();
+        updateYearOptions();
+        if (yearSelect.getValue() == null && !yearSelect.getListDataView().getItems().isEmpty()) {
+            yearSelect.setValue(yearSelect.getListDataView().getItems().findFirst().orElse(null));
+        }
+    }
+
+    private void updateCourseOptions() {
+        List<Integer> availableCourses = filterGroups(specialtySelect.getValue(), null, null).stream()
+                .map(GroupDTO::getCourse)
+                .distinct()
+                .sorted()
+                .toList();
+        courseSelect.setItems(availableCourses);
+        if (courseSelect.getValue() != null && !availableCourses.contains(courseSelect.getValue())) {
+            courseSelect.clear();
+        }
+    }
+
+    private void updateGroupOptions() {
+        List<Integer> availableGroups = filterGroups(
+                specialtySelect.getValue(),
+                courseSelect.getValue(),
+                null
+        ).stream()
+                .map(GroupDTO::getGroupNumber)
+                .distinct()
+                .sorted()
+                .toList();
+        groupSelect.setItems(availableGroups);
+        if (groupSelect.getValue() != null && !availableGroups.contains(groupSelect.getValue())) {
+            groupSelect.clear();
+        }
+    }
+
+    private void updateYearOptions() {
+        List<Integer> availableYears = filterGroups(
+                specialtySelect.getValue(),
+                courseSelect.getValue(),
+                groupSelect.getValue()
+        ).stream()
+                .map(GroupDTO::getYear)
+                .distinct()
+                .sorted((a, b) -> b.compareTo(a))
+                .toList();
+        yearSelect.setItems(availableYears);
+        if (yearSelect.getValue() != null && !availableYears.contains(yearSelect.getValue())) {
+            yearSelect.clear();
+        }
+        if (yearSelect.getValue() == null && !availableYears.isEmpty()) {
+            yearSelect.setValue(availableYears.get(0));
+        }
+    }
+
+    private List<GroupDTO> filterGroups(String specialty, Integer course, Integer groupNumber) {
+        return groups.stream()
+                .filter(group -> specialty == null || Objects.equals(group.getSpecialtyAbbreviation(), specialty))
+                .filter(group -> course == null || group.getCourse() == course)
+                .filter(group -> groupNumber == null || group.getGroupNumber() == groupNumber)
+                .collect(Collectors.toList());
     }
 
     private void search() {
@@ -148,4 +237,3 @@ public class RatingView extends Div {
     ) {
     }
 }
-
