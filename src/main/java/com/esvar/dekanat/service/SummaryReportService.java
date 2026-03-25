@@ -11,7 +11,6 @@ import com.esvar.dekanat.entity.StudentGroupEntity;
 import com.esvar.dekanat.entity.StudentPlansEntity;
 import com.esvar.dekanat.entity.EduProgramEntity;
 import com.esvar.dekanat.generate.summary.SummaryReportPdfGenerator;
-import com.esvar.dekanat.repository.SessionRepository;
 import com.esvar.dekanat.security.SecurityService;
 import com.esvar.dekanat.user.UserModel;
 import org.springframework.stereotype.Service;
@@ -49,7 +48,6 @@ public class SummaryReportService {
     private final SummaryReportPdfGenerator summaryReportPdfGenerator;
     private final SecurityService securityService;
     private final Collator ukrainianCollator = Collator.getInstance(new Locale("uk", "UA"));
-    private final SessionRepository sessionRepository;
 
     public SummaryReportService(GroupService groupService,
                                 StudentService studentService,
@@ -57,7 +55,7 @@ public class SummaryReportService {
                                 PlanService planService,
                                 MarksService marksService,
                                 SummaryReportPdfGenerator summaryReportPdfGenerator,
-                                SecurityService securityService, SessionRepository sessionRepository) {
+                                SecurityService securityService) {
         this.groupService = groupService;
         this.studentService = studentService;
         this.studentPlansService = studentPlansService;
@@ -65,25 +63,24 @@ public class SummaryReportService {
         this.marksService = marksService;
         this.summaryReportPdfGenerator = summaryReportPdfGenerator;
         this.securityService = securityService;
-        this.sessionRepository = sessionRepository;
     }
 
     @Transactional(readOnly = true)
-    public SummaryReportResult generateFirstModuleReport(GroupDTO selectedGroup) {
-        return generateReport(selectedGroup, List.of(CONTROL_TYPE_FIRST_MODULE), CONTROL_TYPE_FIRST_MODULE, true);
+    public SummaryReportResult generateFirstModuleReport(GroupDTO selectedGroup, boolean isWinterSession) {
+        return generateReport(selectedGroup, List.of(CONTROL_TYPE_FIRST_MODULE), CONTROL_TYPE_FIRST_MODULE, true, isWinterSession);
     }
 
     @Transactional(readOnly = true)
-    public SummaryReportResult generateSecondModuleReport(GroupDTO selectedGroup) {
-        return generateTwoModuleReport(selectedGroup);
+    public SummaryReportResult generateSecondModuleReport(GroupDTO selectedGroup, boolean isWinterSession) {
+        return generateTwoModuleReport(selectedGroup, isWinterSession);
     }
 
     @Transactional(readOnly = true)
-    public SummaryReportResult generateSemesterReport(GroupDTO selectedGroup) {
-        return generateReport(selectedGroup, SEMESTER_CONTROL_TYPES, CONTROL_TYPE_SEMESTER, true);
+    public SummaryReportResult generateSemesterReport(GroupDTO selectedGroup, boolean isWinterSession) {
+        return generateReport(selectedGroup, SEMESTER_CONTROL_TYPES, CONTROL_TYPE_SEMESTER, true, isWinterSession);
     }
 
-    private SummaryReportResult generateTwoModuleReport(GroupDTO selectedGroup) {
+    private SummaryReportResult generateTwoModuleReport(GroupDTO selectedGroup, boolean isWinterSession) {
         System.out.println("[SummaryReportService] Початок генерації звіту за два модулі");
         if (selectedGroup == null) {
             throw new SummaryReportGenerationException("Оберіть групу для формування звіту");
@@ -97,7 +94,7 @@ public class SummaryReportService {
             throw new SummaryReportGenerationException("У групі немає студентів");
         }
 
-        int semester = computeFirstModuleSemester(selectedGroup.getCourse());
+        int semester = computeFirstModuleSemester(selectedGroup.getCourse(), isWinterSession);
         Map<Long, TwoModulePlanAssignment> planAssignments = collectTwoModuleAssignments(group, semester, students);
         if (planAssignments.isEmpty()) {
             throw new SummaryReportGenerationException("Не знайдено дисциплін для обраного контролю");
@@ -143,7 +140,8 @@ public class SummaryReportService {
     private SummaryReportResult generateReport(GroupDTO selectedGroup,
                                                Collection<String> controlTypes,
                                                String controlTitle,
-                                               boolean includeSignature) {
+                                               boolean includeSignature,
+                                               boolean isWinterSession) {
         System.out.println("[SummaryReportService] Початок генерації звіту для контролю: " + controlTitle);
         if (selectedGroup == null) {
             System.out.println("[SummaryReportService] Не обрано групу для звіту");
@@ -163,7 +161,7 @@ public class SummaryReportService {
 
         System.out.println("[SummaryReportService] Знайдено студентів: " + students.size());
 
-        int semester = computeSemesterForControl(selectedGroup.getCourse(), controlTitle);
+        int semester = computeSemesterForControl(selectedGroup.getCourse(), controlTitle, isWinterSession);
         System.out.println("[SummaryReportService] Обчислено семестр для контролю: " + semester);
         Map<Long, PlanAssignment> planAssignments = collectPlanAssignments(group, semester, students, controlTypes);
         if (planAssignments.isEmpty()) {
@@ -221,18 +219,15 @@ public class SummaryReportService {
                 .orElse("");
     }
 
-    private int computeSecondModuleSemester(int course) {
-        if (sessionRepository.findAll().get(0).isWinter()){
-            return course * 2 -1;
-        }
-        return course * 2;
+    private int computeSecondModuleSemester(int course, boolean isWinterSession) {
+        return isWinterSession ? course * 2 - 1 : course * 2;
     }
 
-    private int computeSemesterForControl(int course, String controlTitle) {
+    private int computeSemesterForControl(int course, String controlTitle, boolean isWinterSession) {
         if (CONTROL_TYPE_SECOND_MODULE.equals(controlTitle) || CONTROL_TYPE_SEMESTER.equals(controlTitle)) {
-            return computeSecondModuleSemester(course);
+            return computeSecondModuleSemester(course, isWinterSession);
         }
-        return computeFirstModuleSemester(course);
+        return computeFirstModuleSemester(course, isWinterSession);
     }
 
     private String formatTeacherName(UserModel user) {
@@ -265,11 +260,11 @@ public class SummaryReportService {
                 .collect(Collectors.toList());
     }
 
-    private int computeFirstModuleSemester(int course) {
+    private int computeFirstModuleSemester(int course, boolean isWinterSession) {
         if (course <= 0) {
             return 1;
         }
-        return course * 2 - 1;
+        return isWinterSession ? course * 2 - 1 : course * 2;
     }
 
     private String buildReportTitle(String controlType) {
