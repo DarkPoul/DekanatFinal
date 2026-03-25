@@ -67,6 +67,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -1382,14 +1383,14 @@ public class EnterMarksView extends Div {
         firstModuleButton.setWidthFull();
         firstModuleButton.addClickListener(event -> {
             reportDialog.close();
-            generateFirstModuleSummaryReport();
+            openSessionSelectionDialog(this::generateFirstModuleSummaryReport);
         });
 
         Button secondModuleButton = new Button("Зведений для другого м.к.");
         secondModuleButton.setWidthFull();
         secondModuleButton.addClickListener(event -> {
             reportDialog.close();
-            generateSecondModuleSummaryReport();
+            openSessionSelectionDialog(this::generateSecondModuleSummaryReport);
         });
 
         Button semesterButton = new Button("Семестровий");
@@ -1409,9 +1410,9 @@ public class EnterMarksView extends Div {
         reportDialog.add(dialogContent);
     }
 
-    private void generateFirstModuleSummaryReport() {
+    private void generateFirstModuleSummaryReport(boolean isWinterSession) {
         try {
-            SummaryReportResult result = summaryReportService.generateFirstModuleReport(selectGroup.getValue());
+            SummaryReportResult result = summaryReportService.generateFirstModuleReport(selectGroup.getValue(), isWinterSession);
             String fileName = String.format("summary-first-module-%s.pdf", result.groupCode());
             openPdfReport(fileName, result.pdfBytes());
 
@@ -1425,9 +1426,9 @@ public class EnterMarksView extends Div {
         }
     }
 
-    private void generateSecondModuleSummaryReport() {
+    private void generateSecondModuleSummaryReport(boolean isWinterSession) {
         try {
-            SummaryReportResult result = summaryReportService.generateSecondModuleReport(selectGroup.getValue());
+            SummaryReportResult result = summaryReportService.generateSecondModuleReport(selectGroup.getValue(), isWinterSession);
             String fileName = String.format("summary-second-module-%s.pdf", result.groupCode());
             openPdfReport(fileName, result.pdfBytes());
 
@@ -1439,6 +1440,37 @@ public class EnterMarksView extends Div {
             log.error("Не вдалося згенерувати зведений звіт", ex);
             Notification.show("Не вдалося згенерувати звіт");
         }
+    }
+
+    private void openSessionSelectionDialog(Consumer<Boolean> onSessionSelected) {
+        Dialog sessionDialog = new Dialog();
+        sessionDialog.setHeaderTitle("Оберіть сесію");
+        sessionDialog.setCloseOnEsc(true);
+        sessionDialog.setCloseOnOutsideClick(true);
+
+        Button winterButton = new Button("Зимова");
+        winterButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        winterButton.setWidthFull();
+        winterButton.addClickListener(event -> {
+            sessionDialog.close();
+            onSessionSelected.accept(true);
+        });
+
+        Button summerButton = new Button("Літня");
+        summerButton.setWidthFull();
+        summerButton.addClickListener(event -> {
+            sessionDialog.close();
+            onSessionSelected.accept(false);
+        });
+
+        VerticalLayout content = new VerticalLayout(winterButton, summerButton);
+        content.setPadding(false);
+        content.setSpacing(true);
+        content.setWidth("260px");
+        content.setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.STRETCH);
+
+        sessionDialog.add(content);
+        sessionDialog.open();
     }
 
     private void openPdfReport(String fileName, byte[] pdfBytes) {

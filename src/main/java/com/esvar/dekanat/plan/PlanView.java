@@ -474,7 +474,7 @@ public class PlanView extends Div {
 
     private void generateFirstModuleSummaryReport() {
         try {
-            SummaryReportService.SummaryReportResult result = summaryReportService.generateFirstModuleReport(selectGroup.getValue());
+            SummaryReportService.SummaryReportResult result = summaryReportService.generateFirstModuleReport(selectGroup.getValue(), isWinterSessionSelected());
             String fileName = String.format("summary-first-module-%s.pdf", result.groupCode());
             openPdfReport(fileName, result.pdfBytes());
 
@@ -490,7 +490,7 @@ public class PlanView extends Div {
 
     private void generateSecondModuleSummaryReport() {
         try {
-            SummaryReportService.SummaryReportResult result = summaryReportService.generateSecondModuleReport(selectGroup.getValue());
+            SummaryReportService.SummaryReportResult result = summaryReportService.generateSecondModuleReport(selectGroup.getValue(), isWinterSessionSelected());
             String fileName = String.format("summary-second-module-%s.pdf", result.groupCode());
             openPdfReport(fileName, result.pdfBytes());
 
@@ -506,7 +506,7 @@ public class PlanView extends Div {
 
     private void generateSemesterSummaryReport() {
         try {
-            SummaryReportService.SummaryReportResult result = summaryReportService.generateSemesterReport(selectGroup.getValue());
+            SummaryReportService.SummaryReportResult result = summaryReportService.generateSemesterReport(selectGroup.getValue(), isWinterSessionSelected());
             String fileName = String.format("summary-semester-%s.pdf", result.groupCode());
             openPdfReport(fileName, result.pdfBytes());
 
@@ -536,6 +536,10 @@ public class PlanView extends Div {
 
         String resourceUrl = registration.getResourceUri().toString();
         ui.getPage().open(resourceUrl, "_blank");
+    }
+
+    private boolean isWinterSessionSelected() {
+        return "Зимова".equals(sessionSelect.getValue());
     }
 
     private Div createReportGenerationBlock() {
